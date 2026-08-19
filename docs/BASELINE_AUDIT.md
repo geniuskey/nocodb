@@ -79,9 +79,11 @@ Also do not cherry-pick, copy, port, adapt, or use as a reference any upstream c
 
 ### Fork cleanup status
 
-The fork's Phase 1 cleanup physically removes all Enterprise-labelled implementation directories listed above, their dedicated SDK/backend/frontend build entry points, Enterprise-only tests and identity-provider fixtures, upstream CE/EE synchronization scripts, and Enterprise/cloud release workflows. The implementation files were removed as complete path units without being used as design references. `pnpm run check:community-boundaries` now fails if any removed path is reintroduced or if a package script again selects an Enterprise source/build entry point.
+The fork's Phase 1 cleanup physically removes all Enterprise-labelled implementation directories listed above, their dedicated SDK/backend/frontend build entry points, Enterprise-only tests and identity-provider fixtures, and upstream CE/EE synchronization scripts. The implementation files were removed as complete path units without being used as design references.
 
-The broader provenance exclusions remain separate follow-up work: `packages/noco-integrations/packages/`, `packages/noco-integrations/templates/`, `packages/noco-integrations/wip/`, `cloud/`, `scripts/release/`, brand assets, and the generated `packages/nc-secret-mgr/dist/` bundle have not yet been approved for a public clean baseline merely by this cleanup.
+The same cleanup also removes the unapproved integration providers/templates/work-in-progress packages, upstream cloud/release/Helm assets and workflows, and the committed `packages/nc-secret-mgr/dist/` bundle. Only the independently reviewed integration interface package remains, with explicit `AGPL-3.0-or-later` package metadata and a core-only nested workspace. The secret-manager bundle is now generated locally from the retained ISC source with pinned build dependencies; generated code and its generated third-party notice are not committed.
+
+`pnpm run check:community-boundaries` fails if a removed path or unapproved workflow is reintroduced, if the integration workspace expands beyond `core`, or if a package script again selects an excluded source/build entry point. Brand replacement and a repository-wide third-party notice inventory remain required before the first public fork release.
 
 ## Recommended fork strategy
 

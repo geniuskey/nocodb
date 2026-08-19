@@ -7,7 +7,7 @@ import globals from 'globals';
 export default [
   js.configs.recommended,
   {
-    files: ['packages/**/src/**/*.{ts,tsx}'],
+    files: ['core/src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: 'latest',
@@ -55,19 +55,6 @@ export default [
         },
       ],
       '@typescript-eslint/consistent-type-imports': 'warn',
-    },
-  },
-  {
-    files: ['scripts/**/*.js'],
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      globals: {
-        ...globals.node,
-      },
-    },
-    rules: {
-      'no-unused-vars': 'error',
     },
   },
   {

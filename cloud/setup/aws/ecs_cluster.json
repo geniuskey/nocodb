@@ -1,9 +1,0 @@
-{    
-    "clusterName": "temp-8",
-    "capacityProviders": [
-        "temp-8",
-        "FARGATE",
-        "FARGATE_SPOT"
-    ],
-    "defaultCapacityProviderStrategy": []
-}
