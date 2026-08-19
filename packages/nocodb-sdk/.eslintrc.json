@@ -12,7 +12,9 @@
     "build",
     "coverage",
     "dist",
-    "nc"
+    "nc",
+    "src/ee/**",
+    "src/lib/Api.ts"
   ],
   "plugins": [
     "import",
