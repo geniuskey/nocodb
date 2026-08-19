@@ -70,7 +70,7 @@ module.exports = {
       configFile: resolve('tsconfig.json'),
     },
     alias: {
-      '@noco-local-integrations': resolve(__dirname, '../noco-integrations/packages'),
+      '@noco-local-integrations/core': resolve(__dirname, '../noco-integrations/core'),
     },
   },
   mode: 'production',

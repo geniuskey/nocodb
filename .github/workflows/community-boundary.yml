@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/nc-gui/**"
+      - "packages/nc-secret-mgr/**"
       - "tests/playwright/**"
       - "scripts/**"
       - "package.json"
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "packages/nc-gui/**"
+      - "packages/nc-secret-mgr/**"
       - "tests/playwright/**"
       - "scripts/**"
       - "package.json"

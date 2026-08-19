@@ -1,4 +1,5 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { basename, dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,6 +49,32 @@ const configurationChecks = [
       '"./rest/tests/ee"',
     ],
   },
+  {
+    path: "packages/noco-integrations/package.json",
+    required: [
+      '"license": "AGPL-3.0-or-later"',
+      '"build": "pnpm --filter @noco-integrations/core build"',
+      '"lint": "eslint \\"core/src/**/*.{ts,tsx}\\""',
+    ],
+    forbidden: ["packages/**", "build-optimized"],
+  },
+  {
+    path: "packages/noco-integrations/core/package.json",
+    required: ['"license": "AGPL-3.0-or-later"'],
+  },
+  {
+    path: "packages/noco-integrations/pnpm-workspace.yaml",
+    required: ["- 'core'"],
+    forbidden: ["packages/*", "templates/*", "wip/*"],
+  },
+  {
+    path: "packages/nc-secret-mgr/package.json",
+    required: [
+      '"build": "node build.js"',
+      '"jsep": "npm:nc-jsep@1.7.5"',
+    ],
+    forbidden: ["pnpm dlx webpack-cli"],
+  },
 ];
 
 const defaultScriptChecks = [
@@ -85,6 +112,14 @@ const defaultScriptChecks = [
     path: "tests/playwright/package.json",
     scripts: ["test", "ci:test", "ci:test:mysql", "ci:test:pg"],
   },
+  {
+    path: "packages/noco-integrations/package.json",
+    scripts: ["build", "test", "lint"],
+  },
+  {
+    path: "packages/nc-secret-mgr/package.json",
+    scripts: ["build", "test"],
+  },
 ];
 const scriptManifests = [
   "package.json",
@@ -92,6 +127,8 @@ const scriptManifests = [
   "packages/nocodb-sdk/package.json",
   "packages/nc-gui/package.json",
   "tests/playwright/package.json",
+  "packages/noco-integrations/package.json",
+  "packages/nc-secret-mgr/package.json",
 ];
 
 const sourceRoots = [
@@ -99,6 +136,7 @@ const sourceRoots = [
   "packages/nocodb/tests",
   "packages/nocodb-sdk/src",
   "packages/nc-gui",
+  "packages/noco-integrations/core/src",
   "tests/playwright/tests",
 ];
 const excludedDirectories = new Set(
@@ -135,6 +173,16 @@ const forbiddenPaths = [
     "packages/nocodb/tsconfig.ee.json",
     "packages/nocodb/tests/unit/tsconfig.ee.json",
     "packages/nocodb-sdk/build-script/mergeAndGenerateSwagger.js",
+    "packages/noco-integrations/packages",
+    "packages/noco-integrations/templates",
+    "packages/noco-integrations/wip",
+    "packages/noco-integrations/.cursor",
+    "packages/noco-integrations/scripts",
+    "packages/noco-integrations/nocodb-sdk-reference.ts",
+    "packages/nocodb/build-utils/syncDependencies.js",
+    "cloud",
+    "charts",
+    "scripts/release",
     ".github/workflows/openreplay-cdn-build.yml",
     ".github/workflows/release-cloud-build.yml",
     ".github/workflows/release-cloud-pr-build.yml",
@@ -145,6 +193,11 @@ const forbiddenPaths = [
     ".github/workflows/sync-ee-to-ce.yml",
   ].map(fromRoot),
 ];
+const forbiddenTrackedPaths = ["packages/nc-secret-mgr/dist"];
+const allowedWorkflowNames = new Set([
+  "community-backend.yml",
+  "community-boundary.yml",
+]);
 const ignoredDirectoryNames = new Set([
   ".git",
   ".nuxt",
@@ -168,14 +221,53 @@ const forbiddenScriptPattern =
   /(?:\bEE=|(?:^|\s)(?:build|generate):ee\b|rspack\S*\.ee(?:\.|\s)|src\/ee(?:\/|\b))/;
 const failures = [];
 
+async function hasRelevantContents(path) {
+  const metadata = await lstat(path);
+  if (!metadata.isDirectory()) return true;
+
+  for (const entry of await readdir(path, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignoredDirectoryNames.has(entry.name)) {
+      continue;
+    }
+
+    if (await hasRelevantContents(resolve(path, entry.name))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 for (const forbiddenPath of forbiddenPaths) {
   try {
-    await lstat(forbiddenPath);
-    failures.push(
-      `${relative(repositoryRoot, forbiddenPath)}: excluded path is present`
-    );
+    if (await hasRelevantContents(forbiddenPath)) {
+      failures.push(
+        `${relative(repositoryRoot, forbiddenPath)}: excluded path is present`
+      );
+    }
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
+  }
+}
+
+for (const forbiddenPath of forbiddenTrackedPaths) {
+  const trackedFiles = execFileSync("git", ["ls-files", "--", forbiddenPath], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  }).trim();
+
+  if (trackedFiles) {
+    failures.push(`${forbiddenPath}: generated files are tracked`);
+  }
+}
+
+for (const entry of await readdir(fromRoot(".github/workflows"), {
+  withFileTypes: true,
+})) {
+  if (entry.isFile() && !allowedWorkflowNames.has(entry.name)) {
+    failures.push(
+      `.github/workflows/${entry.name}: workflow is not in the Community allowlist`
+    );
   }
 }
 

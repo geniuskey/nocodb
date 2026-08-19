@@ -1,6 +1,6 @@
 # NocoDB AGPL Baseline Architecture
 
-This document describes the frozen Community baseline at tag `v2025.11.0`, commit `d9d3d9d391130d7800df7c22d70d07743f103b9f`. It must be read together with [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Directories excluded by that audit are not extension points for this fork.
+This document describes the frozen Community baseline at tag `v2025.11.0`, commit `d9d3d9d16d7358d023669942e2160aaeafaaa8cb`. It must be read together with [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Directories excluded by that audit are not extension points for this fork.
 
 ## Toolchain
 
@@ -27,6 +27,8 @@ Do not use pnpm 10 for this tree. Its lockfile interpretation rejects the frozen
 | `tests/playwright` | Browser end-to-end test project | AGPL-3.0-or-later |
 
 The non-AGPL package declarations are not automatically relicensed by the repository-level license. See the baseline audit before copying or redistributing those packages.
+
+`packages/noco-integrations` is a separate, nested pnpm workspace. Its only retained project is `core`, the shared integration type/interface contract. Both manifests now explicitly declare `AGPL-3.0-or-later`. Baseline provider implementations, templates, work-in-progress packages, editor instructions, and package-generation scripts are absent; a future provider must be independently implemented and reviewed for license and provenance before being added.
 
 ## Backend
 
@@ -84,8 +86,8 @@ Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They 
 
 ## Legal boundary for extension work
 
-The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, build-config, and release-workflow paths from the frozen tag are physically absent. Ambiguous integration, cloud/release, generated-bundle, and branding paths called out in the audit remain excluded from approval pending their own removal or provenance review.
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm assets and workflows, and the committed secret-manager bundle are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
-The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, and rejects Enterprise source selectors in every principal package script.
+The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script.

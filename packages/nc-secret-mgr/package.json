@@ -1,12 +1,13 @@
 {
   "name": "nc-secret",
   "version": "0.0.1",
-  "packageManager": "pnpm@9.6.0",
+  "packageManager": "pnpm@9.15.5",
   "description": "",
   "main": "dist/cli.js",
   "bin": "dist/cli.js",
   "scripts": {
-    "build": "pnpm dlx webpack-cli --config webpack.config.js",
+    "build": "node build.js",
+    "prepack": "pnpm run build",
     "dev": "cross-env NC_DB=\"pg://localhost:5432?u=postgres&p=password&d=meta_2024_09_07\" nodemon --watch 'src/**/*.ts' --exec 'ts-node --project tsconfig.json' src/index.ts -- a b --nc-db abc",
     "test": "mocha --require ts-node/register src/**/*.spec.ts",
     "build:pkg": "npx @yao-pkg/pkg . --out-path dist --compress GZip",
@@ -33,6 +34,7 @@
     "commander": "^12.1.0",
     "enquirer": "^2.4.1",
     "figlet": "^1.7.0",
+    "jsep": "npm:nc-jsep@1.7.5",
     "knex": "^3.1.0",
     "mysql": "^2.18.1",
     "parse-database-url": "^0.3.0",
@@ -41,11 +43,16 @@
   },
   "devDependencies": {
     "@types/figlet": "^1.5.8",
+    "@yao-pkg/pkg": "^6.5.1",
     "chai": "^4.4.1",
     "class-transformer": "0.3.1",
     "cross-env": "^7.0.3",
     "mocha": "^10.3.0",
     "nodemon": "^3.0.3",
-    "@yao-pkg/pkg": "^6.5.1"
+    "terser-webpack-plugin": "5.3.11",
+    "ts-loader": "9.5.2",
+    "typescript": "5.8.3",
+    "webpack": "5.99.6",
+    "webpack-node-externals": "3.0.0"
   }
 }

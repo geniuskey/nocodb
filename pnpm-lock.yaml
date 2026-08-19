@@ -719,6 +719,9 @@ importers:
       figlet:
         specifier: ^1.7.0
         version: 1.8.0
+      jsep:
+        specifier: npm:nc-jsep@1.7.5
+        version: nc-jsep@1.7.5
       knex:
         specifier: ^3.1.0
         version: 3.1.0(mysql@2.18.1)(pg@8.16.0)(sqlite3@5.1.7)
@@ -756,6 +759,21 @@ importers:
       nodemon:
         specifier: ^3.0.3
         version: 3.1.9
+      terser-webpack-plugin:
+        specifier: 5.3.11
+        version: 5.3.11(@swc/core@1.10.0(@swc/helpers@0.5.17))(webpack@5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17)))
+      ts-loader:
+        specifier: 9.5.2
+        version: 9.5.2(typescript@5.8.3)(webpack@5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17)))
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: 5.99.6
+        version: 5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17))
+      webpack-node-externals:
+        specifier: 3.0.0
+        version: 3.0.0
 
   packages/nc-sql-executor:
     dependencies:
@@ -42650,6 +42668,16 @@ snapshots:
       source-map: 0.7.4
       typescript: 5.8.3
       webpack: 5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17))(esbuild@0.25.9)
+
+  ts-loader@9.5.2(typescript@5.8.3)(webpack@5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17))):
+    dependencies:
+      chalk: 4.1.2
+      enhanced-resolve: 5.15.0
+      micromatch: 4.0.8
+      semver: 7.5.4
+      source-map: 0.7.4
+      typescript: 5.8.3
+      webpack: 5.99.6(@swc/core@1.10.0(@swc/helpers@0.5.17))
 
   ts-morph@4.3.3:
     dependencies:
