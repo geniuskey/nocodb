@@ -49,6 +49,8 @@ const { height } = useElementSize(extensionRef)
 
 const component = ref<any>(null)
 
+const communityExtensionComponents = import.meta.glob(['../../extensions/*/index.vue', '!../../extensions/*-ee/index.vue'])
+
 const extensionHeight = computed(() => {
   const heigthInInt = parseInt(extensionManifest.value?.config?.contentMinHeight || '') || undefined
 
@@ -84,7 +86,15 @@ onMounted(() => {
         return
       }
 
-      import(`../../extensions/${extensionManifest.value.entry}/index.vue`)
+      const extensionPath = `../../extensions/${extensionManifest.value.entry}/index.vue`
+      const loadExtension = communityExtensionComponents[extensionPath]
+
+      if (!loadExtension) {
+        isLoadedExtension.value = false
+        throw new Error(`Community extension entry not found: ${extensionManifest.value.entry}`)
+      }
+
+      loadExtension()
         .then((mod) => {
           component.value = markRaw(mod.default)
           isLoadedExtension.value = false
