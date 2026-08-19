@@ -68,11 +68,6 @@ module.exports = {
       allowlist: ['nocodb-sdk'],
     }),
   ],
-  plugins: [
-    new rspack.EnvironmentPlugin({
-      EE: true,
-    }),
-  ],
   target: 'node',
   node: {
     __dirname: false,

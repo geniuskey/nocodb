@@ -14,13 +14,8 @@ module.exports = {
       '<rootDir>/$1',
       // '<rootDir>/$1/index'
     ],
-    '^~/(.*)$': [
-      '<rootDir>/ee/$1',
-      '<rootDir>/$1',
-      // '<rootDir>/ee/$1/index',
-      // '<rootDir>/$1/index',
-    ],
-    '^@/(.*)$': ['<rootDir>/ee/$1', '<rootDir>/$1'],
+    '^~/(.*)$': ['<rootDir>/$1'],
+    '^@/(.*)$': ['<rootDir>/$1'],
   },
   // [...]
   // moduleNameMapper: pathsToModuleNameMapper(
@@ -34,7 +29,7 @@ module.exports = {
     '^.+\\.tsx?$': [
       'ts-jest',
       {
-        tsconfig: 'tsconfig.ee.json',
+        tsconfig: 'tsconfig.json',
       },
     ],
   },

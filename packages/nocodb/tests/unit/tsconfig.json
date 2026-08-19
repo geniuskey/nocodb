@@ -52,10 +52,6 @@
     "types": [
       "mocha",
       "node"
-    ],
-    "typeRoots": [
-      "../../src/types",
-      "../../node_modules/@types"
     ]
   },
   "include": [
@@ -66,6 +62,10 @@
     // "**/*.json"
   ],
   "exclude": [
+    "../../src/ee",
+    "../../src/ee-on-prem",
+    "../../src/ee-cloud",
+    "./rest/tests/ee"
   ],
   "compileOnSave": false
 }

@@ -87,3 +87,5 @@ Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They 
 The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). In particular, avoid `packages/nocodb/src/ee`, `packages/nocodb/ee-on-prem`, `packages/nocodb/ee-cloud`, `packages/nocodb-sdk/src/ee`, `packages/nc-gui/ee`, `packages/nc-gui/extensions/*-ee`, `scripts/ee`, Enterprise tests/configuration, and ambiguous cloud/release/integration code called out in that report.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
+
+The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` scans Community module specifiers and default scripts while explicitly skipping excluded implementation directories.

@@ -21,22 +21,7 @@ import tableTests from './tests/meta-apis/table.test';
 import { paymentTest } from './tests/payment/payment.test';
 import oauthTests from './tests/oauth.test';
 
-let workspaceTest = () => {};
-let ssoTest = () => {};
-let cloudOrgTest = () => {};
-let bulkAggregationTest = () => {};
-let columnTest = () => {};
-let integrationTest = require('./tests/integration.test').default;
-let oauthDCRTest = () => {};
-if (process.env.EE === 'true') {
-  workspaceTest = require('./tests/ee/workspace.test').default;
-  oauthDCRTest = require('./tests/ee/oAuthDCR.test').default;
-  ssoTest = require('./tests/ee/sso.test').default;
-  cloudOrgTest = require('./tests/ee/cloud-org.test').default;
-  bulkAggregationTest = require('./tests/ee/bulkAggregation.test').default;
-  columnTest = require('./tests/ee/column.test').default;
-  integrationTest = require('./tests/ee/integration.test').default;
-}
+const integrationTest = require('./tests/integration.test').default;
 
 const testVersion = ['v1', 'v2', 'v3'];
 
@@ -51,20 +36,14 @@ function restTests() {
     attachmentTests();
     filterTest();
     groupByTest();
-    workspaceTest();
     formulaTests();
-    ssoTest();
-    cloudOrgTest();
     typeCastsTest();
     readOnlyTest();
     aggregationTest();
-    bulkAggregationTest();
-    columnTest();
     integrationTest();
     paymentTest();
     oauthTests();
     bulkV1Test();
-    oauthDCRTest();
   }
 
   if (testVersion.includes('v1')) tableTests('v1');

@@ -2,6 +2,7 @@
   "name": "nocodb-integrations",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.15.5",
   "type": "module",
   "scripts": {
     "build": "node scripts/build-optimized.js",

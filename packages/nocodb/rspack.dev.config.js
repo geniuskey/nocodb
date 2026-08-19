@@ -76,7 +76,6 @@ const baseDevConfig = {
   },
   plugins: [
     new rspack.EnvironmentPlugin({
-      EE: true,
       NODE_ENV: 'development',
     }),
     new RunScriptWebpackPlugin({

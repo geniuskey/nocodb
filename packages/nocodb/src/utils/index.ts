@@ -9,7 +9,4 @@ export * from './encryptDecrypt';
 export * from './audit';
 export * from './processUtils';
 export * from './envs';
-
-export const isEE = false;
-export const isOnPrem = false;
-export const isCloud = false;
+export * from './edition';
