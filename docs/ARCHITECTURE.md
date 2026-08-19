@@ -40,7 +40,7 @@ The non-AGPL package declarations are not automatically relicensed by the reposi
 - `src/db/sql-data-mapper`: SQL-dialect mapping.
 - `src/schema`: public OpenAPI/Swagger descriptions used to generate the SDK.
 - `src/plugins`, `src/providers`, and Community integration interfaces: adapters for storage, notifications, authentication, and external services. New work here must be independently designed from public specifications and the Community baseline only.
-- `src/public`: server-owned static files.
+- `src/public`: server-owned static files. Audited third-party library bundles copied outside the pnpm graph have a pinned, machine-readable provenance inventory in [VENDORED_ASSETS.json](./VENDORED_ASSETS.json); CI verifies their normalized hashes and notices. Branding and provider-logo assets remain a separate review surface.
 
 The default local metadata/data store is SQLite. Knex-backed connections support PostgreSQL and MySQL, while separate workspace packages contain Snowflake and Databricks dialects. Metadata schema changes are performed by the migrations under `src/meta/migrations`; never edit an already-released migration for new fork work.
 
@@ -85,8 +85,8 @@ Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They 
 
 ## Legal boundary for extension work
 
-The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm/runner assets and workflows, the optional secret-manager package with its generated Enterprise-mode CLI, and the legacy executable packager with precompiled native binaries are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm/runner assets and workflows, the optional secret-manager package with its generated Enterprise-mode CLI, and the legacy executable packager with precompiled native binaries are also absent. Branding paths remain excluded from approval pending replacement. Inventoried third-party library assets now have pinned source/version/hash metadata and restored component notices; the installed dependency closure still requires a release-time license report and review.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
-The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script.
+The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script. `pnpm run check:vendored-assets` independently verifies copied runtime assets, required notices, and the absence of obsolete duplicate bundles.

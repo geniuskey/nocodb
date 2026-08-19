@@ -6,6 +6,8 @@ on:
     paths:
       - "packages/nc-gui/**"
       - "packages/nc-secret-mgr/**"
+      - "packages/nocodb/src/public/**"
+      - "docs/VENDORED_ASSETS.json"
       - "tests/playwright/**"
       - "scripts/**"
       - "package.json"
@@ -17,6 +19,8 @@ on:
     paths:
       - "packages/nc-gui/**"
       - "packages/nc-secret-mgr/**"
+      - "packages/nocodb/src/public/**"
+      - "docs/VENDORED_ASSETS.json"
       - "tests/playwright/**"
       - "scripts/**"
       - "package.json"
@@ -41,3 +45,5 @@ jobs:
           node-version: 22.12.0
       - name: Check Community source boundaries
         run: node scripts/check-community-boundaries.mjs
+      - name: Check vendored runtime assets
+        run: node scripts/check-vendored-assets.mjs
