@@ -100,15 +100,6 @@ mkdir -p "$PWD/.data-production"
 NC_TOOL_DIR="$PWD/.data-production" PORT=8080 node packages/nocodb/docker/main.js
 ```
 
-The optional ISC secret-manager CLI is built from source; its generated bundle is intentionally not tracked:
-
-```sh
-pnpm --filter nc-secret build
-node packages/nc-secret-mgr/dist/cli.js --help
-```
-
-Webpack emits `cli.js.LICENSE.txt` beside the bundle. Ship that generated notice whenever distributing the generated CLI.
-
 ## Testing
 
 Verify the Community GUI source boundary before building or testing:
@@ -200,7 +191,6 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 
 - Frozen install: passed.
 - Nested integration workspace frozen install, Community core build, and core tests: passed.
-- Secret-manager source build: passed and emitted its third-party notice beside the ignored bundle.
 - Community source/default-script boundary check: passed.
 - Enterprise-labelled source/configuration absence check: passed.
 - Community SDK build: passed.
@@ -242,11 +232,10 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | Backend Jest | The historical default pattern finds no tests and exits 0 because it uses `--passWithNoTests` | A Community-only smoke lane now runs an explicitly collected service test; broad Jest discovery remains test debt. |
 | Backend Mocha unit suite | The baseline failed during module loading: `Cannot access 'isEE' before initialization` | Move edition constants to a dependency-free module. The command now initializes SQLite and exits 0, but emits no test-count summary, so it is not yet treated as a verified full-suite pass. |
 | GUI Vitest | No matching test files; exits 1 | Recorded. |
-| Secret-manager Mocha test | The baseline test imports Commander's global program without registering the CLI options and then parses `--nc-db`; Commander exits with `unknown option '--nc-db'` | Recorded. The reproducible source build and generated notice pass; the malformed historical test is not hidden with a pass-with-no-tests flag. |
 | Initial Docker image build | Docker Desktop Linux engine pipe not present | Started the installed local engine and reran the same build. |
 | Initial Docker container start on Windows | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF | Normalize the copied shell script inside `Dockerfile.local`; no application code changed. |
 | Second Docker container start | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM` | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5. |
 | First pinned-Node Docker rebuild | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions. |
 | Third Docker container start | The unpinned `pnpm dlx modclean` step deleted a runtime `lru-cache` module file | Remove the optional size-cleaning step and preserve production dependency contents. |
 
-No existing runtime dependency version was upgraded. Phase 1 adds the already-used `nc-jsep@1.7.5` package as the secret-manager's explicit `jsep` runtime alias and pins its already-resolved Webpack build dependencies. The nested integration lockfile is reduced to its retained `core` project.
+No existing runtime dependency version was upgraded. The nested integration lockfile is reduced to its retained `core` project. The optional secret-manager package and its dedicated Enterprise-mode CLI generator are excluded as a complete unit instead of modifying the generator's edition selector.

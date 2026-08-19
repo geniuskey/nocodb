@@ -6,7 +6,7 @@ This document describes the frozen Community baseline at tag `v2025.11.0`, commi
 
 - Node.js: `22.12.0`, selected by the repository-level `.npmrc`. The backend declares Node.js `>=22`; the GUI, SDK, and Playwright packages declare `>=18`.
 - Package manager: pnpm `9.15.5`, pinned by the root `packageManager` field. Corepack is the supported launcher.
-- Workspace: a pnpm monorepo with 10 package globs (11 projects including the root) and a small Lerna configuration for independent package versioning.
+- Workspace: a pnpm monorepo with 9 package globs (10 projects including the root) and a small Lerna configuration for independent package versioning.
 - Primary language: TypeScript. The GUI also contains Vue single-file components.
 
 Do not use pnpm 10 for this tree. Its lockfile interpretation rejects the frozen `pnpm-lock.yaml` patched-dependency metadata.
@@ -22,7 +22,6 @@ Do not use pnpm 10 for this tree. Its lockfile interpretation rejects the frozen
 | `packages/nc-knex-dialects/knex-snowflake` | Knex dialect package | MIT |
 | `packages/nc-knex-dialects/knex-databricks` | Knex dialect package | MIT |
 | `packages/nc-sql-executor` | Separate SQL execution service | ISC |
-| `packages/nc-secret-mgr` | Secret-manager helper package | ISC |
 | `packages/nc-integration-scaffolder` | Integration scaffolding tool | AGPL-3.0-or-later |
 | `tests/playwright` | Browser end-to-end test project | AGPL-3.0-or-later |
 
@@ -86,7 +85,7 @@ Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They 
 
 ## Legal boundary for extension work
 
-The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm assets and workflows, and the committed secret-manager bundle are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm assets and workflows, and the optional secret-manager package with its generated Enterprise-mode CLI are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
