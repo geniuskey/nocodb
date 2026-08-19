@@ -81,7 +81,9 @@ Also do not cherry-pick, copy, port, adapt, or use as a reference any upstream c
 
 The fork's Phase 1 cleanup physically removes all Enterprise-labelled implementation directories listed above, their dedicated SDK/backend/frontend build entry points, Enterprise-only tests and identity-provider fixtures, and upstream CE/EE synchronization scripts. The implementation files were removed as complete path units without being used as design references.
 
-The same cleanup also removes the unapproved integration providers/templates/work-in-progress packages, upstream cloud/release/Helm assets and workflows, and the committed `packages/nc-secret-mgr/dist/` bundle. Only the independently reviewed integration interface package remains, with explicit `AGPL-3.0-or-later` package metadata and a core-only nested workspace. The secret-manager bundle is now generated locally from the retained ISC source with pinned build dependencies; generated code and its generated third-party notice are not committed.
+The same cleanup also removes the unapproved integration providers/templates/work-in-progress packages and upstream cloud/release/Helm assets and workflows. Only the independently reviewed integration interface package remains, with explicit `AGPL-3.0-or-later` package metadata and a core-only nested workspace.
+
+The optional `packages/nc-secret-mgr` package is removed as a complete unit together with its dedicated backend bundle configuration and version-update script. Although its manifest declared ISC, its retained source included a generated backend CLI artifact, and that generator explicitly selected `EE: true`. The fork does not alter that selector or inspect the excluded implementation; it excludes the optional package, generated artifact, and generator together.
 
 `pnpm run check:community-boundaries` fails if a removed path or unapproved workflow is reintroduced, if the integration workspace expands beyond `core`, or if a package script again selects an excluded source/build entry point. Brand replacement and a repository-wide third-party notice inventory remain required before the first public fork release.
 

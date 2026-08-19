@@ -10,7 +10,6 @@ on:
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
-      - "packages/nc-secret-mgr/**"
       - "scripts/check-community-boundaries.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -24,7 +23,6 @@ on:
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
-      - "packages/nc-secret-mgr/**"
       - "scripts/check-community-boundaries.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -57,8 +55,6 @@ jobs:
         run: pnpm run integrations:build:core
       - name: Test Community integration contracts
         run: pnpm --dir packages/noco-integrations test
-      - name: Build secret-manager CLI from source
-        run: pnpm --filter nc-secret build
       - name: Build Community backend
         run: pnpm --filter nocodb build
       - name: Type-check Community backend

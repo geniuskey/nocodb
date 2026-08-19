@@ -22,7 +22,6 @@
   "scripts": {
     "build": "pnpm run docker:build",
     "docker:build": "rspack --config docker/rspack.config.js",
-    "build:cli:module": "rspack --config rspack.cli.config.js",
     "registerIntegrations": "node build-utils/registerIntegrations.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",

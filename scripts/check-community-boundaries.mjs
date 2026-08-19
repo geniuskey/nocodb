@@ -1,5 +1,5 @@
-import { lstat, readdir, readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,14 +67,6 @@ const configurationChecks = [
     required: ["- 'core'"],
     forbidden: ["packages/*", "templates/*", "wip/*"],
   },
-  {
-    path: "packages/nc-secret-mgr/package.json",
-    required: [
-      '"build": "node build.js"',
-      '"jsep": "npm:nc-jsep@1.7.5"',
-    ],
-    forbidden: ["pnpm dlx webpack-cli"],
-  },
 ];
 
 const defaultScriptChecks = [
@@ -116,10 +108,6 @@ const defaultScriptChecks = [
     path: "packages/noco-integrations/package.json",
     scripts: ["build", "test", "lint"],
   },
-  {
-    path: "packages/nc-secret-mgr/package.json",
-    scripts: ["build", "test"],
-  },
 ];
 const scriptManifests = [
   "package.json",
@@ -128,7 +116,6 @@ const scriptManifests = [
   "packages/nc-gui/package.json",
   "tests/playwright/package.json",
   "packages/noco-integrations/package.json",
-  "packages/nc-secret-mgr/package.json",
 ];
 
 const sourceRoots = [
@@ -179,10 +166,13 @@ const forbiddenPaths = [
     "packages/noco-integrations/.cursor",
     "packages/noco-integrations/scripts",
     "packages/noco-integrations/nocodb-sdk-reference.ts",
+    "packages/nc-secret-mgr",
     "packages/nocodb/build-utils/syncDependencies.js",
+    "packages/nocodb/rspack.cli.config.js",
     "cloud",
     "charts",
     "scripts/release",
+    "scripts/updateCliVersion.js",
     ".github/workflows/openreplay-cdn-build.yml",
     ".github/workflows/release-cloud-build.yml",
     ".github/workflows/release-cloud-pr-build.yml",
@@ -193,7 +183,6 @@ const forbiddenPaths = [
     ".github/workflows/sync-ee-to-ce.yml",
   ].map(fromRoot),
 ];
-const forbiddenTrackedPaths = ["packages/nc-secret-mgr/dist"];
 const allowedWorkflowNames = new Set([
   "community-backend.yml",
   "community-boundary.yml",
@@ -218,8 +207,14 @@ const excludedModuleSegments = new Set(["ee", "ee-cloud", "ee-on-prem"]);
 const moduleSpecifierPattern =
   /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["'`]([^"'`\r\n]+)["'`]/g;
 const forbiddenScriptPattern =
-  /(?:\bEE=|(?:^|\s)(?:build|generate):ee\b|rspack\S*\.ee(?:\.|\s)|src\/ee(?:\/|\b))/;
+  /(?:\bEE=|(?:^|\s)(?:build|generate):ee\b|rspack\S*\.ee(?:\.|\s)|rspack\.cli|src\/ee(?:\/|\b))/;
 const failures = [];
+const trackedPaths = execFileSync("git", ["ls-files", "-z"], {
+  cwd: repositoryRoot,
+  encoding: "utf8",
+})
+  .split("\0")
+  .filter(Boolean);
 
 async function hasRelevantContents(path) {
   const metadata = await lstat(path);
@@ -239,6 +234,21 @@ async function hasRelevantContents(path) {
 }
 
 for (const forbiddenPath of forbiddenPaths) {
+  const relativePath = relative(repositoryRoot, forbiddenPath).replaceAll(
+    "\\",
+    "/",
+  );
+  if (
+    trackedPaths.some(
+      (trackedPath) =>
+        trackedPath === relativePath ||
+        trackedPath.startsWith(`${relativePath}/`),
+    )
+  ) {
+    failures.push(`${relativePath}: excluded path is tracked`);
+    continue;
+  }
+
   try {
     if (await hasRelevantContents(forbiddenPath)) {
       failures.push(
@@ -247,17 +257,6 @@ for (const forbiddenPath of forbiddenPaths) {
     }
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
-  }
-}
-
-for (const forbiddenPath of forbiddenTrackedPaths) {
-  const trackedFiles = execFileSync("git", ["ls-files", "--", forbiddenPath], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  }).trim();
-
-  if (trackedFiles) {
-    failures.push(`${forbiddenPath}: generated files are tracked`);
   }
 }
 
