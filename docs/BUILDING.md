@@ -89,6 +89,14 @@ NC_TOOL_DIR="$PWD/.data-production" PORT=8080 node packages/nocodb/docker/main.j
 
 ## Testing
 
+Verify the Community GUI source boundary before building or testing:
+
+```sh
+pnpm run check:community-boundaries
+```
+
+This static check confirms that Nuxt, Windi CSS, and GUI extension discovery exclude Enterprise-labelled paths. It reads Community configuration and loaders only; it does not inspect excluded implementations.
+
 Run the Community SDK checks and tests:
 
 ```sh

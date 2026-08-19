@@ -49,7 +49,7 @@ export default defineConfig({
             'utils/cssUtils.ts',
           ]),
     ],
-    exclude: ['node_modules', '.git'],
+    exclude: ['node_modules', '.git', 'ee/**', 'extensions/*-ee/**', '../extensions/*-ee/**'],
   },
 
   darkMode: 'class',

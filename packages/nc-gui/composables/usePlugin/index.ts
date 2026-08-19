@@ -37,17 +37,26 @@ type PluginAssetStorage = {
 export const usePlugin = createSharedComposable(() => {
   const pluginGlobs = {
     [PluginType.extension]: {
-      [PluginLib.assets]: import.meta.glob('../../extensions/*/assets/*', {
-        query: '?url',
-        import: 'default',
-      }),
-      [PluginLib.modules]: import.meta.glob('../../extensions/*/*.json', {
-        import: 'default',
-      }),
-      [PluginLib.markdowns]: import.meta.glob('../../extensions/*/*.md', {
-        query: '?raw',
-        import: 'default',
-      }),
+      [PluginLib.assets]: import.meta.glob(
+        ['../../extensions/*/assets/*', '!../../extensions/*-ee/assets/*'],
+        {
+          query: '?url',
+          import: 'default',
+        },
+      ),
+      [PluginLib.modules]: import.meta.glob(
+        ['../../extensions/*/*.json', '!../../extensions/*-ee/*.json'],
+        {
+          import: 'default',
+        },
+      ),
+      [PluginLib.markdowns]: import.meta.glob(
+        ['../../extensions/*/*.md', '!../../extensions/*-ee/*.md'],
+        {
+          query: '?raw',
+          import: 'default',
+        },
+      ),
     },
     [PluginType.script]: {
       [PluginLib.assets]: import.meta.glob('../../scripts/*/assets/*', {

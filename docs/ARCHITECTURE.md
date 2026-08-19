@@ -55,7 +55,7 @@ The default local metadata/data store is SQLite. Knex-backed connections support
 - `plugins` and `modules`: Nuxt/Vue integration points.
 - `extensions/data-exporter` and `extensions/json-exporter`: Community extensions present in the baseline.
 
-Do not use `packages/nc-gui/ee` or any `extensions/*-ee` directory. Nuxt's broad component scanning can discover those paths if they remain in the tree; their presence in a build log is not evidence that they are an approved fork baseline.
+Do not use `packages/nc-gui/ee` or any `extensions/*-ee` directory. The Community Nuxt, Windi, plugin-resource, and extension-component discovery configuration explicitly excludes those paths. `pnpm run check:community-boundaries` guards this build boundary without reading excluded implementations.
 
 ## SDK and API generation
 

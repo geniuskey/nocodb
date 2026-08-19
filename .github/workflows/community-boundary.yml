@@ -1,0 +1,35 @@
+name: Community source boundary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/nc-gui/**"
+      - "scripts/check-community-boundaries.mjs"
+      - "package.json"
+      - ".github/workflows/community-boundary.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/nc-gui/**"
+      - "scripts/check-community-boundaries.mjs"
+      - "package.json"
+      - ".github/workflows/community-boundary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.12.0
+      - name: Check Community source boundaries
+        run: node scripts/check-community-boundaries.mjs

@@ -16,7 +16,8 @@ export default defineNuxtConfig({
   },
 
   ignore: [
-    // 'pages/playground/**/*'
+    'ee/**',
+    'extensions/*-ee/**',
   ],
 
   modules: ['@vueuse/nuxt', 'nuxt-windicss', '@nuxt/image', '@pinia/nuxt', '@productdevbook/chatwoot'],
