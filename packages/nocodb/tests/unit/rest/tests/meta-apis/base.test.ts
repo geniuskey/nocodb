@@ -144,9 +144,7 @@ export default function (API_VERSION: 'v3' | 'v2') {
         invite_token: uuidv4(),
       }));
 
-      const User = (
-        await import(`../../../../../src${isEE ? '/ee' : ''}/models/User`)
-      ).default;
+      const User = (await import('../../../../../src/models/User')).default;
 
       const users = await Promise.all(
         testData.map((testData) =>
@@ -160,22 +158,6 @@ export default function (API_VERSION: 'v3' | 'v2') {
           }),
         ),
       );
-
-      if (isEE) {
-        const WorkspaceUser = (
-          await import('../../../../../src/ee/models/WorkspaceUser')
-        ).default;
-        await Promise.all(
-          users.map((user) =>
-            WorkspaceUser.insert({
-              fk_workspace_id: context.fk_workspace_id,
-              fk_user_id: user.id,
-              roles: 'workspace-level-viewer',
-              invited_by: context.user!.id,
-            }),
-          ),
-        );
-      }
 
       const baseUsers = await Promise.all(
         users.map((user) =>
@@ -688,22 +670,10 @@ export default function (API_VERSION: 'v3' | 'v2') {
     }
 
     async function fetchUsersFromBase(baseId: string): Promise<any[]> {
-      if (isEE) {
-        const BaseUser = (await import('../../../../../src/ee/models/BaseUser'))
-          .default;
-        return BaseUser.getUsersList(
-          { workspace_id: context.fk_workspace_id },
-          {
-            base_id: baseId,
-            mode: 'viewer',
-          },
-        );
-      } else {
-        return BaseUser.getUsersList(context, {
-          base_id: baseId,
-          mode: 'viewer',
-        });
-      }
+      return BaseUser.getUsersList(context, {
+        base_id: baseId,
+        mode: 'viewer',
+      });
     }
 
     // ===========================

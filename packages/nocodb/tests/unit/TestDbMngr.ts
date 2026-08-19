@@ -1,4 +1,6 @@
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import process from 'process';
 import { knex } from 'knex';
 import SqlMgrv2 from '../../src/db/sql-mgr/v2/SqlMgrv2';
@@ -10,6 +12,9 @@ import type { DbConfig } from '../../src/interface/config';
 export default class TestDbMngr {
   public static readonly dbName = 'test_meta';
   public static readonly sakilaDbName = 'test_sakila';
+  public static readonly workingDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'nocodb-community-tests-'),
+  );
   public static metaKnex: Knex;
   public static sakilaKnex: Knex;
 
@@ -166,7 +171,10 @@ export default class TestDbMngr {
     TestDbMngr.dbConfig = {
       client: 'sqlite3',
       connection: {
-        filename: `${__dirname}/${TestDbMngr.dbName}.db`,
+        filename: path.join(
+          TestDbMngr.workingDirectory,
+          `${TestDbMngr.dbName}.db`,
+        ),
         database: TestDbMngr.dbName,
       },
       useNullAsDefault: true,
@@ -187,7 +195,10 @@ export default class TestDbMngr {
 
     process.env[
       `NC_DB`
-    ] = `sqlite3:///?database=${__dirname}/${TestDbMngr.dbName}.db`;
+    ] = `sqlite3:///?database=${path.join(
+      TestDbMngr.workingDirectory,
+      `${TestDbMngr.dbName}.db`,
+    )}`;
     await TestDbMngr.setupMeta();
     await TestDbMngr.setupSakila();
   }
@@ -234,8 +245,12 @@ export default class TestDbMngr {
   }
 
   private static resetMetaSqlite() {
-    if (fs.existsSync(`${__dirname}/test_meta.db`)) {
-      fs.unlinkSync(`${__dirname}/test_meta.db`);
+    const metaDatabase = path.join(
+      TestDbMngr.workingDirectory,
+      'test_meta.db',
+    );
+    if (fs.existsSync(metaDatabase)) {
+      fs.unlinkSync(metaDatabase);
     }
   }
 
@@ -246,7 +261,10 @@ export default class TestDbMngr {
       TestDbMngr.dbConfig.connection.password;
     sakilaDbConfig.connection.multipleStatements = true;
     if (TestDbMngr.isSqlite()) {
-      sakilaDbConfig.connection.filename = `${__dirname}/test_sakila.db`;
+      sakilaDbConfig.connection.filename = path.join(
+        TestDbMngr.workingDirectory,
+        'test_sakila.db',
+      );
     }
     return sakilaDbConfig;
   }
@@ -255,12 +273,16 @@ export default class TestDbMngr {
     const testsDir = __dirname.replace('tests/unit', 'tests');
 
     if (TestDbMngr.isSqlite()) {
-      if (fs.existsSync(`${__dirname}/test_sakila.db`)) {
-        fs.unlinkSync(`${__dirname}/test_sakila.db`);
+      const sakilaDatabase = path.join(
+        TestDbMngr.workingDirectory,
+        'test_sakila.db',
+      );
+      if (fs.existsSync(sakilaDatabase)) {
+        fs.unlinkSync(sakilaDatabase);
       }
       fs.copyFileSync(
         `${testsDir}/sqlite-sakila-db/sakila.db`,
-        `${__dirname}/test_sakila.db`,
+        sakilaDatabase,
       );
     } else if (TestDbMngr.isPg()) {
       const schemaFile = fs
@@ -324,3 +346,7 @@ export default class TestDbMngr {
     }
   }
 }
+
+process.once('exit', () => {
+  fs.rmSync(TestDbMngr.workingDirectory, { recursive: true, force: true });
+});

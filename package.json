@@ -17,9 +17,11 @@
   },
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
+    "cross-env": "7.0.3",
     "fs": "0.0.1-security",
     "husky": "^8.0.3",
     "lerna": "^8.2.2",
+    "pnpm": "9.15.5",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "husky": {
@@ -34,9 +36,11 @@
   },
   "scripts": {
     "check:community-boundaries": "node scripts/check-community-boundaries.mjs",
-    "bootstrap": "pnpm --filter=nocodb-sdk install && pnpm --filter=nocodb-sdk-v2 install && pnpm --filter=nocodb-sdk run build:ee &&  pnpm --filter=nocodb-sdk-v2 run build && pnpm --filter=nocodb --filter=nc-gui --filter=knex-snowflake --filter=knex-databricks --filter=nc-sql-executor --filter=playwright install && pnpm run integrations:build && pnpm run registerIntegrations",
-    "bootstrap:ce": "pnpm --filter=nocodb-sdk install && pnpm --filter=nocodb-sdk run build && pnpm --filter=nocodb --filter=nc-gui --filter=nc-sql-executor --filter=playwright install && pnpm run integrations:build && pnpm run registerIntegrations",
-    "integrations:build": "cd ./packages/noco-integrations/ && pnpm i && pnpm run build",
+    "bootstrap": "pnpm run bootstrap:ce",
+    "bootstrap:ce": "pnpm --filter=nocodb-sdk install && pnpm --filter=nocodb-sdk run build && pnpm --filter=nocodb --filter=nc-gui --filter=nc-sql-executor --filter=playwright install && pnpm run integrations:build:core",
+    "integrations:install": "cross-env CI=true pnpm --dir ./packages/noco-integrations install --frozen-lockfile",
+    "integrations:build": "pnpm run integrations:install && pnpm --dir ./packages/noco-integrations run build",
+    "integrations:build:core": "pnpm run integrations:install && pnpm --dir ./packages/noco-integrations --filter @noco-integrations/core build",
     "start:frontend": "pnpm --filter=nc-gui run dev",
     "start:backend": "pnpm --filter=nocodb run start",
     "start:sql-executor": "pnpm --filter=nc-sql-executor run dev",

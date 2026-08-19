@@ -1,7 +1,6 @@
 const Api = require('nocodb-sdk').Api;
 const { UITypes } = require('nocodb-sdk');
 const jsonfile = require('jsonfile');
-const {fromEntries} = require("../../src/ee/utils");
 
 const GRID = 3, GALLERY = 2, FORM = 1;
 
@@ -24,7 +23,7 @@ let ncConfig = {
 // remove objects containing 0/ false/ null
 // fixme: how to handle when cdf (default value) is configured as 0/ null/ false
 function removeEmpty(obj) {
-  return fromEntries(
+  return Object.fromEntries(
     Object.entries(obj)
       .filter(([_, v]) => v != null && v != 0 && v != false)
       .map(([k, v]) => [k, v === Object(v) ? removeEmpty(v) : v])

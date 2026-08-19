@@ -22,6 +22,7 @@ corepack prepare pnpm@9.15.5 --activate
 pnpm --version
 pnpm install --frozen-lockfile
 pnpm --filter nocodb-sdk build
+pnpm run integrations:build:core
 ```
 
 The expected pnpm version is exactly `9.15.5`. Do not regenerate the lockfile merely to use a newer package manager.
@@ -61,7 +62,7 @@ For POSIX shells:
 NC_TOOL_DIR="$PWD/.data" pnpm start:backend
 ```
 
-The historical backend development script contains baseline environment flags. They have not been bypassed or rewritten in this fork. Do not use Enterprise entry points or scripts.
+The default bootstrap, backend build, development server, and Community Playwright entry points do not set Enterprise flags or load Enterprise build configurations. Explicitly Enterprise-labelled entry points remain excluded and must not be used.
 
 ## Production build
 
@@ -110,9 +111,13 @@ pnpm --filter nocodb-sdk run test:spelling
 Run backend tests:
 
 ```sh
+pnpm --filter nocodb run typecheck:community
+pnpm --filter nocodb run test:community:smoke
 pnpm --filter nocodb test
 pnpm --filter nocodb run test:unit
 ```
+
+The Community smoke test uses Community-only Jest aliases and TypeScript configuration. The default Jest discovery pattern and the broader historical Mocha suite still have baseline coverage and initialization debt recorded below.
 
 The GUI's current Vitest configuration can be checked with:
 
@@ -173,9 +178,14 @@ The baseline `Dockerfile.local` still warns that the Snowflake and Databricks wo
 The following was verified on Windows with Node.js lifecycle version `22.12.0`, pnpm `9.15.5`, and a fresh isolated SQLite data directory:
 
 - Frozen install: passed.
+- Nested integration workspace frozen install and Community core build: passed.
+- Community source/default-script boundary check: passed.
 - Community SDK build: passed.
 - Nuxt development server: started and returned HTTP 200 on port 3000.
 - Backend production bundle: built, started, and returned HTTP 200 from `/api/v1/health`.
+- Backend development bundle: built, started, and returned HTTP 200 from `/api/v1/health` without Enterprise flags.
+- Community backend TypeScript project: passed `typecheck:community`.
+- Community backend Jest smoke test: 1 suite and 1 test passed.
 - Signup and login: passed through the documented HTTP API.
 - Base creation: passed.
 - Table creation: passed.
@@ -198,14 +208,14 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | First resumed pnpm 9 install | Command-runner timeout followed by `EPIPE` | Reran the same frozen install; no repository change was needed. |
 | GUI postinstall before SDK build | Nuxt logged that the SDK `build/main` entry was missing, but install exited 0 | Make the SDK build an explicit post-install step. |
 | SDK build on Windows | The POSIX `; rm` was parsed into the template path; default templates then generated an incompatible API client | Use `&& rimraf` with the existing pinned generator and Community templates. |
-| Backend build on Windows | `EE` was reported as an unknown command because of POSIX inline environment syntax | Use the already-declared `cross-env`, preserving the original environment variable and value. |
+| Backend build on Windows | `EE` was reported as an unknown command because of POSIX inline environment syntax | The initial compatibility fix used `cross-env`; Phase 1 subsequently removed the Enterprise variable from Community build and development entry points. |
 | GUI build | TypeScript extended missing `ee/.nuxt/tsconfig.json` | Keep the Community `.nuxt/tsconfig.json` only. |
 | SDK Jest | 24 suites passed and 1 failed; 357 tests passed, 24 skipped, 1 failed (`Time.spec.ts` equality comparison) | Recorded; no product-code change was made. |
 | SDK lint | 18 baseline errors remain after excluding Enterprise/generated sources and CRLF-only noise | Recorded; unrelated style/product edits were not made. |
 | SDK Prettier | Three baseline files differ | Recorded. |
 | SDK CSpell | Baseline vocabulary produces many findings | Recorded; Enterprise and generated API paths are excluded. |
-| Backend Jest | No tests found; exits 0 because the script uses `--passWithNoTests` | Recorded. |
-| Backend Mocha unit suite | Fails during module loading: `Cannot access 'isEE' before initialization` | Recorded; no application-code change was made. |
+| Backend Jest | The historical default pattern finds no tests and exits 0 because it uses `--passWithNoTests` | A Community-only smoke lane now runs an explicitly collected service test; broad Jest discovery remains test debt. |
+| Backend Mocha unit suite | The baseline failed during module loading: `Cannot access 'isEE' before initialization` | Move edition constants to a dependency-free module. The command now initializes SQLite and exits 0, but emits no test-count summary, so it is not yet treated as a verified full-suite pass. |
 | GUI Vitest | No matching test files; exits 1 | Recorded. |
 | Initial Docker image build | Docker Desktop Linux engine pipe not present | Started the installed local engine and reran the same build. |
 | Initial Docker container start on Windows | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF | Normalize the copied shell script inside `Dockerfile.local`; no application code changed. |
@@ -213,4 +223,4 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | First pinned-Node Docker rebuild | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions. |
 | Third Docker container start | The unpinned `pnpm dlx modclean` step deleted a runtime `lru-cache` module file | Remove the optional size-cleaning step and preserve production dependency contents. |
 
-No runtime dependency version was upgraded. The frozen lockfile remains unchanged.
+No runtime dependency version was upgraded. Phase 1 adds only the existing `cross-env` version and pinned pnpm `9.15.5` as root development tools so nested workspace commands use the same executable on every platform; the nested integration lockfile remains unchanged.
