@@ -53,16 +53,18 @@ For an isolated data directory in PowerShell, set it before starting the backend
 
 ```powershell
 $env:NC_TOOL_DIR = Join-Path $PWD '.data'
+New-Item -ItemType Directory -Path $env:NC_TOOL_DIR -Force | Out-Null
 pnpm start:backend
 ```
 
 For POSIX shells:
 
 ```sh
+mkdir -p "$PWD/.data"
 NC_TOOL_DIR="$PWD/.data" pnpm start:backend
 ```
 
-The default bootstrap, backend build, development server, and Community Playwright entry points do not set Enterprise flags or load Enterprise build configurations. Explicitly Enterprise-labelled entry points remain excluded and must not be used.
+The default bootstrap, backend build, development server, and Community Playwright entry points do not set Enterprise flags or load Enterprise build configurations. Enterprise-labelled source trees and their dedicated build/test entry points have been physically removed from the fork.
 
 ## Production build
 
@@ -78,6 +80,7 @@ PowerShell:
 
 ```powershell
 $env:NC_TOOL_DIR = Join-Path $PWD '.data-production'
+New-Item -ItemType Directory -Path $env:NC_TOOL_DIR -Force | Out-Null
 $env:PORT = '8080'
 node packages/nocodb/docker/main.js
 ```
@@ -85,6 +88,7 @@ node packages/nocodb/docker/main.js
 POSIX:
 
 ```sh
+mkdir -p "$PWD/.data-production"
 NC_TOOL_DIR="$PWD/.data-production" PORT=8080 node packages/nocodb/docker/main.js
 ```
 
@@ -96,7 +100,7 @@ Verify the Community GUI source boundary before building or testing:
 pnpm run check:community-boundaries
 ```
 
-This static check confirms that Nuxt, Windi CSS, and GUI extension discovery exclude Enterprise-labelled paths. It reads Community configuration and loaders only; it does not inspect excluded implementations.
+This static check confirms that removed Enterprise-labelled paths remain absent, that Nuxt/Windi/GUI extension discovery retains defensive exclusions, that Community sources do not import Enterprise path segments, and that principal package scripts do not select Enterprise builds.
 
 Run the Community SDK checks and tests:
 
@@ -169,7 +173,7 @@ Run the image:
 docker run --rm -p 8080:8080 -v nocodb-data:/usr/app/data nocodb-agpl-baseline:dev
 ```
 
-`packages/nocodb/build-local-docker-image.sh` is not the reproducible default: it removes local containers/images and includes historical Enterprise packaging flags. The explicit commands above avoid that script.
+`packages/nocodb/build-local-docker-image.sh` is not the reproducible default because it removes local containers and images. Its packaging command is now Community-only, but the explicit commands above remain safer for routine development.
 
 The baseline `Dockerfile.local` still warns that the Snowflake and Databricks workspace paths are outside its package-only build context. The smoke test above validates the default SQLite path; external database dialect images need a separate, Community-only packaging audit before release.
 
@@ -180,12 +184,14 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Frozen install: passed.
 - Nested integration workspace frozen install and Community core build: passed.
 - Community source/default-script boundary check: passed.
+- Enterprise-labelled source/configuration absence check: passed.
 - Community SDK build: passed.
 - Nuxt development server: started and returned HTTP 200 on port 3000.
 - Backend production bundle: built, started, and returned HTTP 200 from `/api/v1/health`.
 - Backend development bundle: built, started, and returned HTTP 200 from `/api/v1/health` without Enterprise flags.
 - Community backend TypeScript project: passed `typecheck:community`.
 - Community backend Jest smoke test: 1 suite and 1 test passed.
+- Community Playwright discovery: 198 tests in 65 files; no Enterprise test path was present.
 - Signup and login: passed through the documented HTTP API.
 - Base creation: passed.
 - Table creation: passed.
@@ -209,6 +215,7 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | GUI postinstall before SDK build | Nuxt logged that the SDK `build/main` entry was missing, but install exited 0 | Make the SDK build an explicit post-install step. |
 | SDK build on Windows | The POSIX `; rm` was parsed into the template path; default templates then generated an incompatible API client | Use `&& rimraf` with the existing pinned generator and Community templates. |
 | Backend build on Windows | `EE` was reported as an unknown command because of POSIX inline environment syntax | The initial compatibility fix used `cross-env`; Phase 1 subsequently removed the Enterprise variable from Community build and development entry points. |
+| Backend runtime with a new `NC_TOOL_DIR` | SQLite failed with `ENOENT` when the selected directory did not yet exist | Create the isolated directory explicitly before starting the backend, as shown above. |
 | GUI build | TypeScript extended missing `ee/.nuxt/tsconfig.json` | Keep the Community `.nuxt/tsconfig.json` only. |
 | SDK Jest | 24 suites passed and 1 failed; 357 tests passed, 24 skipped, 1 failed (`Time.spec.ts` equality comparison) | Recorded; no product-code change was made. |
 | SDK lint | 18 baseline errors remain after excluding Enterprise/generated sources and CRLF-only noise | Recorded; unrelated style/product edits were not made. |

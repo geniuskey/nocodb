@@ -61,11 +61,5 @@
     // "**/*.ts",
     // "**/*.json"
   ],
-  "exclude": [
-    "../../src/ee",
-    "../../src/ee-on-prem",
-    "../../src/ee-cloud",
-    "./rest/tests/ee"
-  ],
   "compileOnSave": false
 }

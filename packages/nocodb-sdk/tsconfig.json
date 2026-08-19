@@ -48,6 +48,6 @@
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules/**", "src/ee/**"],
+  "exclude": ["node_modules/**"],
   "compileOnSave": false
 }

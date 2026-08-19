@@ -30,5 +30,5 @@
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["src/ee", "src/ee-on-prem", "src/ee-cloud", "**/*.spec.ts"]
+  "exclude": ["**/*.spec.ts"]
 }

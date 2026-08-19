@@ -53,9 +53,7 @@
     "preinstall": "npx only-allow pnpm",
     "registerIntegrations": "pnpm --filter=nocodb run registerIntegrations",
     "syncDependencies": "pnpm --filter=nocodb run syncDependencies",
-    "install:local-sdk": "node scripts/installLocalSdk.js",
-    "sync:ee:to:ce": "rsync -arzhv --delete --exclude-from='scripts/sync/exclude-list.txt' --filter=':- .gitignore' ./ ../nocodb/",
-    "sync:ce:to:ee": "rsync -arzhv --delete --exclude-from='scripts/sync/exclude-list.txt' --filter=':- .gitignore' ../nocodb/ ./"
+    "install:local-sdk": "node scripts/installLocalSdk.js"
   },
   "pnpm": {
     "overrides": {

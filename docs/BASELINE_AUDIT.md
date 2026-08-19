@@ -53,7 +53,7 @@ The baseline has three identical AGPL license blobs at `LICENSE`, `packages/nc-g
 
 ### Enterprise/proprietary material finding
 
-Enterprise-labelled implementation material **does exist** in this revision. At least the following were present: 1,164 files under `packages/nc-gui/ee`, 423 under `packages/nocodb/src/ee`, 20 under `packages/nocodb/src/ee-on-prem`, 13 under `packages/nocodb-sdk/src/ee`, 15 under `scripts/ee`, 15 Playwright EE tests, and 8 backend EE unit-test files.
+Enterprise-labelled implementation material **does exist** in this revision. At least the following were present: 1,164 files under `packages/nc-gui/ee`, 423 under `packages/nocodb/src/ee`, 20 under `packages/nocodb/src/ee-on-prem`, 5 under `packages/nocodb/src/ee-cloud`, 13 under `packages/nocodb-sdk/src/ee`, 15 under `scripts/ee`, 15 Playwright EE tests, and 8 backend EE unit-test files.
 
 No separate proprietary license notice was found on those paths in this revision; the enclosing package manifests and repository license are AGPL. Therefore this audit does **not** conclude that the published blobs were proprietary at `v2025.11.0`. It does conclude that they are Enterprise-only implementations by path, build flags, tests, and the repository's own `scripts/sync/exclude-list.txt`. Under this fork's clean-room rules, that distinction does not make them acceptable: do not use, port, study for reimplementation, or retain them.
 
@@ -63,7 +63,7 @@ Remove or avoid these paths when creating the actual fork baseline:
 
 - `packages/nocodb/src/ee/`
 - `packages/nocodb/src/ee-on-prem/`
-- `packages/nocodb/src/ee-cloud/` if present on any selected history (it is named in the CE synchronization exclusions even though it is absent from the recommended tree)
+- `packages/nocodb/src/ee-cloud/`
 - `packages/nocodb-sdk/src/ee/`
 - `packages/nc-gui/ee/`
 - `scripts/ee/`
@@ -76,6 +76,12 @@ Remove or avoid these paths when creating the actual fork baseline:
 - Generated bundles such as `packages/nc-secret-mgr/dist/` unless needed and shipped with every required third-party notice; prefer reproducible builds from audited source
 
 Also do not cherry-pick, copy, port, adapt, or use as a reference any upstream commit not contained in the exact `v2025.11.0` source tree. Do not use the excluded Enterprise implementation even though it is present in the historical AGPL tree. License-checking code inside excluded Enterprise paths must be removed only as part of excluding the entire path; it must not be bypassed, patched, disabled, or altered.
+
+### Fork cleanup status
+
+The fork's Phase 1 cleanup physically removes all Enterprise-labelled implementation directories listed above, their dedicated SDK/backend/frontend build entry points, Enterprise-only tests and identity-provider fixtures, upstream CE/EE synchronization scripts, and Enterprise/cloud release workflows. The implementation files were removed as complete path units without being used as design references. `pnpm run check:community-boundaries` now fails if any removed path is reintroduced or if a package script again selects an Enterprise source/build entry point.
+
+The broader provenance exclusions remain separate follow-up work: `packages/noco-integrations/packages/`, `packages/noco-integrations/templates/`, `packages/noco-integrations/wip/`, `cloud/`, `scripts/release/`, brand assets, and the generated `packages/nc-secret-mgr/dist/` bundle have not yet been approved for a public clean baseline merely by this cleanup.
 
 ## Recommended fork strategy
 

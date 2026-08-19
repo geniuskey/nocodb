@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       shard:
-        description: 'Shard number'
+        description: "Shard number"
         required: true
         type: string
       db:
@@ -56,9 +56,6 @@ jobs:
           kill -9 $(lsof -t -i:8080) || echo "no process running on 8080"
           kill -9 $(lsof -t -i:3000) || echo "no process running on 3000"
 
-      - name: Set NC Edition
-        run: export EE=true
-
       - name: remove use-node-version line from .npmrc
         run: sed -i '/^use-node-version/d' .npmrc
 
@@ -76,26 +73,17 @@ jobs:
         run: |
           pnpm run dev &
 
-      - name: Install dependencies of sso idp
-        working-directory: ./scripts/ee/playwright
-        run: |
-          cd ./openid-provider
-          npm install
-          cd ../saml-provider
-          npm install
-
       - name: Download pre-built UI
         working-directory: ./packages/nc-gui/
         run: |
-          rm -rf ee/.output.zip ee/.output
-          mkdir -p ee/.output
+          rm -rf .output.zip .output
           FILE="$(echo ${GITHUB_REPOSITORY} | sed "s,/,-,g")-${GITHUB_RUN_ID}.zip"
           cp /mnt/gh-artifacts/ui-builds/${FILE} ./output.zip
           unzip -oq output.zip
 
       - name: Start frontend
         working-directory: ./packages/nc-gui/
-        run: pnpm run ci:start:ee &
+        run: pnpm run ci:start &
 
       - name: Run backend
         if: ${{ inputs.db == 'sqlite' }}
@@ -113,7 +101,7 @@ jobs:
         if: ${{ inputs.db == 'pg' }}
         working-directory: ./packages/nocodb
         run: |
-          pnpm run watch:run:playwright:pg:ee &> ${{ inputs.db }}_${{ inputs.shard }}_test_backend.log &
+          pnpm run watch:run:playwright:pg &> ${{ inputs.db }}_${{ inputs.shard }}_test_backend.log &
 
       - name: Install Playwright Browsers
         working-directory: ./tests/playwright
