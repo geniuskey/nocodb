@@ -100,15 +100,25 @@ mkdir -p "$PWD/.data-production"
 NC_TOOL_DIR="$PWD/.data-production" PORT=8080 node packages/nocodb/docker/main.js
 ```
 
+This command runs the API bundle directly and is suitable for backend health checks. It does not assemble `src/public` or the generated GUI beside the bundle, so browser-library and dashboard paths are expected to return 404 in this bare mode. Use the Docker procedure below for the complete production filesystem layout.
+
 ## Testing
 
-Verify the Community GUI source boundary before building or testing:
+Verify the Community source boundary and copied runtime assets before building or testing:
 
 ```sh
 pnpm run check:community-boundaries
+pnpm run check:vendored-assets
 ```
 
-This static check confirms that removed Enterprise-labelled and provenance-excluded paths remain absent, that Nuxt/Windi/GUI extension discovery retains defensive exclusions, that Community sources do not import excluded path segments, that the integration workspace contains only its core interface contract, that workflows are fork-owned and allowlisted, and that principal package scripts do not select excluded builds.
+The first static check confirms that removed Enterprise-labelled and provenance-excluded paths remain absent, that Nuxt/Windi/GUI extension discovery retains defensive exclusions, that Community sources do not import excluded path segments, that the integration workspace contains only its core interface contract, that workflows are fork-owned and allowlisted, and that principal package scripts do not select excluded builds. The second validates the source, version markers, normalized SHA-256 digest, and license notices for every inventoried third-party library asset copied outside the pnpm graph. See [VENDORED_ASSETS.md](./VENDORED_ASSETS.md).
+
+After a frozen install, produce the dependency-license closure for release review with:
+
+```sh
+pnpm licenses list --prod --long
+pnpm licenses list --prod --json
+```
 
 Run the Community SDK checks and tests:
 
@@ -192,6 +202,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Frozen install: passed.
 - Nested integration workspace frozen install, Community core build, and core tests: passed.
 - Community source/default-script boundary check: passed.
+- Vendored runtime asset provenance/hash/notice check: passed.
 - Enterprise-labelled source/configuration absence check: passed.
 - Community SDK build: passed.
 - Nuxt development server: started and returned HTTP 200 on port 3000.
@@ -207,6 +218,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Nuxt production build and static generation: passed, with baseline chunk/circular-import warnings.
 - Backend production build: passed, with one `require-in-the-middle` warning.
 - Local Docker image build and container health check: passed.
+- Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
 
 An interactive in-app browser session was unavailable in the execution environment, so the login/base/table/CRUD path was verified at the public API boundary while the frontend was independently verified running. This is not a claim that the full click path was exercised. Run the Community Playwright command above in an environment with Chromium to close that UI-verification gap.
 
@@ -237,5 +249,6 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | Second Docker container start | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM` | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5. |
 | First pinned-Node Docker rebuild | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions. |
 | Third Docker container start | The unpinned `pnpm dlx modclean` step deleted a runtime `lru-cache` module file | Remove the optional size-cleaning step and preserve production dependency contents. |
+| Legacy authentication icon CSS | `materialdesignicons.5.x.min.css` references four font files that were absent from the frozen tree | Recorded in the vendored-asset inventory; restoration/replacement is isolated to a later reviewed change. |
 
 No existing runtime dependency version was upgraded. The nested integration lockfile is reduced to its retained `core` project. The optional secret-manager package and its dedicated Enterprise-mode CLI generator are excluded as a complete unit instead of modifying the generator's edition selector.

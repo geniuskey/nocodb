@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "SHA-256",
+  "hashNormalization": "UTF-8 text with CRLF normalized to LF",
+  "notices": [
+    {
+      "path": "packages/nocodb/src/public/licenses/axios-0.19.2.LICENSE.txt",
+      "source": "axios@0.19.2/LICENSE",
+      "sha256": "2b9b7b65d90de57cb7be31a9b996a2526a63dda8359a864278e5568b2b598937"
+    },
+    {
+      "path": "packages/nocodb/src/public/licenses/redoc-2.0.0.LICENSE.txt",
+      "source": "redoc@2.0.0/LICENSE",
+      "sha256": "653ce53f5787f57333bc8f83e8914410be763d128873616f768812231ec2d301"
+    },
+    {
+      "path": "packages/nocodb/src/public/licenses/swagger-ui-5.28.1.LICENSE.txt",
+      "source": "swagger-ui-dist@5.28.1/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "packages/nocodb/src/public/licenses/vue-2.6.14.LICENSE.txt",
+      "source": "vue@2.6.14/LICENSE",
+      "sha256": "17fb24bc303763f3fe1911ee24e5225c7ad59f0e3a5d8123e9b730c100a306a6"
+    },
+    {
+      "path": "packages/nocodb/src/public/licenses/vuetify-2.6.14.LICENSE.txt",
+      "source": "vuetify@2.6.14/LICENSE.md",
+      "sha256": "50bc85051dd075df6d8b478e2144cf0cc1177e790c33690d6cafa3fe7914a9d1"
+    },
+    {
+      "path": "packages/nocodb/src/public/licenses/material-design-icons-5.9.55.LICENSE.txt",
+      "source": "@mdi/font@5.9.55/LICENSE",
+      "sha256": "3bae6305bcaa6d10219b999f65c342034c2d40b1c0e8567fa08605e73ccba829"
+    },
+    {
+      "path": "packages/nocodb/src/public/js/redoc.standalone.js.LICENSE.txt",
+      "source": "redoc@2.0.0/bundles/redoc.standalone.js.LICENSE.txt",
+      "sha256": "d346d7ec025844f5f7df51887302bb105782b8199eb9b382d9133435e348b9b2"
+    },
+    {
+      "path": "packages/nocodb/src/public/js/swagger-ui-bundle.js.LICENSE.txt",
+      "source": "swagger-ui-dist@5.28.1/swagger-ui-bundle.js.LICENSE.txt",
+      "sha256": "9afc6967ce4415fca18d37cb450c3bb577ad0d703942c6f69676e56c8b3a292b"
+    }
+  ],
+  "assets": [
+    {
+      "path": "packages/nocodb/src/public/js/axios.0.19.2.min.js",
+      "component": "Axios",
+      "version": "0.19.2",
+      "source": "https://registry.npmjs.org/axios/-/axios-0.19.2.tgz",
+      "license": "MIT",
+      "sha256": "4ff7fb4a3bb565f34d7c187bb245a7d22765081708dd1c1d2d24b8fc8ecd40a4",
+      "markers": ["axios v0.19.2"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/axios-0.19.2.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/js/redoc.standalone.min.js",
+      "component": "ReDoc",
+      "version": "2.0.0",
+      "source": "https://registry.npmjs.org/redoc/-/redoc-2.0.0.tgz",
+      "license": "MIT",
+      "sha256": "c7f107f5259486ec29f726db25e31a46a563b09f5209fd90c0371677e576d311",
+      "markers": ["ReDoc Version:", "2.0.0", "Commit:", "5fb4daa"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/redoc-2.0.0.LICENSE.txt",
+        "packages/nocodb/src/public/js/redoc.standalone.js.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/js/swagger-ui-bundle.js",
+      "component": "Swagger UI",
+      "version": "5.28.1",
+      "source": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.28.1.tgz",
+      "license": "Apache-2.0",
+      "sha256": "dbf3b6deb546cd86fd699f2dab5b349f68a40fd0b31f2a9fe4d4be5495977032",
+      "markers": ["PACKAGE_VERSION:\"5.28.1\"", "GIT_COMMIT:\"ge9b44b5a\""],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/swagger-ui-5.28.1.LICENSE.txt",
+        "packages/nocodb/src/public/js/swagger-ui-bundle.js.LICENSE.txt"
+      ],
+      "sourceNote": "The npm 5.28.1 bundle is code-identical except that its embedded build metadata reports 5.28.0/gbbb12822; the retained baseline asset reports the 5.28.1/ge9b44b5a build. The generated dependency notices are identical."
+    },
+    {
+      "path": "packages/nocodb/src/public/js/vue.2.6.14.min.js",
+      "component": "Vue.js",
+      "version": "2.6.14",
+      "source": "https://registry.npmjs.org/vue/-/vue-2.6.14.tgz",
+      "license": "MIT",
+      "sha256": "9174c425c445377df4562ad9165ea08fdf9433a808296d7de5f619791df10e17",
+      "markers": ["Vue.js v2.6.14", "Released under the MIT License"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/vue-2.6.14.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/js/vuetify.2.x.min.js",
+      "component": "Vuetify",
+      "version": "2.6.14",
+      "source": "https://registry.npmjs.org/vuetify/-/vuetify-2.6.14.tgz",
+      "license": "MIT",
+      "sha256": "7647d1cc3dfe1ebce09612d0c827449b498f80a2bb74f5f7572e5d2fa816f024",
+      "markers": ["Vuetify v2.6.14", "Released under the MIT License"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/vuetify-2.6.14.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/css/vuetify.2.x.min.css",
+      "component": "Vuetify",
+      "version": "2.6.14",
+      "source": "https://registry.npmjs.org/vuetify/-/vuetify-2.6.14.tgz",
+      "license": "MIT",
+      "sha256": "070fe41697b5f2d1f240a2bcd48e7e3ee5d9bf88c6e0ba0d3cf87914624d8f65",
+      "markers": ["Vuetify v2.6.14", "Released under the MIT License"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/vuetify-2.6.14.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/css/swagger-ui.css",
+      "component": "Swagger UI",
+      "version": "5.28.1",
+      "source": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.28.1.tgz",
+      "license": "Apache-2.0",
+      "sha256": "bc5e8d5c013477cf1f35e2fb8ba1dff66be0f72f24e669a509635657145e1acb",
+      "markers": [".swagger-ui"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/swagger-ui-5.28.1.LICENSE.txt"
+      ]
+    },
+    {
+      "path": "packages/nocodb/src/public/css/materialdesignicons.5.x.min.css",
+      "component": "Material Design Icons font CSS",
+      "version": "5.9.55",
+      "source": "https://registry.npmjs.org/@mdi/font/-/font-5.9.55.tgz",
+      "license": "MIT (code); Apache-2.0 and component licenses (icons/fonts)",
+      "sha256": "9b9c9c2d93395ec8f6a7e8220ace8030af3cd8ce73ec9b67f57e4712b54432cb",
+      "markers": ["materialdesignicons-webfont.woff2?v=5.9.55"],
+      "noticeFiles": [
+        "packages/nocodb/src/public/licenses/material-design-icons-5.9.55.LICENSE.txt"
+      ],
+      "sourceNote": "Only the CSS is vendored. Its referenced font files are absent from the frozen baseline and are tracked as a runtime/reproducibility defect."
+    },
+    {
+      "path": "packages/nocodb/src/public/css/fonts.montserrat.css",
+      "component": "Google Fonts CSS for Montserrat",
+      "version": "v25 URL snapshot",
+      "source": "https://fonts.googleapis.com/",
+      "license": "CSS metadata snapshot; remote font binaries are not vendored",
+      "sha256": "b5563e1fc0fbb7d77021bd7564dd4c932b67fbe68e522a84a85b150a06fb2123",
+      "markers": [
+        "font-family: 'Montserrat'",
+        "fonts.gstatic.com/s/montserrat/v25/"
+      ],
+      "noticeFiles": []
+    },
+    {
+      "path": "packages/nocodb/src/public/css/fonts.roboto.css",
+      "component": "Google Fonts CSS for Roboto",
+      "version": "v30 URL snapshot",
+      "source": "https://fonts.googleapis.com/",
+      "license": "CSS metadata snapshot; remote font binaries are not vendored",
+      "sha256": "74be6a4d64c83590b3b96f5d6213c41e16e322aca6295a100261a17e377855bc",
+      "markers": ["font-family: 'Roboto'", "fonts.gstatic.com/s/roboto/v30/"],
+      "noticeFiles": []
+    }
+  ],
+  "forbiddenObsoleteAssets": [
+    "packages/nc-gui/public/js/swagger-ui-bundle.min.js",
+    "packages/nocodb/src/public/js/vue.global.js"
+  ]
+}

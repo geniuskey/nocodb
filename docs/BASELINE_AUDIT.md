@@ -89,14 +89,16 @@ The optional `packages/nc-secret-mgr` package is removed as a complete unit toge
 
 The fork also removes the unused legacy executable packager, its five committed `node_sqlite3.node` binaries, its SQLite downgrade mutator, and the upstream self-hosted GitHub runner image/cluster configuration. These paths were not part of the Community workspace or documented build and are not used as implementation references.
 
-`pnpm run check:community-boundaries` fails if a removed path or unapproved workflow is reintroduced, if the integration workspace expands beyond `core`, or if a package script again selects an excluded source/build entry point. Brand replacement and a repository-wide third-party notice inventory remain required before the first public fork release.
+The fork further removes two unreferenced duplicate browser bundles (Swagger UI 4.5.2 under the GUI and Vue 3.2.47 under the backend public tree). All retained copied browser assets have source/version/normalized-hash metadata in `docs/VENDORED_ASSETS.json`; missing primary and webpack-generated license notices for the retained assets are restored. `pnpm run check:vendored-assets` rejects hash drift, missing notices, and reintroduction of the obsolete copies.
+
+`pnpm run check:community-boundaries` fails if a removed path or unapproved workflow is reintroduced, if the integration workspace expands beyond `core`, or if a package script again selects an excluded source/build entry point. Brand replacement and a release-time inventory/review of the complete installed dependency closure remain required before the first public fork release.
 
 ## Recommended fork strategy
 
 1. Create an immutable archival ref at the exact dereferenced tag commit, for example `upstream-agpl-v2025.11.0`, and record both the commit and tree SHA in release documentation.
 2. Create the working fork from that commit, not from the current upstream branch and not from a source archive with unverifiable provenance.
 3. In the first fork-only commit, delete the Enterprise, cloud/release, and ambiguous integration paths listed above as whole units. Do not edit or study their implementation while reconstructing features.
-4. Retain the AGPL v3 license, copyright history, contributor attribution, and all MIT/ISC/Apache/BSD third-party notices. Add a machine-readable `THIRD_PARTY_NOTICES` inventory before the first public fork release.
+4. Retain the AGPL v3 license, copyright history, contributor attribution, and all MIT/ISC/Apache/BSD third-party notices. Maintain the machine-readable vendored-asset inventory, and generate/review a complete installed dependency report before the first public fork release.
 5. Rebrand independently. Copyright permission does not grant NocoDB trademark rights.
 6. Establish a provenance policy: every future change must be original work against this baseline, a clearly compatible dependency, or an independently implemented behavior based only on public documentation/specifications. Record source links and design notes for clean-room features.
 7. Configure CI to reject commits descended from either Sustainable Use transition and to scan new files for Sustainable Use/proprietary markers and excluded path names.

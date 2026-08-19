@@ -11,6 +11,8 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-vendored-assets.mjs"
+      - "docs/VENDORED_ASSETS.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -24,6 +26,8 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-vendored-assets.mjs"
+      - "docs/VENDORED_ASSETS.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -49,6 +53,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check Community boundaries
         run: pnpm run check:community-boundaries
+      - name: Check vendored runtime assets
+        run: pnpm run check:vendored-assets
       - name: Build Community SDK
         run: pnpm --filter nocodb-sdk build
       - name: Build Community integration interfaces

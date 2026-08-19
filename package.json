@@ -36,6 +36,7 @@
   },
   "scripts": {
     "check:community-boundaries": "node scripts/check-community-boundaries.mjs",
+    "check:vendored-assets": "node scripts/check-vendored-assets.mjs",
     "bootstrap": "pnpm run bootstrap:ce",
     "bootstrap:ce": "pnpm --filter=nocodb-sdk install && pnpm --filter=nocodb-sdk run build && pnpm --filter=nocodb --filter=nc-gui --filter=nc-sql-executor --filter=playwright install && pnpm run integrations:build:core",
     "integrations:install": "cross-env CI=true pnpm --dir ./packages/noco-integrations install --frozen-lockfile",
