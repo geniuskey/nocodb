@@ -13,7 +13,6 @@
     "coverage",
     "dist",
     "nc",
-    "src/ee/**",
     "src/lib/Api.ts"
   ],
   "plugins": [

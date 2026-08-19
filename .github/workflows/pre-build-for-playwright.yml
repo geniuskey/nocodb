@@ -39,9 +39,6 @@ jobs:
       - name: Set CI env
         run: export CI=true
 
-      - name: Set NC Edition
-        run: export EE=true
-
       - name: remove use-node-version line from .npmrc
         run: sed -i '/^use-node-version/d' .npmrc
 
@@ -53,13 +50,13 @@ jobs:
         run: |
           export NODE_OPTIONS="--max_old_space_size=16384"
           export NUXT_PUBLIC_ENV=CI
-          pnpm run build:ee
+          pnpm run build
 
       - name: Upload UI build
         working-directory: ./packages/nc-gui
         run: |
           FILE="$(echo ${GITHUB_REPOSITORY} | sed "s,/,-,g")-${GITHUB_RUN_ID}.zip"
-          zip -r ${FILE} ee/.output || echo "UI build directory does not exists" >&2
+          zip -r ${FILE} .output || echo "UI build directory does not exist" >&2
 
           path="gh-artifacts/ui-builds/"
           target_dir="/mnt/${path}"

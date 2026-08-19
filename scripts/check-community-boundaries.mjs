@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,7 +41,7 @@ const configurationChecks = [
   },
   {
     path: "packages/nocodb/tests/unit/tsconfig.json",
-    required: [
+    forbidden: [
       '"../../src/ee"',
       '"../../src/ee-on-prem"',
       '"../../src/ee-cloud"',
@@ -79,8 +79,19 @@ const defaultScriptChecks = [
   },
   {
     path: "packages/nc-gui/package.json",
-    scripts: ["build", "dev"],
+    scripts: ["build", "dev", "ci:start"],
   },
+  {
+    path: "tests/playwright/package.json",
+    scripts: ["test", "ci:test", "ci:test:mysql", "ci:test:pg"],
+  },
+];
+const scriptManifests = [
+  "package.json",
+  "packages/nocodb/package.json",
+  "packages/nocodb-sdk/package.json",
+  "packages/nc-gui/package.json",
+  "tests/playwright/package.json",
 ];
 
 const sourceRoots = [
@@ -101,6 +112,39 @@ const excludedDirectories = new Set(
     "tests/playwright/tests/ee",
   ].map(fromRoot)
 );
+const forbiddenPaths = [
+  ...excludedDirectories,
+  ...[
+    "packages/nc-gui/extensions/bulk-update-ee",
+    "packages/nc-gui/extensions/csv-import-ee",
+    "packages/nc-gui/extensions/org-chart-ee",
+    "packages/nc-gui/extensions/page-designer-ee",
+    "packages/nc-gui/extensions/url-preview-ee",
+    "packages/nc-gui/extensions/world-clock-ee",
+    "scripts/ee",
+    "scripts/sync",
+    "build-local-ee-docker-image.sh",
+    "packages/nocodb/rspack.config.js",
+    "packages/nocodb/rspack.dev.ee-cloud.js",
+    "packages/nocodb/rspack.dev.ee-on-prem.js",
+    "packages/nocodb/rspack.dev.ee.js",
+    "packages/nocodb/rspack.ee-cloud.config.js",
+    "packages/nocodb/rspack.ee-on-prem.config.js",
+    "packages/nocodb/tsconfig.ee-cloud.json",
+    "packages/nocodb/tsconfig.ee-on-prem.json",
+    "packages/nocodb/tsconfig.ee.json",
+    "packages/nocodb/tests/unit/tsconfig.ee.json",
+    "packages/nocodb-sdk/build-script/mergeAndGenerateSwagger.js",
+    ".github/workflows/openreplay-cdn-build.yml",
+    ".github/workflows/release-cloud-build.yml",
+    ".github/workflows/release-cloud-pr-build.yml",
+    ".github/workflows/release-cloud-production-executor.yml",
+    ".github/workflows/release-cloud-production.yml",
+    ".github/workflows/release-ee-on-prem-docker.yml",
+    ".github/workflows/sync-ce-to-ee.yml",
+    ".github/workflows/sync-ee-to-ce.yml",
+  ].map(fromRoot),
+];
 const ignoredDirectoryNames = new Set([
   ".git",
   ".nuxt",
@@ -123,6 +167,17 @@ const moduleSpecifierPattern =
 const forbiddenScriptPattern =
   /(?:\bEE=|(?:^|\s)(?:build|generate):ee\b|rspack\S*\.ee(?:\.|\s)|src\/ee(?:\/|\b))/;
 const failures = [];
+
+for (const forbiddenPath of forbiddenPaths) {
+  try {
+    await lstat(forbiddenPath);
+    failures.push(
+      `${relative(repositoryRoot, forbiddenPath)}: excluded path is present`
+    );
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
 
 for (const check of configurationChecks) {
   const source = await readFile(fromRoot(check.path), "utf8");
@@ -157,6 +212,18 @@ for (const check of defaultScriptChecks) {
   }
 }
 
+for (const manifestPath of scriptManifests) {
+  const manifest = JSON.parse(await readFile(fromRoot(manifestPath), "utf8"));
+
+  for (const [scriptName, command] of Object.entries(manifest.scripts ?? {})) {
+    if (forbiddenScriptPattern.test(command)) {
+      failures.push(
+        `${manifestPath}: ${scriptName} crosses the Community source boundary`
+      );
+    }
+  }
+}
+
 async function* walkCommunitySource(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const entryPath = resolve(directory, entry.name);
@@ -165,11 +232,14 @@ async function* walkCommunitySource(directory) {
       const isExcludedExtension =
         basename(directory) === "extensions" && entry.name.endsWith("-ee");
 
-      if (
-        ignoredDirectoryNames.has(entry.name) ||
-        excludedDirectories.has(entryPath) ||
-        isExcludedExtension
-      ) {
+      if (ignoredDirectoryNames.has(entry.name)) {
+        continue;
+      }
+
+      if (excludedDirectories.has(entryPath) || isExcludedExtension) {
+        failures.push(
+          `${relative(repositoryRoot, entryPath)}: excluded path is present`
+        );
         continue;
       }
 

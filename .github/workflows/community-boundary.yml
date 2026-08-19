@@ -5,16 +5,22 @@ on:
     branches: [main]
     paths:
       - "packages/nc-gui/**"
-      - "scripts/check-community-boundaries.mjs"
+      - "tests/playwright/**"
+      - "scripts/**"
       - "package.json"
-      - ".github/workflows/community-boundary.yml"
+      - "build-local-docker-image.sh"
+      - "build-local-ee-docker-image.sh"
+      - ".github/workflows/**"
   pull_request:
     branches: [main]
     paths:
       - "packages/nc-gui/**"
-      - "scripts/check-community-boundaries.mjs"
+      - "tests/playwright/**"
+      - "scripts/**"
       - "package.json"
-      - ".github/workflows/community-boundary.yml"
+      - "build-local-docker-image.sh"
+      - "build-local-ee-docker-image.sh"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:

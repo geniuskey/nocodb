@@ -4,14 +4,14 @@ on:
   workflow_call:
     inputs:
       test_set:
-        description: 'Test set number'
+        description: "Test set number"
         required: true
         type: string
   # Triggered manually
   workflow_dispatch:
     inputs:
       test_set:
-        description: 'Test set number'
+        description: "Test set number"
         required: true
         type: string
 
@@ -46,8 +46,6 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Set CI env
         run: export CI=true
-      - name: Set NC Edition
-        run: export EE=true
       - name: remove use-node-version line from .npmrc
         run: sed -i '/^use-node-version/d' .npmrc
       - name: install dependencies
@@ -58,4 +56,4 @@ jobs:
           pnpm run dev &
       - name: run unit tests
         working-directory: ./packages/nocodb
-        run: pnpm run test:unit:pg:ee --forbid-only --test-set-${{ inputs.test_set }}
+        run: pnpm run test:unit:pg --forbid-only --test-set-${{ inputs.test_set }}

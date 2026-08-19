@@ -7,7 +7,7 @@ const camelize = (s) => s.replace(/-./g, (x) => x[1].toUpperCase());
 
 const prepareComponentName = (name) => capitalize(camelize(name));
 
-async function registerIntegrations(EE = false) {
+async function registerIntegrations() {
   // Read the package.json file
   const packageJsonPath = path.join(__dirname, '..', 'package.json');
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
@@ -124,7 +124,7 @@ async function registerIntegrations(EE = false) {
   }
 
   // Generate index.ts content for standard integrations
-  const integrationRoot = EE ? 'src/ee/integrations' : 'src/integrations';
+  const integrationRoot = 'src/integrations';
   const indexPath = path.join(__dirname, '..', `${integrationRoot}/index.ts`);
 
   // Generate the content for index.ts
@@ -167,19 +167,4 @@ ${exportEntries
   console.log(`${integrationRoot}/index.ts has been generated successfully.`);
 }
 
-async function main() {
-  // check if src/ee/integrations/index.ts exists
-  const eeIndexPath = path.join(__dirname, '..', 'src/ee/integrations');
-  const isEE = await fs
-    .access(eeIndexPath)
-    .then(() => true)
-    .catch(() => false);
-
-  if (isEE) {
-    await registerIntegrations(true);
-  } else {
-    await registerIntegrations();
-  }
-}
-
-main();
+registerIntegrations();

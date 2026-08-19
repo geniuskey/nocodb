@@ -55,7 +55,7 @@ The default local metadata/data store is SQLite. Knex-backed connections support
 - `plugins` and `modules`: Nuxt/Vue integration points.
 - `extensions/data-exporter` and `extensions/json-exporter`: Community extensions present in the baseline.
 
-Do not use `packages/nc-gui/ee` or any `extensions/*-ee` directory. The Community Nuxt, Windi, plugin-resource, and extension-component discovery configuration explicitly excludes those paths. `pnpm run check:community-boundaries` guards this build boundary without reading excluded implementations.
+The fork physically removes `packages/nc-gui/ee` and all baseline `extensions/*-ee` directories. The Community Nuxt, Windi, plugin-resource, and extension-component discovery configuration retains explicit negative globs as defense in depth. `pnpm run check:community-boundaries` rejects reintroduction of removed paths without reading their historical implementations.
 
 ## SDK and API generation
 
@@ -78,14 +78,14 @@ The frontend `generate` command creates `.output/public`; the baseline also expo
 - SDK: Jest unit tests plus ESLint, Prettier, and CSpell checks.
 - Backend: a Jest command that currently finds no tests, and a separate Mocha/SWC unit suite under `packages/nocodb/tests/unit`.
 - Frontend: Vitest is configured, but this baseline contains no matching GUI test files.
-- End-to-end: Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. Run only Community test paths/configuration; scripts that explicitly set `EE=true` are outside the fork's approved workflow.
+- End-to-end: Community Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. The package scripts and retained CI workflows no longer set Enterprise flags or install Enterprise-only identity-provider fixtures.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 
 ## Legal boundary for extension work
 
-The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). In particular, avoid `packages/nocodb/src/ee`, `packages/nocodb/ee-on-prem`, `packages/nocodb/ee-cloud`, `packages/nocodb-sdk/src/ee`, `packages/nc-gui/ee`, `packages/nc-gui/extensions/*-ee`, `scripts/ee`, Enterprise tests/configuration, and ambiguous cloud/release/integration code called out in that report.
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, build-config, and release-workflow paths from the frozen tag are physically absent. Ambiguous integration, cloud/release, generated-bundle, and branding paths called out in the audit remain excluded from approval pending their own removal or provenance review.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
-The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` scans Community module specifiers and default scripts while explicitly skipping excluded implementation directories.
+The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, and rejects Enterprise source selectors in every principal package script.
