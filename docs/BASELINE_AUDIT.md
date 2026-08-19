@@ -72,6 +72,8 @@ Remove or avoid these paths when creating the actual fork baseline:
 - Enterprise build/test entry points and configuration, including `build-local-ee-docker-image.sh`, `.github/workflows/release-ee-on-prem-docker.yml`, and `packages/nocodb/rspack.*ee*.js`, `packages/nocodb/tsconfig.ee*.json`, or equivalents
 - `packages/noco-integrations/packages/`, `packages/noco-integrations/templates/`, and `packages/noco-integrations/wip/` until each component has an affirmative license/provenance review and has been confirmed not to be Enterprise-only
 - `cloud/`, `scripts/sync/`, and `scripts/release/`; recreate fork infrastructure rather than inherit upstream private/release topology
+- `scripts/self-hosted-gh-runner/`; recreate fork runner infrastructure with current, fork-owned configuration
+- `scripts/pkg-executable/` and `scripts/downgradeSqlite.js`; the optional legacy packager carries precompiled native binaries and installs a separately published NocoDB package outside the frozen workspace graph
 - NocoDB names, logos, mascots, and other brand assets where trademark rights are separate from copyright licensing; replace these before public distribution
 - Generated bundles such as `packages/nc-secret-mgr/dist/` unless needed and shipped with every required third-party notice; prefer reproducible builds from audited source
 
@@ -84,6 +86,8 @@ The fork's Phase 1 cleanup physically removes all Enterprise-labelled implementa
 The same cleanup also removes the unapproved integration providers/templates/work-in-progress packages and upstream cloud/release/Helm assets and workflows. Only the independently reviewed integration interface package remains, with explicit `AGPL-3.0-or-later` package metadata and a core-only nested workspace.
 
 The optional `packages/nc-secret-mgr` package is removed as a complete unit together with its dedicated backend bundle configuration and version-update script. Although its manifest declared ISC, its retained source included a generated backend CLI artifact, and that generator explicitly selected `EE: true`. The fork does not alter that selector or inspect the excluded implementation; it excludes the optional package, generated artifact, and generator together.
+
+The fork also removes the unused legacy executable packager, its five committed `node_sqlite3.node` binaries, its SQLite downgrade mutator, and the upstream self-hosted GitHub runner image/cluster configuration. These paths were not part of the Community workspace or documented build and are not used as implementation references.
 
 `pnpm run check:community-boundaries` fails if a removed path or unapproved workflow is reintroduced, if the integration workspace expands beyond `core`, or if a package script again selects an excluded source/build entry point. Brand replacement and a repository-wide third-party notice inventory remain required before the first public fork release.
 

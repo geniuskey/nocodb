@@ -85,7 +85,7 @@ Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They 
 
 ## Legal boundary for extension work
 
-The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm assets and workflows, and the optional secret-manager package with its generated Enterprise-mode CLI are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Enterprise-labelled backend, SDK, GUI, extension, script, test, and build-config paths from the frozen tag are physically absent. Ambiguous integration providers, upstream cloud/release/Helm/runner assets and workflows, the optional secret-manager package with its generated Enterprise-mode CLI, and the legacy executable packager with precompiled native binaries are also absent. Branding paths remain excluded from approval pending replacement, and third-party notices still require a release inventory.
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
