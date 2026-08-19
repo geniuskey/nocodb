@@ -82,6 +82,7 @@ mongod
 
 .history
 /packages/nocodb/docker/main.js.LICENSE.txt
+/packages/nocodb/docker/main.js.map
 /packages/nocodb/noco_log.db
 
 # NC_DBs

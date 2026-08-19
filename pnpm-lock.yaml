@@ -1461,6 +1461,9 @@ importers:
       cspell:
         specifier: ^4.2.8
         version: 4.2.8
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       eslint:
         specifier: ^8.57.1
         version: 8.57.1

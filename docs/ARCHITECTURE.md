@@ -1,0 +1,89 @@
+# NocoDB AGPL Baseline Architecture
+
+This document describes the frozen Community baseline at tag `v2025.11.0`, commit `d9d3d9d391130d7800df7c22d70d07743f103b9f`. It must be read together with [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). Directories excluded by that audit are not extension points for this fork.
+
+## Toolchain
+
+- Node.js: `22.12.0`, selected by the repository-level `.npmrc`. The backend declares Node.js `>=22`; the GUI, SDK, and Playwright packages declare `>=18`.
+- Package manager: pnpm `9.15.5`, pinned by the root `packageManager` field. Corepack is the supported launcher.
+- Workspace: a pnpm monorepo with 10 package globs (11 projects including the root) and a small Lerna configuration for independent package versioning.
+- Primary language: TypeScript. The GUI also contains Vue single-file components.
+
+Do not use pnpm 10 for this tree. Its lockfile interpretation rejects the frozen `pnpm-lock.yaml` patched-dependency metadata.
+
+## Workspace map
+
+| Path | Role | License declared by package |
+| --- | --- | --- |
+| `packages/nocodb` | NestJS/Express API server, metadata service, database abstraction, migrations, bundled production entry point | AGPL-3.0-or-later |
+| `packages/nc-gui` | Nuxt 3/Vue 3 single-page web client | AGPL-3.0-or-later |
+| `packages/nocodb-sdk` | Shared types, helpers, and generated API client used by the server and GUI | AGPL-3.0-or-later |
+| `packages/nocodb-sdk-v2` | Experimental second SDK generator/build | AGPL-3.0-or-later |
+| `packages/nc-knex-dialects/knex-snowflake` | Knex dialect package | MIT |
+| `packages/nc-knex-dialects/knex-databricks` | Knex dialect package | MIT |
+| `packages/nc-sql-executor` | Separate SQL execution service | ISC |
+| `packages/nc-secret-mgr` | Secret-manager helper package | ISC |
+| `packages/nc-integration-scaffolder` | Integration scaffolding tool | AGPL-3.0-or-later |
+| `tests/playwright` | Browser end-to-end test project | AGPL-3.0-or-later |
+
+The non-AGPL package declarations are not automatically relicensed by the repository-level license. See the baseline audit before copying or redistributing those packages.
+
+## Backend
+
+`packages/nocodb` is a NestJS application hosted on Express. The Community runtime entry is `src/run/docker`; Rspack turns it into `docker/main.js` for production. Important Community areas are:
+
+- `src/controllers` and `src/modules`: HTTP/WebSocket boundaries and NestJS module assembly.
+- `src/services`: application operations and orchestration.
+- `src/models` and `src/meta`: metadata models, persistence, and migrations.
+- `src/db`: database-independent query and record operations.
+- `src/db/sql-data-mapper`: SQL-dialect mapping.
+- `src/schema`: public OpenAPI/Swagger descriptions used to generate the SDK.
+- `src/plugins`, `src/providers`, and Community integration interfaces: adapters for storage, notifications, authentication, and external services. New work here must be independently designed from public specifications and the Community baseline only.
+- `src/public`: server-owned static files.
+
+The default local metadata/data store is SQLite. Knex-backed connections support PostgreSQL and MySQL, while separate workspace packages contain Snowflake and Databricks dialects. Metadata schema changes are performed by the migrations under `src/meta/migrations`; never edit an already-released migration for new fork work.
+
+## Frontend
+
+`packages/nc-gui` is a client-only Nuxt 3 application (`ssr: false`) using Vue 3, Vite, Pinia, Windi CSS, and the workspace SDK. Its main Community extension surfaces are:
+
+- `pages`: route-level screens.
+- `components`: reusable and feature-level Vue components.
+- `composables`: shared stateful client behavior and API orchestration.
+- `stores`: Pinia state stores.
+- `lib`, `utils`, and `helpers`: framework-independent client utilities.
+- `plugins` and `modules`: Nuxt/Vue integration points.
+- `extensions/data-exporter` and `extensions/json-exporter`: Community extensions present in the baseline.
+
+Do not use `packages/nc-gui/ee` or any `extensions/*-ee` directory. Nuxt's broad component scanning can discover those paths if they remain in the tree; their presence in a build log is not evidence that they are an approved fork baseline.
+
+## SDK and API generation
+
+`packages/nocodb-sdk` merges the Community Swagger fragments and runs the pinned `swagger-typescript-api@10.0.3` templates in `scripts/sdk/templates`. It produces CommonJS output in `build/main` and ESM output in `build/module`. The GUI consumes the ESM build; the backend consumes shared types and helpers.
+
+`src/lib/Api.ts` is generated and intentionally excluded from formatting/lint checks. Change public schemas or Community templates, then regenerate; do not hand-maintain the generated client.
+
+## Build pipeline
+
+1. pnpm installs the frozen workspace graph.
+2. The Community SDK is generated and compiled first.
+3. Nuxt prepares/builds the GUI.
+4. Rspack bundles the backend into `packages/nocodb/docker/main.js`.
+5. A local container image combines the backend bundle, generated static GUI, public assets, and production dependencies.
+
+The frontend `generate` command creates `.output/public`; the baseline also exposes this as the `dist` junction used by its packaging scripts.
+
+## Test pipeline
+
+- SDK: Jest unit tests plus ESLint, Prettier, and CSpell checks.
+- Backend: a Jest command that currently finds no tests, and a separate Mocha/SWC unit suite under `packages/nocodb/tests/unit`.
+- Frontend: Vitest is configured, but this baseline contains no matching GUI test files.
+- End-to-end: Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. Run only Community test paths/configuration; scripts that explicitly set `EE=true` are outside the fork's approved workflow.
+
+Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
+
+## Legal boundary for extension work
+
+The approved starting surface is the Community set identified in [BASELINE_AUDIT.md](./BASELINE_AUDIT.md). In particular, avoid `packages/nocodb/src/ee`, `packages/nocodb/ee-on-prem`, `packages/nocodb/ee-cloud`, `packages/nocodb-sdk/src/ee`, `packages/nc-gui/ee`, `packages/nc-gui/extensions/*-ee`, `scripts/ee`, Enterprise tests/configuration, and ambiguous cloud/release/integration code called out in that report.
+
+Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.

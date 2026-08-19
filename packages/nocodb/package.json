@@ -21,7 +21,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "pnpm run docker:build",
-    "docker:build": "EE=\"true-xc-test\" rspack  --config docker/rspack.config.js",
+    "docker:build": "cross-env EE=true-xc-test rspack --config docker/rspack.config.js",
     "build:obfuscate": "EE=true rspack --config rspack.config.js",
     "build:cli:module": "rspack --config rspack.cli.config.js",
     "build:on-prem": "EE=true rspack --config rspack.ee-on-prem.config.js",
