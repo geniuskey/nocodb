@@ -1,5 +1,5 @@
-import { UITypes, isSystemColumn, isVirtualCol, parseProp } from 'nocodb-sdk'
-import type { ColumnType, ListType, SelectOptionsType } from 'nocodb-sdk'
+import { UITypes, isSystemColumn, isVirtualCol, parseProp, validateRowFilters } from 'nocodb-sdk'
+import type { ColumnType, FilterType, ListType, SelectOptionsType } from 'nocodb-sdk'
 
 type ListPresentationConfig = Partial<ListType> & {
   fk_title_column_id?: string | null
@@ -73,6 +73,94 @@ export const resolveListRowColor = (record: Record<string, any>, colorField?: Co
   )
 
   return option?.color || undefined
+}
+
+export type ListColorRule = Pick<FilterType, 'fk_column_id' | 'comparison_op' | 'comparison_sub_op' | 'value' | 'meta'> & {
+  id: string
+  color: string
+}
+
+const listColorRuleUnsupportedTypes = new Set([
+  UITypes.Attachment,
+  UITypes.ForeignKey,
+  UITypes.SpecificDBType,
+  UITypes.Button,
+  UITypes.Barcode,
+  UITypes.QrCode,
+  UITypes.Links,
+  UITypes.LinkToAnotherRecord,
+  UITypes.Lookup,
+  UITypes.Rollup,
+])
+
+export const isListColorRuleColumn = (column: ColumnType) =>
+  !!column.id && !!column.title && !isSystemColumn(column) && !listColorRuleUnsupportedTypes.has(column.uidt as UITypes)
+
+export const parseListColorRules = (meta: unknown): ListColorRule[] => {
+  const rules = parseProp(meta)?.list_color_rules
+  if (!Array.isArray(rules)) return []
+
+  return rules
+    .filter(
+      (rule): rule is ListColorRule =>
+        !!rule &&
+        typeof rule === 'object' &&
+        typeof rule.id === 'string' &&
+        typeof rule.fk_column_id === 'string' &&
+        typeof rule.comparison_op === 'string' &&
+        typeof rule.color === 'string' &&
+        /^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(rule.color),
+    )
+    .slice(0, 20)
+    .map((rule) => ({
+      id: rule.id,
+      fk_column_id: rule.fk_column_id,
+      comparison_op: rule.comparison_op,
+      comparison_sub_op: rule.comparison_sub_op ?? null,
+      value: rule.value,
+      color: rule.color,
+      ...(rule.meta ? { meta: rule.meta } : {}),
+    }))
+}
+
+export const resolveListConditionalRowColor = (
+  record: Record<string, any>,
+  fields: ColumnType[],
+  rules: ListColorRule[],
+  context: {
+    client?: any
+    metas?: Record<string, any>
+    currentUser?: { id: string; email: string }
+    timezone?: string
+  } = {},
+): string | undefined => {
+  const eligibleFieldIds = new Set(fields.filter(isListColorRuleColumn).map((field) => field.id))
+
+  for (const rule of rules) {
+    if (!eligibleFieldIds.has(rule.fk_column_id)) continue
+
+    try {
+      if (
+        validateRowFilters({
+          filters: [rule],
+          data: record,
+          columns: fields,
+          client: context.client,
+          metas: context.metas ?? {},
+          options: {
+            currentUser: context.currentUser,
+            timezone: context.timezone,
+          },
+        })
+      ) {
+        return rule.color
+      }
+    } catch {
+      // A stale or type-incompatible rule must never prevent the List from rendering.
+    }
+  }
+
+  return undefined
 }
 
 const listBulkUpdateUnsupportedTypes = new Set([UITypes.Attachment, UITypes.ForeignKey, UITypes.SpecificDBType])

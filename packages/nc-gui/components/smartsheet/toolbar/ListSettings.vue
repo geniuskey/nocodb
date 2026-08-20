@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { UITypes, ViewTypes } from 'nocodb-sdk'
 import type { ColumnType, ListType } from 'nocodb-sdk'
-import { resolveListPresentationFields } from '~/utils/listView'
+import { parseListColorRules, resolveListPresentationFields } from '~/utils/listView'
 
 const activeView = inject(ActiveViewInj, ref())
 const fields = inject(FieldsInj, ref<ColumnType[]>([]))
@@ -62,6 +62,7 @@ const subtitleColumnId = computed(() =>
 )
 const imageColumnId = computed(() => listConfig.value.fk_image_column_id || noFieldValue)
 const colorByFieldId = computed(() => listMeta.value.color_by_field_id || noFieldValue)
+const colorRules = computed(() => parseListColorRules(listMeta.value))
 const density = computed(() => listConfig.value.density || 'comfortable')
 const showFieldLabels = computed(() => ![false, 0, '0'].includes(listConfig.value.show_field_labels))
 
@@ -93,7 +94,7 @@ useMenuCloseOnEsc(open)
     </NcTooltip>
 
     <template #overlay>
-      <div data-testid="nc-list-settings" class="w-80 rounded-lg bg-nc-bg-default p-3" @click.stop>
+      <div data-testid="nc-list-settings" class="w-[760px] max-w-[calc(100vw-24px)] rounded-lg bg-nc-bg-default p-3" @click.stop>
         <div class="mb-3 text-sm font-semibold text-nc-content-gray-emphasis">
           {{ $t('labels.listViewAppearance') }}
         </div>
@@ -210,6 +211,13 @@ useMenuCloseOnEsc(open)
               @update:checked="(value) => saveSettings({ show_field_labels: value })"
             />
           </div>
+
+          <SmartsheetListConditionalColors
+            :rules="colorRules"
+            :fields="fields"
+            :disabled="isLocked || isSaving"
+            @save="(rules) => saveSettings({ meta: { ...listMeta, list_color_rules: rules } })"
+          />
         </div>
 
         <GeneralLockedViewFooter v-if="isLocked" class="-mx-3 -mb-3 mt-3" @on-open="open = false" />

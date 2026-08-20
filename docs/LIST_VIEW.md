@@ -29,15 +29,16 @@ The frontend provides:
 - saved title, subtitle, image, density, and field-label presentation settings;
 - attachment thumbnails with a stable empty-image fallback;
 - optional row accents derived from visible Single Select option colors;
+- ordered, condition-based row color rules stored in List metadata;
 - variable-height, overscanned row virtualization;
 - cross-page explicit selection and all-matching, permission-aware bulk deletion;
 - cross-page explicit and all-matching, permission-aware single-field bulk update;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Condition-based row coloring, multi-field bulk update, and server-range loading
-beyond the existing pagination contract remain follow-up slices. The UI does not
-advertise controls for those capabilities yet.
+Multi-field bulk update and server-range loading beyond the existing pagination
+contract remain follow-up slices. The UI does not advertise controls for those
+capabilities yet.
 
 ## Interaction contract
 
@@ -113,10 +114,22 @@ receives a subtle background and left accent using that option's stored color.
 Missing fields, stale option values, and empty cells render without an accent.
 The renderer evaluates only data already projected into the List response.
 
+`meta.list_color_rules` stores at most 20 ordered rules. Each rule contains a
+stable local identifier, visible field identifier, Community filter comparison,
+optional comparison sub-operation and value, and a hexadecimal color. The
+renderer evaluates rules from top to bottom against the already projected row;
+the first match wins. If no rule matches, the Single Select color setting above
+is used as a fallback. The Appearance editor supports ordinary text, number,
+select, checkbox, date/time, and other scalar fields using the retained
+Community filter vocabulary and cell editors. Attachment, relation, lookup,
+rollup, database-specific, and action fields are excluded. Missing fields,
+malformed colors, incompatible values, and stale rules are ignored so saved
+metadata cannot stop a List from rendering.
+
 This List-only presentation path is intentionally independent of the existing
 shared row-color subsystem: it does not read or write `row_coloring_mode`, call
 row-color endpoints, alter `useEeConfig`, or change any licensing check. More
-general condition-based coloring requires a separate independent design.
+complex grouped conditions remain a separate independent design.
 
 ## API contract
 
@@ -151,13 +164,13 @@ mutation flow.
 The Community image workflow creates and updates List metadata through the API,
 confirms the general table-view listing returns the List, creates a second List
 through the rendered UI, and verifies a persisted record appears in that List.
-It also saves Appearance settings, applies Single Select option colors, verifies
-the resulting layout, creates enough records to prove the DOM window is
-bounded, exercises keyboard range selection, explicit deletion, all-matching
+It also saves Appearance settings, applies ordered conditional colors with a
+Single Select fallback, verifies the resulting layout, creates enough records
+to prove the DOM window is bounded, exercises keyboard range selection, explicit deletion, all-matching
 selection, cross-page exclusions, permission-aware single-field bulk update,
 virtual focus movement, and server-side bulk deletion. The same workflow runs
 against SQLite, PostgreSQL, and MySQL; each database is also restarted before
 persistence is checked. Unit tests cover presentation-field resolution,
-attachment parsing, select-color resolution, page transitions, bulk-update
-field eligibility, all-matching exclusions, and keyboard boundary behavior
-independently of the renderer.
+attachment parsing, conditional and select-color resolution, page transitions,
+bulk-update field eligibility, all-matching exclusions, and keyboard boundary
+behavior independently of the renderer.

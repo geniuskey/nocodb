@@ -6,8 +6,10 @@ import type { ColumnType, ListType } from 'nocodb-sdk'
 import type { ComponentPublicInstance } from 'vue'
 import type { Row as RowType } from '#imports'
 import {
+  parseListColorRules,
   parseListImageAttachment,
   resolveListColorField,
+  resolveListConditionalRowColor,
   resolveListPresentationFields,
   resolveListRowColor,
 } from '~/utils/listView'
@@ -20,6 +22,8 @@ const openNewRecordFormHook = inject(OpenNewRecordFormHookInj, createEventHook()
 const isPublic = inject(IsPublicInj, ref(false))
 
 const { user } = useGlobal()
+const { metas } = useMetas()
+const { getBaseType } = useBase()
 const { isUIAllowed } = useRoles()
 const { isViewDataLoading } = storeToRefs(useViewsStore())
 const { xWhere, allFilters, validFiltersFromUrlParams, eventBus, isSyncedTable } = useSmartsheetStoreOrThrow()
@@ -56,6 +60,7 @@ const subtitleField = computed(() => presentation.value.subtitleField)
 const imageField = computed(() => presentation.value.imageField)
 const detailFields = computed(() => presentation.value.detailFields)
 const colorField = computed(() => resolveListColorField(fields.value, listConfig.value.meta))
+const colorRules = computed(() => parseListColorRules(listConfig.value.meta))
 
 const imageAttachment = (record: RowType) =>
   imageField.value?.title ? parseListImageAttachment(record.row[imageField.value.title]) : undefined
@@ -100,7 +105,14 @@ const listItemHeight = computed(() => {
 })
 
 const listRowStyle = (record: RowType) => {
-  const color = resolveListRowColor(record.row, colorField.value)
+  const currentUser = user.value?.id && user.value?.email ? { id: user.value.id, email: user.value.email } : undefined
+  const color =
+    resolveListConditionalRowColor(record.row, fields.value, colorRules.value, {
+      client: getBaseType(listConfig.value.source_id),
+      metas: metas.value,
+      currentUser,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }) || resolveListRowColor(record.row, colorField.value)
 
   return {
     height: `${listItemHeight.value - 8}px`,
