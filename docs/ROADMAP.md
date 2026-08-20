@@ -128,7 +128,10 @@ and label controls, and attachment-image presentation are implemented. Ordered
 conditional row colors and Single Select fallback colors are implemented as
 List-only metadata without using the shared gated row-color subsystem. Color
 rules support bounded AND/OR condition groups with safe legacy parsing.
-Server-range loading remains.
+Adjacent server ranges are prefetched through the existing Community offset/limit
+API and retained in a three-range LRU; navigation consumes a ready range without
+duplicating the request, while query and mutation changes invalidate stale and
+in-flight entries. Phase 2 is complete.
 
 ## Phase 3 — Timeline
 
