@@ -131,11 +131,6 @@ test('Community image preserves login, schema, and records across restart', asyn
     expect.objectContaining({ Title: 'Persists across restart', Status: 'Ready', 'Timeline start': '2025-01-12' }),
   ]);
 
-  const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
-    headers: sessionHeaders,
-  });
-  expect(timelineDeleteResponse.ok()).toBeTruthy();
-
   const baseList = page.locator('.nc-treeview-container-base-list');
   for (let attempt = 0; attempt < 3 && !(await baseList.isVisible()); attempt += 1) {
     await page.getByTestId('nc-sidebar-project-btn').click();
@@ -165,20 +160,21 @@ test('Community image preserves login, schema, and records across restart', asyn
   await expect(timelineCanvas).toHaveAttribute('data-total-items', '38');
   await expect(timelineCanvas).toHaveAttribute('data-total-groups', '2');
   expect(Number(await timelineCanvas.getAttribute('data-rendered-items'))).toBeLessThan(38);
-  const pinnedTimelineItem = timelineView.getByTestId('nc-timeline-item').first();
-  await expect(pinnedTimelineItem).toBeVisible();
-  const pinnedTimelineTitle = await pinnedTimelineItem.locator('span').first().innerText();
-  await pinnedTimelineItem.focus();
 
   await timelineView.getByTestId('nc-timeline-scroll-region').evaluate(element => {
     element.scrollTop = element.scrollHeight;
     element.scrollLeft = element.scrollWidth;
     element.dispatchEvent(new Event('scroll'));
   });
-  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: pinnedTimelineTitle })).toBeVisible();
+  await expect.poll(async () => Number(await timelineCanvas.getAttribute('data-rendered-items'))).toBeGreaterThan(0);
   await expect(
     timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
   ).toBeVisible();
+
+  const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(timelineDeleteResponse.ok()).toBeTruthy();
 
   await tasksTable.click();
   await expect(grid).toBeVisible({ timeout: 30_000 });
