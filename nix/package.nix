@@ -3,9 +3,9 @@
   stdenv,
   nodePackages,
   pnpm,
+  fetchurl,
   sqlite,
   pkg-config,
-  rsync,
   makeWrapper,
   node-gyp,
   coreutils,
@@ -18,6 +18,22 @@
   cctools,
 }:
 
+let
+  nodejs = nodePackages.nodejs;
+  # pnpm honors packageManager and may install that exact version as a small
+  # launcher. Pin it in Nix and keep Node on PATH inside fetchDeps.
+  pnpmPinned = pnpm.overrideAttrs (oldAttrs: {
+    version = "9.15.5";
+    src = fetchurl {
+      url = "https://registry.npmjs.org/pnpm/-/pnpm-9.15.5.tgz";
+      hash = "sha256-hHIWjD4f0L/yh+aUsFP8y78gV5o/+VJrYzO+q432Wo0=";
+    };
+    nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ makeWrapper ];
+    postFixup = (oldAttrs.postFixup or "") + ''
+      wrapProgram $out/bin/pnpm --prefix PATH : ${lib.makeBinPath [ nodejs ]}
+    '';
+  });
+in
 stdenv.mkDerivation (finalAttrs: {
   inherit version;
 
@@ -38,17 +54,17 @@ stdenv.mkDerivation (finalAttrs: {
   buildPhase = ''
     export NODE_OPTIONS="--max_old_space_size=16384"
     export NUXT_TELEMETRY_DISABLED=1
-    export npm_config_nodedir=${nodePackages.nodejs}
+    export npm_config_nodedir=${nodejs}
 
-    pnpm --filter=nocodb-sdk run build
     pnpm run registerIntegrations
-    pnpm --filter=nc-gui run build:copy
-    pnpm --filter=nocodb run docker:build
+    pnpm run build:community
   '';
 
   installPhase = ''
     mkdir -p $out/share/nocodb/packages/nocodb
     cp -v ./packages/nocodb/docker/main.js $out/share/nocodb/packages/nocodb/index.js
+    cp -r ./packages/nocodb/docker/nc-gui $out/share/nocodb/packages/nocodb/nc-gui
+    cp -r ./packages/nocodb/src/public $out/share/nocodb/packages/nocodb/public
 
     # only ship nocodb workspace prod deps with node_modules (1.9GB -> 400MB)
     rm -rf ./node_modules ./packages/nocodb/node_modules
@@ -69,7 +85,7 @@ stdenv.mkDerivation (finalAttrs: {
     cp -r ./node_modules $out/share/nocodb/node_modules
     cp -r ./packages/nocodb/node_modules $out/share/nocodb/packages/nocodb/node_modules
 
-    makeWrapper "${lib.getExe nodePackages.nodejs}" "$out/bin/${finalAttrs.pname}" \
+    makeWrapper "${lib.getExe nodejs}" "$out/bin/${finalAttrs.pname}" \
       --set NODE_ENV production \
       --set PATH ${
         (lib.makeBinPath [
@@ -83,21 +99,20 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   nativeBuildInputs = [
-    nodePackages.pnpm
-    pnpm.configHook
+    pnpmPinned
+    pnpmPinned.configHook
     node-gyp
 
-    rsync
     makeWrapper
     pkg-config
-    (nodePackages.nodejs.python.withPackages (p: [
+    (nodejs.python.withPackages (p: [
       p.distutils
     ]))
   ];
 
   buildInputs =
     [
-      nodePackages.nodejs
+      nodejs
       sqlite
       vips
       coreutils # head
@@ -108,9 +123,9 @@ stdenv.mkDerivation (finalAttrs: {
       cctools
     ];
 
-  pnpmDeps = pnpm.fetchDeps {
+  pnpmDeps = pnpmPinned.fetchDeps {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-utjGiL8EuNpnlG2oGIQ9rJ0qeCvSwLyl49EHK44MVKo=";
+    hash = "sha256-vA5XlWiXZXKfL4OzlTfCFUNYZXbtwNOHBPnV7pk4Qt4=";
   };
 
   meta = {

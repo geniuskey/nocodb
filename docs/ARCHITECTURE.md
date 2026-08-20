@@ -13,17 +13,17 @@ Do not use pnpm 10 for this tree. Its lockfile interpretation rejects the frozen
 
 ## Workspace map
 
-| Path | Role | License declared by package |
-| --- | --- | --- |
-| `packages/nocodb` | NestJS/Express API server, metadata service, database abstraction, migrations, bundled production entry point | AGPL-3.0-or-later |
-| `packages/nc-gui` | Nuxt 3/Vue 3 single-page web client | AGPL-3.0-or-later |
-| `packages/nocodb-sdk` | Shared types, helpers, and generated API client used by the server and GUI | AGPL-3.0-or-later |
-| `packages/nocodb-sdk-v2` | Experimental second SDK generator/build | AGPL-3.0-or-later |
-| `packages/nc-knex-dialects/knex-snowflake` | Knex dialect package | MIT |
-| `packages/nc-knex-dialects/knex-databricks` | Knex dialect package | MIT |
-| `packages/nc-sql-executor` | Separate SQL execution service | ISC |
-| `packages/nc-integration-scaffolder` | Integration scaffolding tool | AGPL-3.0-or-later |
-| `tests/playwright` | Browser end-to-end test project | AGPL-3.0-or-later |
+| Path                                        | Role                                                                                                          | License declared by package |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `packages/nocodb`                           | NestJS/Express API server, metadata service, database abstraction, migrations, bundled production entry point | AGPL-3.0-or-later           |
+| `packages/nc-gui`                           | Nuxt 3/Vue 3 single-page web client                                                                           | AGPL-3.0-or-later           |
+| `packages/nocodb-sdk`                       | Shared types, helpers, and generated API client used by the server and GUI                                    | AGPL-3.0-or-later           |
+| `packages/nocodb-sdk-v2`                    | Experimental second SDK generator/build                                                                       | AGPL-3.0-or-later           |
+| `packages/nc-knex-dialects/knex-snowflake`  | Knex dialect package                                                                                          | MIT                         |
+| `packages/nc-knex-dialects/knex-databricks` | Knex dialect package                                                                                          | MIT                         |
+| `packages/nc-sql-executor`                  | Separate SQL execution service                                                                                | ISC                         |
+| `packages/nc-integration-scaffolder`        | Integration scaffolding tool                                                                                  | AGPL-3.0-or-later           |
+| `tests/playwright`                          | Browser end-to-end test project                                                                               | AGPL-3.0-or-later           |
 
 The non-AGPL package declarations are not automatically relicensed by the repository-level license. See the baseline audit before copying or redistributing those packages.
 
@@ -68,11 +68,25 @@ The fork physically removes `packages/nc-gui/ee` and all baseline `extensions/*-
 
 1. pnpm installs the frozen workspace graph.
 2. The Community SDK is generated and compiled first.
-3. Nuxt prepares/builds the GUI.
+3. Nuxt statically generates the Community GUI in `.output/public`.
 4. Rspack bundles the backend into `packages/nocodb/docker/main.js`.
-5. A local container image combines the backend bundle, generated static GUI, public assets, and production dependencies.
+5. The fork-owned staging command replaces `packages/nocodb/docker/nc-gui`
+   with that generated tree.
+6. A local container image combines the backend bundle, staged Community GUI,
+   server-owned public assets, and production dependencies.
 
-The frontend `generate` command creates `.output/public`; the baseline also exposes this as the `dist` junction used by its packaging scripts.
+The root `pnpm run build:community` command performs these steps in order. The
+backend now serves the staged tree directly and no longer installs or executes
+the upstream precompiled `nc-lib-gui` package. The frontend `generate` command
+creates `.output/public`; the baseline also exposes this as the `dist` junction.
+`scripts/stage-community-gui.mjs` validates the generated entry point, removes
+only the fixed ignored staging directory, and copies the tree with Node.js APIs
+so packaging behaves the same on Windows, macOS, and Linux.
+
+The Nix flake follows the same pipeline. Its fixed-output dependency derivation
+uses the frozen lockfile with an exact, wrapped pnpm `9.15.5`; the final package
+contains the Rspack bundle, staged GUI, and server-owned public assets. It does
+not fetch a package manager or SDK generator during the sandboxed build.
 
 ## Test pipeline
 

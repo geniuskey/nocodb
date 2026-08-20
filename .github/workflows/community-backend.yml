@@ -6,12 +6,15 @@ on:
     paths:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
+      - "packages/nc-gui/**"
       - "packages/noco-integrations/core/**"
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
       - "scripts/check-vendored-assets.mjs"
+      - "scripts/stage-community-gui.mjs"
+      - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -21,12 +24,15 @@ on:
     paths:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
+      - "packages/nc-gui/**"
       - "packages/noco-integrations/core/**"
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
       - "scripts/check-vendored-assets.mjs"
+      - "scripts/stage-community-gui.mjs"
+      - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -55,14 +61,14 @@ jobs:
         run: pnpm run check:community-boundaries
       - name: Check vendored runtime assets
         run: pnpm run check:vendored-assets
-      - name: Build Community SDK
-        run: pnpm --filter nocodb-sdk build
+      - name: Test Community GUI staging
+        run: pnpm run test:community-gui-stage
+      - name: Build assembled Community application
+        run: pnpm run build:community
       - name: Build Community integration interfaces
         run: pnpm run integrations:build:core
       - name: Test Community integration contracts
         run: pnpm --dir packages/noco-integrations test
-      - name: Build Community backend
-        run: pnpm --filter nocodb build
       - name: Type-check Community backend
         run: pnpm --filter nocodb run typecheck:community
       - name: Run Community backend smoke test
