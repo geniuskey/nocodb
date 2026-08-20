@@ -1,26 +1,25 @@
 #!/bin/sh
 
-#sleep 5
-
-if [ ! -z "${NC_TOOL_DIR}"  ]; then
-  mkdir -p $NC_TOOL_DIR
+if [ -n "${NC_TOOL_DIR:-}" ]; then
+  mkdir -p "${NC_TOOL_DIR}"
 fi
 
-if [[ ! -z "${AWS_ACCESS_KEY_ID}" && ! -z "${AWS_SECRET_ACCESS_KEY}" && ! -z "${AWS_BUCKET}" && ! -z "${AWS_BUCKET_PATH}" ]]; then
+if [ -n "${AWS_ACCESS_KEY_ID:-}" ] \
+  && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] \
+  && [ -n "${AWS_BUCKET:-}" ] \
+  && [ -n "${AWS_BUCKET_PATH:-}" ]; then
+  database_path="${NC_TOOL_DIR%/}/noco.db"
+  replica_url="s3://${AWS_BUCKET}/${AWS_BUCKET_PATH}"
 
-  if [ -f "${NC_TOOL_DIR}noco.db" ]
-  then
-    rm "${NC_TOOL_DIR}noco.db"
-    rm "${NC_TOOL_DIR}noco.db-shm"
-    rm "${NC_TOOL_DIR}noco.db-wal"
+  if [ -f "${database_path}" ]; then
+    rm -f "${database_path}" "${database_path}-shm" "${database_path}-wal"
   fi
 
-  /usr/src/appEntry/litestream restore -o "${NC_TOOL_DIR}noco.db" s3://$AWS_BUCKET/$AWS_BUCKET_PATH;
-  if [ ! -f "${NC_TOOL_DIR}noco.db" ]
-  then
-    touch "${NC_TOOL_DIR}noco.db"
+  litestream restore -o "${database_path}" "${replica_url}"
+  if [ ! -f "${database_path}" ]; then
+    touch "${database_path}"
   fi
-  /usr/src/appEntry/litestream replicate "${NC_TOOL_DIR}noco.db" s3://$AWS_BUCKET/$AWS_BUCKET_PATH &
+  litestream replicate "${database_path}" "${replica_url}" &
 fi
 
-node docker/main.js
+exec node docker/index.js
