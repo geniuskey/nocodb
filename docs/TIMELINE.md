@@ -75,8 +75,21 @@ non-blank end mapping:
   view-scoped undo/redo match whole-item rescheduling.
 
 An interval whose real end lies beyond the loaded window does not expose a
-handle at the clipped viewport edge. Blank ends remain point events, and
-left-edge/start resizing is intentionally outside this slice.
+handle at the clipped viewport edge. At that slice, blank ends remained point
+events and left-edge/start resizing remained deferred.
+
+The sixth slice completes whole-day duration editing with a left/start handle:
+
+- pointer and Left Arrow/Right Arrow input change only the mapped start field;
+- the start may equal a DateTime end instant or fall anywhere on an inclusive
+  Date end's calendar day, but it may not move later;
+- a read-only end can still bound a writable start because it is not mutated;
+  and
+- an interval that begins before the loaded window does not expose a false
+  handle at its clipped left edge.
+
+The same permission, optimistic preview, rollback, bounded reload, and
+view-scoped undo/redo contract applies. Blank ends remain non-resizable.
 
 ## Metadata contract
 
@@ -169,6 +182,8 @@ same PATCH pair with the existing view-scoped undo/redo service.
 Right-edge resizing reuses that exact mutation/history path with a one-field
 end patch. Its pure patch builder owns the Date-versus-DateTime boundary check,
 so pointer and keyboard input cannot diverge on minimum-duration behavior.
+Left-edge resizing uses the symmetric one-field start patch, with ordering
+defined by the mapped end type's inclusive-Date or exact-DateTime semantics.
 
 ## Compatibility rules
 
@@ -207,3 +222,8 @@ inclusive same-day Date ends, reversed intervals, blank ends, and unsupported
 mappings. Fresh and restart browser workflows must prove that the end handle
 sends only the mapped end and that the resized duration persists on all three
 metadata databases.
+
+The start-resize slice requires the symmetric start-only patch, same-day
+inclusive Date boundary, reversed-interval, and blank-end unit cases. Fresh and
+restart workflows must exercise both pointer and keyboard start resizing and
+prove the resulting start persists on SQLite, PostgreSQL, and MySQL.

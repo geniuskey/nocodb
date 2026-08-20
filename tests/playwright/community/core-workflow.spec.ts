@@ -861,4 +861,47 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     ).toISOString(),
   });
   await expect(page.getByTestId('nc-timeline-announcement')).toContainText('duration increased by 1 day');
+
+  await rescheduledTimelineItem.hover();
+  const timelineStartResizeHandle = rescheduledTimelineItem.getByTestId('nc-timeline-resize-start');
+  await expect(timelineStartResizeHandle).toBeVisible();
+  const timelineStartResizeBox = await timelineStartResizeHandle.boundingBox();
+  expect(timelineStartResizeBox).not.toBeNull();
+  const startResizeResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await page.mouse.move(
+    timelineStartResizeBox!.x + timelineStartResizeBox!.width / 2,
+    timelineStartResizeBox!.y + timelineStartResizeBox!.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    timelineStartResizeBox!.x + timelineStartResizeBox!.width / 2 + 120,
+    timelineStartResizeBox!.y + timelineStartResizeBox!.height / 2,
+    { steps: 5 }
+  );
+  await page.mouse.up();
+
+  const startResizeResponse = await startResizeResponsePromise;
+  expect(startResizeResponse.ok(), await startResizeResponse.text()).toBeTruthy();
+  expect(startResizeResponse.request().postDataJSON()).toEqual({
+    'Timeline start': new Date(Date.parse(`${currentTimelineDate}T00:00:00Z`) + 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+  });
+  await expect(page.getByTestId('nc-timeline-announcement')).toContainText('start moved 1 day later');
+
+  const keyboardStartResizeResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await timelineStartResizeHandle.focus();
+  await timelineStartResizeHandle.press('ArrowRight');
+  const keyboardStartResizeResponse = await keyboardStartResizeResponsePromise;
+  expect(keyboardStartResizeResponse.ok(), await keyboardStartResizeResponse.text()).toBeTruthy();
+  expect(keyboardStartResizeResponse.request().postDataJSON()).toEqual({
+    'Timeline start': new Date(Date.parse(`${currentTimelineDate}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+  });
+  await expect(page.getByTestId('nc-timeline-announcement')).toContainText('start moved 1 day later');
 });

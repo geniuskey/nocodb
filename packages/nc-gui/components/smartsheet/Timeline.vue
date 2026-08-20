@@ -8,6 +8,7 @@ import {
   type TimelineZoom,
   buildTimelineEndResizePatch,
   buildTimelineReschedulePatch,
+  buildTimelineStartResizePatch,
   layoutTimelineItems,
   timelineLaneCount,
 } from '~/utils/timelineView'
@@ -169,14 +170,25 @@ const resizeState = ref<{
   deltaDays: number
 }>()
 
+const startResizeState = ref<{
+  itemId: string
+  pointerId: number
+  startX: number
+  deltaDays: number
+}>()
+
 const itemStyle = (item: TimelineLayoutRecord) => {
   const previewDays = dragState.value?.itemId === item.id ? dragState.value.deltaDays : 0
   const resizeDays = resizeState.value?.itemId === item.id ? resizeState.value.deltaDays : 0
+  const startResizeDays = startResizeState.value?.itemId === item.id ? startResizeState.value.deltaDays : 0
   const baseWidth = ((item.end - item.start) / DAY_MS) * pixelsPerDay.value
   return {
-    left: `${((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value + previewDays * pixelsPerDay.value}px`,
+    left: `${
+      ((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value +
+      (previewDays + startResizeDays) * pixelsPerDay.value
+    }px`,
     top: `${item.lane * LANE_HEIGHT + 16}px`,
-    width: `${Math.max(14, baseWidth + resizeDays * pixelsPerDay.value)}px`,
+    width: `${Math.max(14, baseWidth + (resizeDays - startResizeDays) * pixelsPerDay.value)}px`,
   }
 }
 
@@ -225,6 +237,18 @@ const canResizeEnd = computed(
     !endColumn.value.readonly,
 )
 
+const canResizeStart = computed(
+  () =>
+    isUIAllowed('dataEdit') &&
+    !isLocked.value &&
+    !isSqlView.value &&
+    !isSyncedTable.value &&
+    !!startColumn.value?.title &&
+    !!endColumn.value?.title &&
+    startColumn.value.title !== endColumn.value.title &&
+    !startColumn.value.readonly,
+)
+
 const canResizeItem = (item: TimelineLayoutRecord) => {
   if (!canResizeEnd.value || !endKey.value) return false
   const rawEnd = item.record[endKey.value]
@@ -232,6 +256,25 @@ const canResizeItem = (item: TimelineLayoutRecord) => {
 
   const parsedEnd = parseEnd(rawEnd, Number.NaN)
   return Number.isFinite(parsedEnd) && parsedEnd <= rangeEnd.value.valueOf()
+}
+
+const canResizeStartItem = (item: TimelineLayoutRecord) => {
+  if (!canResizeStart.value || !startKey.value || !endKey.value) return false
+  const rawStart = item.record[startKey.value]
+  const rawEnd = item.record[endKey.value]
+  if (
+    rawStart === null ||
+    rawStart === undefined ||
+    rawStart === '' ||
+    rawEnd === null ||
+    rawEnd === undefined ||
+    rawEnd === ''
+  ) {
+    return false
+  }
+
+  const parsedStart = parseStart(rawStart)
+  return parsedStart !== undefined && parsedStart >= rangeStart.value.valueOf()
 }
 
 const patchRecordByPk = async (primaryKey: string, values: Record<string, unknown>) => {
@@ -326,6 +369,23 @@ const resizeEndByDays = async (item: TimelineLayoutRecord, deltaDays: number) =>
   )
 }
 
+const resizeStartByDays = async (item: TimelineLayoutRecord, deltaDays: number) => {
+  if (!canResizeStartItem(item) || savingRecordId.value || !startColumn.value) return
+
+  const patch = buildTimelineStartResizePatch(item.record, startColumn.value, endColumn.value, deltaDays)
+  if (!patch) {
+    announcement.value = 'Timeline start cannot follow its end.'
+    return
+  }
+
+  await applyTimelineMutation(
+    item,
+    patch,
+    `start moved ${Math.abs(deltaDays)} day${Math.abs(deltaDays) === 1 ? '' : 's'} ${deltaDays > 0 ? 'later' : 'earlier'}`,
+    'start resize',
+  )
+}
+
 const beginDrag = (event: PointerEvent, item: TimelineLayoutRecord) => {
   if (!canReschedule.value || savingRecordId.value || event.button !== 0) return
   event.preventDefault()
@@ -395,6 +455,42 @@ const handleEndResizeKeydown = async (event: KeyboardEvent, item: TimelineLayout
   event.preventDefault()
   event.stopPropagation()
   await resizeEndByDays(item, event.key === 'ArrowLeft' ? -1 : 1)
+}
+
+const beginStartResize = (event: PointerEvent, item: TimelineLayoutRecord) => {
+  if (!canResizeStartItem(item) || savingRecordId.value || event.button !== 0) return
+  event.preventDefault()
+  startResizeState.value = {
+    itemId: item.id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    deltaDays: 0,
+  }
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture(event.pointerId)
+}
+
+const moveStartResize = (event: PointerEvent) => {
+  if (!startResizeState.value || startResizeState.value.pointerId !== event.pointerId) return
+  startResizeState.value.deltaDays = Math.round((event.clientX - startResizeState.value.startX) / pixelsPerDay.value)
+}
+
+const finishStartResize = async (event: PointerEvent, item: TimelineLayoutRecord) => {
+  if (!startResizeState.value || startResizeState.value.pointerId !== event.pointerId) return
+  const deltaDays = startResizeState.value.deltaDays
+  startResizeState.value = undefined
+  if (deltaDays) await resizeStartByDays(item, deltaDays)
+}
+
+const cancelStartResize = (event: PointerEvent) => {
+  if (startResizeState.value?.pointerId === event.pointerId) startResizeState.value = undefined
+}
+
+const handleStartResizeKeydown = async (event: KeyboardEvent, item: TimelineLayoutRecord) => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+  event.preventDefault()
+  event.stopPropagation()
+  await resizeStartByDays(item, event.key === 'ArrowLeft' ? -1 : 1)
 }
 
 const saveSettings = async () => {
@@ -552,17 +648,19 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               'cursor-grab select-none hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500':
                 canReschedule,
               'cursor-grabbing opacity-80': dragState?.itemId === item.id,
-              'opacity-80': resizeState?.itemId === item.id,
+              'opacity-80': resizeState?.itemId === item.id || startResizeState?.itemId === item.id,
               'animate-pulse': savingRecordId === item.id,
             }"
             :style="itemStyle(item)"
             :title="`${itemTitle(item.record)}${canReschedule ? ' — drag or use arrow keys to move by whole days' : ''}`"
             :tabindex="canReschedule ? 0 : undefined"
-            :role="canReschedule || canResizeItem(item) ? 'group' : undefined"
+            :role="canReschedule || canResizeItem(item) || canResizeStartItem(item) ? 'group' : undefined"
             :aria-label="
               canReschedule
                 ? `Move ${itemTitle(item.record)}; use left or right arrow keys`
                 : canResizeItem(item)
+                ? itemTitle(item.record)
+                : canResizeStartItem(item)
                 ? itemTitle(item.record)
                 : undefined
             "
@@ -578,6 +676,20 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               {{ Math.abs(dragState.deltaDays) }} day{{ Math.abs(dragState.deltaDays) === 1 ? '' : 's' }}
               {{ dragState.deltaDays > 0 ? 'later' : 'earlier' }}
             </span>
+            <span
+              v-if="canResizeStartItem(item)"
+              class="absolute left-0 top-0 h-full w-2 cursor-ew-resize border-r border-blue-400 bg-blue-200 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+              role="button"
+              :aria-label="`Resize ${itemTitle(item.record)} start; use left or right arrow keys`"
+              :title="`Resize ${itemTitle(item.record)} start by whole days`"
+              tabindex="0"
+              data-testid="nc-timeline-resize-start"
+              @pointerdown.stop="beginStartResize($event, item)"
+              @pointermove.stop="moveStartResize"
+              @pointerup.stop="finishStartResize($event, item)"
+              @pointercancel.stop="cancelStartResize"
+              @keydown="handleStartResizeKeydown($event, item)"
+            />
             <span
               v-if="canResizeItem(item)"
               class="absolute right-0 top-0 h-full w-2 cursor-ew-resize border-l border-blue-400 bg-blue-200 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
@@ -596,6 +708,12 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               Duration {{ resizeState.deltaDays > 0 ? 'increased' : 'decreased' }} by {{ Math.abs(resizeState.deltaDays) }} day{{
                 Math.abs(resizeState.deltaDays) === 1 ? '' : 's'
               }}
+            </span>
+            <span v-if="startResizeState?.itemId === item.id && startResizeState.deltaDays" class="sr-only">
+              Start moved {{ Math.abs(startResizeState.deltaDays) }} day{{
+                Math.abs(startResizeState.deltaDays) === 1 ? '' : 's'
+              }}
+              {{ startResizeState.deltaDays > 0 ? 'later' : 'earlier' }}
             </span>
           </div>
           <div

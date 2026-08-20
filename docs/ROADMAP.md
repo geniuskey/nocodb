@@ -151,7 +151,9 @@ permission-aware shared row PATCH for start/end, preserve duration, roll back
 failed writes, and participate in view-scoped undo/redo. Resize-based duration
 changes now use a permission-aware right-edge handle and keyboard controls,
 with a one-field PATCH, minimum-bound validation, rollback, and undo/redo.
-Left-edge resizing, grouping, and virtualization remain follow-up slices.
+The symmetric left-edge handle now updates only the mapped start with the same
+permission, boundary, rollback, and history guarantees. Grouping and
+virtualization remain follow-up slices.
 
 ## Phase 4 — Gantt
 
