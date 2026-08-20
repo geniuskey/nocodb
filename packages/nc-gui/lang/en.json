@@ -196,6 +196,7 @@
     "upgradeToUseSyncSubtitle": "Upgrade to the {plan} plan to sync data with internal or external sources."
   },
   "general": {
+    "none": "None",
     "done": "Done",
     "properties": "Properties",
     "authorization": "Authorization",
@@ -1589,6 +1590,15 @@
     "clearSelection": "Clear selection",
     "listViewRecords": "List view records",
     "selectRecord": "Select record {index}",
+    "listViewAppearance": "List view appearance",
+    "listTitleField": "Title field",
+    "listSubtitleField": "Subtitle field",
+    "listImageField": "Image field",
+    "listDensity": "Density",
+    "listDensityCompact": "Compact",
+    "listDensityComfortable": "Comfortable",
+    "listDensitySpacious": "Spacious",
+    "listShowFieldLabels": "Show detail field labels",
     "displayAsProgress": "Display as progress",
     "relationType": "Relation type",
     "showThousandsSeparator": "Show thousands separator",

@@ -214,6 +214,33 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-add-record')).toBeVisible();
 
+  await page.getByTestId('nc-list-settings-button').click();
+  const listSettings = page.getByTestId('nc-list-settings');
+  await expect(listSettings).toBeVisible();
+
+  const densityUpdateResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await listSettings.getByTestId('nc-list-density-spacious').click();
+  const densityUpdate = await densityUpdateResponse;
+  expect(densityUpdate.ok()).toBeTruthy();
+  expect((await densityUpdate.json()).view).toEqual(expect.objectContaining({ density: 'spacious' }));
+
+  const labelsUpdateResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await listSettings.getByTestId('nc-list-show-field-labels').click();
+  const labelsUpdate = await labelsUpdateResponse;
+  expect(labelsUpdate.ok()).toBeTruthy();
+  expect(Boolean((await labelsUpdate.json()).view.show_field_labels)).toBe(false);
+
+  await expect(listSettings.getByTestId('nc-list-title-field')).toContainText('Title');
+  await expect(listSettings.getByTestId('nc-list-subtitle-field')).toContainText('None');
+  await expect(listSettings.getByTestId('nc-list-image-field')).toContainText('None');
+  await page.keyboard.press('Escape');
+
+  await expect(listView.getByTestId('nc-list-row-0')).toHaveCSS('height', '86px');
+
   const renderedListRows = listView.locator('[role="option"]');
   await expect.poll(() => renderedListRows.count()).toBeGreaterThan(1);
   await expect.poll(() => renderedListRows.count()).toBeLessThan(25);

@@ -26,14 +26,16 @@ The frontend provides:
 - server-side pagination through the shared view-data composable;
 - shared field visibility, filtering, sorting, and search controls;
 - expanded-form record create/read/update/delete flows; and
+- saved title, subtitle, image, density, and field-label presentation settings;
+- attachment thumbnails with a stable empty-image fallback;
 - variable-height, overscanned row virtualization;
 - page-scoped row selection and permission-aware bulk deletion;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Image-field presentation, row coloring, cross-page selection, bulk update, and
-server-range loading beyond the existing pagination contract remain follow-up
-slices. The UI does not advertise controls for those capabilities yet.
+Row coloring, cross-page selection, bulk update, and server-range loading beyond
+the existing pagination contract remain follow-up slices. The UI does not
+advertise controls for those capabilities yet.
 
 ## Interaction contract
 
@@ -71,6 +73,18 @@ labels. `meta` is reserved for backwards-compatible presentation additions.
 each table column. Filtering and sorting continue to use the existing shared
 filter and sort metadata associated with the parent view.
 
+The Appearance toolbar saves the title, optional subtitle, optional attachment
+image, density, and detail-label settings through the List update endpoint. Its
+field selectors intentionally contain only fields currently projected by the
+view. This prevents a saved presentation field from silently requesting or
+displaying data that the view has hidden. Missing or stale configuration falls
+back to the primary visible field and then the next suitable visible field.
+
+When an attachment image field is configured, the renderer uses the first valid
+attachment value and removes that field from the detail list. Records without a
+valid attachment retain the same layout with a neutral image placeholder. Image
+height participates in the virtual-row height calculation.
+
 ## API contract
 
 - `POST /api/v1/db/meta/tables/{tableId}/lists`
@@ -103,9 +117,10 @@ accessibility markup.
 The Community image workflow creates and updates List metadata through the API,
 confirms the general table-view listing returns the List, creates a second List
 through the rendered UI, and verifies a persisted record appears in that List.
-It also creates enough records to prove the DOM window is bounded, exercises
-keyboard range selection, page selection, clearing, virtual focus movement,
-and bulk deletion, then removes temporary records. The same workflow runs
-against SQLite, PostgreSQL, and MySQL; each database is also restarted before
-persistence is checked. Unit tests cover selection state and keyboard boundary
-behavior independently of the renderer.
+It also saves Appearance settings and verifies the resulting layout, creates
+enough records to prove the DOM window is bounded, exercises keyboard range
+selection, page selection, clearing, virtual focus movement, and bulk deletion,
+then removes temporary records. The same workflow runs against SQLite,
+PostgreSQL, and MySQL; each database is also restarted before persistence is
+checked. Unit tests cover presentation-field resolution, attachment parsing,
+selection state, and keyboard boundary behavior independently of the renderer.

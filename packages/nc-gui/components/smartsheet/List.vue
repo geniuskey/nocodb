@@ -4,6 +4,7 @@ import { PermissionEntity, PermissionKey, ViewTypes, isVirtualCol } from 'nocodb
 import type { ColumnType, ListType } from 'nocodb-sdk'
 import type { ComponentPublicInstance } from 'vue'
 import type { Row as RowType } from '#imports'
+import { parseListImageAttachment, resolveListPresentationFields } from '~/utils/listView'
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -31,27 +32,14 @@ const { formattedData, paginationData, loadData, changePage, deleteSelectedRows,
 
 const listConfig = computed<Partial<ListType>>(() => (view.value?.view as ListType) || {})
 
-const columnById = computed(() =>
-  (meta.value?.columns || []).reduce<Record<string, ColumnType>>((columns, column) => {
-    if (column.id) columns[column.id] = column
-    return columns
-  }, {}),
-)
+const presentation = computed(() => resolveListPresentationFields(fields.value, listConfig.value))
+const titleField = computed(() => presentation.value.titleField)
+const subtitleField = computed(() => presentation.value.subtitleField)
+const imageField = computed(() => presentation.value.imageField)
+const detailFields = computed(() => presentation.value.detailFields)
 
-const titleField = computed(() => {
-  const configured = listConfig.value.fk_title_column_id
-  return (configured && columnById.value[configured]) || fields.value.find((column) => column.pv) || fields.value[0]
-})
-
-const subtitleField = computed(() => {
-  const configured = listConfig.value.fk_subtitle_column_id
-  if (configured && columnById.value[configured]?.id !== titleField.value?.id) return columnById.value[configured]
-  return fields.value.find((column) => column.id !== titleField.value?.id)
-})
-
-const detailFields = computed(() =>
-  fields.value.filter((column) => column.id !== titleField.value?.id && column.id !== subtitleField.value?.id),
-)
+const imageAttachment = (record: RowType) =>
+  imageField.value?.title ? parseListImageAttachment(record.row[imageField.value.title]) : undefined
 
 const showFieldLabels = computed(() => ![false, 0, '0'].includes(listConfig.value.show_field_labels))
 
@@ -86,7 +74,7 @@ const listItemHeight = computed(() => {
       : viewportWidth.value >= 768
       ? detailFields.value.length
       : 0
-  const contentHeight = Math.max(46, detailRows * 20)
+  const contentHeight = Math.max(46, detailRows * 20, imageField.value ? 72 : 0)
 
   // Include the eight-pixel gap after every record in the virtual item size.
   return contentHeight + densityVerticalPadding.value * 2 + 8
@@ -332,6 +320,22 @@ onBeforeUnmount(() => {
                   :aria-label="$t('labels.selectRecord', { index: virtualRow.index + 1 })"
                   @change="(event) => onRowSelectionChange(event, virtualRow.index)"
                 />
+              </div>
+
+              <div
+                v-if="imageField"
+                class="h-full w-24 flex-none overflow-hidden rounded-md border-1 border-nc-border-gray-light bg-nc-bg-gray-light"
+              >
+                <LazyCellAttachmentPreviewThumbnail
+                  v-if="imageAttachment(virtualRow.data)"
+                  :attachment="imageAttachment(virtualRow.data)!"
+                  :alt="String(imageAttachment(virtualRow.data)?.title || '')"
+                  thumbnail="small"
+                  image-class="!h-full !w-full"
+                />
+                <div v-else class="flex h-full w-full items-center justify-center text-nc-content-gray-muted">
+                  <GeneralIcon icon="image" class="h-5 w-5" />
+                </div>
               </div>
 
               <div class="min-w-0 flex-1">
