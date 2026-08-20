@@ -150,6 +150,34 @@ async function fetchWithTimeout(url) {
   }
 }
 
+async function waitForApplication(baseUrl) {
+  await waitFor(
+    "Community application",
+    async () => {
+      if (!isContainerRunning(applicationContainer)) {
+        throw new Error(
+          "Community application container exited before becoming healthy."
+        );
+      }
+      try {
+        const health = await fetchWithTimeout(`${baseUrl}/api/v1/health`);
+        if (!health.ok) return false;
+        const dashboard = await fetchWithTimeout(`${baseUrl}/dashboard/`);
+        return dashboard.ok;
+      } catch {
+        return false;
+      }
+    },
+    120
+  );
+}
+
+function runCommunityBrowserTest(script, baseUrl) {
+  run(packageManagerExecutable, ["--filter", "playwright", "run", script], {
+    env: { ...process.env, PW_BASE_URL: baseUrl },
+  });
+}
+
 async function main() {
   docker(["network", "create", network], { output: "ignore" });
   networkCreated = true;
@@ -203,40 +231,23 @@ async function main() {
   applicationStarted = true;
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  await waitFor(
-    "Community application",
-    async () => {
-      if (!isContainerRunning(applicationContainer)) {
-        throw new Error(
-          "Community application container exited before becoming healthy."
-        );
-      }
-      try {
-        const health = await fetchWithTimeout(`${baseUrl}/api/v1/health`);
-        if (!health.ok) return false;
-        const dashboard = await fetchWithTimeout(`${baseUrl}/dashboard/`);
-        return dashboard.ok;
-      } catch {
-        return false;
-      }
-    },
-    120
-  );
+  await waitForApplication(baseUrl);
 
   if (!packageManagerExecutable) {
     throw new Error(
       "Run this orchestrator through the documented pnpm script so the pinned package manager is available."
     );
   }
-  run(
-    packageManagerExecutable,
-    ["--filter", "playwright", "run", "ci:test:community"],
-    {
-      env: { ...process.env, PW_BASE_URL: baseUrl },
-    }
-  );
+  runCommunityBrowserTest("ci:test:community", baseUrl);
+
+  docker(["restart", applicationContainer], { output: "ignore" });
+  await waitForApplication(baseUrl);
+  runCommunityBrowserTest("ci:test:community:restart", baseUrl);
+
   succeeded = true;
-  console.log(`Community ${database} image acceptance passed.`);
+  console.log(
+    `Community ${database} image fresh and restart acceptance passed.`
+  );
 }
 
 try {

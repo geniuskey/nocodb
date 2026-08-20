@@ -116,11 +116,14 @@ not fetch a package manager or SDK generator during the sandboxed build.
   base creation, table creation, and record create/read/update/delete. The
   cross-platform `scripts/test-community-image.mjs` orchestrator runs that same
   workflow against fresh SQLite, PostgreSQL, and MySQL metadata stores on an
-  isolated Docker network. It uses the frozen frontend's built-in Playwright
-  mode so the stable DOM Grid is selected instead of the beta Canvas Grid;
-  backend routes, persistence, and the assembled production frontend remain the
-  same as the shipped image. The package scripts and retained CI workflows no
-  longer set Enterprise flags or install Enterprise-only identity-provider fixtures.
+  isolated Docker network. It then restarts the application container and uses
+  a new browser session to sign in, reopen the previously created base and
+  table, read the persisted record, and perform post-restart update/create/delete
+  operations. It uses the frozen frontend's built-in Playwright mode so the
+  stable DOM Grid is selected instead of the beta Canvas Grid; backend routes,
+  persistence, and the assembled production frontend remain the same as the
+  shipped image. The package scripts and retained CI workflows no longer set
+  Enterprise flags or install Enterprise-only identity-provider fixtures.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 

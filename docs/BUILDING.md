@@ -180,22 +180,27 @@ pnpm run test:community:image -- mysql
 ```
 
 The orchestrator creates uniquely named disposable containers and a private
-network, waits for the database and application, runs the browser workflow, and
-removes its resources. On failure it prints the application and database log
-tails before cleanup. PostgreSQL 16.6 and MySQL 8.3.0 match the database versions
-already present in the frozen baseline's Compose files; their container images
-are additionally pinned by manifest-list digest. Set `COMMUNITY_IMAGE` to test a
-different local application image, or `COMMUNITY_ACCEPTANCE_PORT` to change the
-published host port.
+network, waits for the database and application, runs the fresh browser
+workflow, restarts the application container, and runs a persistence workflow
+from a new browser session before removing its resources. On failure it prints
+the application and database log tails before cleanup. PostgreSQL 16.6 and
+MySQL 8.3.0 match the database versions already present in the frozen baseline's
+Compose files; their container images are additionally pinned by manifest-list
+digest. Set `COMMUNITY_IMAGE` to test a different local application image, or
+`COMMUNITY_ACCEPTANCE_PORT` to change the published host port.
 
 The test must start against a fresh instance because it verifies first-user
 signup. It performs signup, lets the baseline finish its starter-base bootstrap,
 creates a separate base and table, and then creates, reads, updates, reads back,
-and deletes a record through Chromium. The frontend's existing
-`window.isPlaywright` hook selects its stable DOM Grid for deterministic cell
-interaction; no server flag, Enterprise mode, or license mechanism is changed.
-For a separately managed instance, set `PW_BASE_URL` and invoke
-`pnpm --filter playwright run ci:test:community` directly.
+and deletes a record through Chromium before leaving a separate persistence
+marker. After restart, a clean browser session signs in again, reopens that base
+and table, reads and updates the marker, creates another record, and deletes the
+marker. The frontend's existing `window.isPlaywright` hook selects its stable DOM
+Grid for deterministic cell interaction; no server flag, Enterprise mode, or
+license mechanism is changed. For a separately managed fresh instance, set
+`PW_BASE_URL` and invoke `pnpm --filter playwright run ci:test:community`
+directly. The separate `ci:test:community:restart` script expects the state
+created by the first workflow.
 
 ## Docker build
 
@@ -318,16 +323,18 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Frozen-lockfile Docker image build and native-module load checks: passed; the final image was approximately 290 MB.
 - Canonical release image: passed with Litestream v0.3.13 and its checksum-verified Apache-2.0 license present; the final image was approximately 299 MB.
 - ARM64 Litestream archive checksum and emulated `litestream version` execution: passed.
-- Docker container signup, base creation, table creation, and record create/read/update/delete against fresh SQLite, PostgreSQL 16.6, and MySQL 8.3.0 metadata stores: passed.
+- Docker container signup, base creation, table creation, record CRUD, application restart, new-session login, persisted state read, and post-restart CRUD against SQLite, PostgreSQL 16.6, and MySQL 8.3.0 metadata stores: passed.
 - Docker-staged dashboard and generated GUI CSS returned HTTP 200.
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
 - Community GUI Vitest: 1 file and 10 sorting behavior tests passed.
-- Canonical Docker image Chromium acceptance: the same signup/base/table/record CRUD workflow passed independently on SQLite, PostgreSQL, and MySQL.
+- Canonical Docker image Chromium acceptance: the same fresh and post-restart persistence workflows passed independently on SQLite, PostgreSQL, and MySQL.
 
 The complete login/base/table/CRUD click path is now exercised by Chromium
 against the assembled Docker image in both local verification and the Community
-backend workflow. The earlier API-only verification remains useful as a lower
-level diagnostic, but is no longer the sole acceptance evidence.
+backend workflow. A second clean browser session also verifies that credentials,
+schema, and records survive an application restart and remain writable. The
+earlier API-only verification remains useful as a lower level diagnostic, but is
+no longer the sole acceptance evidence.
 
 Docker Desktop was initially stopped; after starting its Linux engine, the image built successfully. Container smoke testing then exposed a Windows CRLF shebang and a Node.js major-version mismatch between build and runtime stages. The local Dockerfile now normalizes the copied script and pins both stages to Node.js `22.12.0` with pnpm `9.15.5`; the corrected container returned HTTP 200 from `/api/v1/health`.
 
@@ -354,6 +361,7 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | Initial Docker image build                     | Docker Desktop Linux engine pipe not present                                                                    | Started the installed local engine and reran the same build.                                                                                                                                 |
 | First MySQL 8.3 fresh migration                | MySQL rejected indexes on OAuth `TEXT` token columns because no key length was specified                        | Keep full-column indexes on SQLite/PostgreSQL; use explicitly named 512-character prefix indexes on MySQL, preserving full-token equality checks.                                             |
 | First Linux database-matrix CI run             | pnpm preserved the argument separator and invoked the script as `node ... -- sqlite`, while Windows passed only `sqlite` | Normalize one optional leading `--` in the cross-platform orchestrator and continue rejecting missing or extra arguments.                                                        |
+| First restart browser workflow                 | Exact accessible-name matching did not find the visible sign-in button because its icon contributes to the accessible name | Use the frozen baseline's existing text-based sign-in locator; no application markup or accessibility behavior was changed.                                                      |
 | Initial Docker container start on Windows      | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF                      | Normalize the copied shell script inside the canonical Dockerfile; no application code changed.                                                                                              |
 | Second Docker container start                  | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM`               | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5.                                                                                                          |
 | First pinned-Node Docker rebuild               | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key                                      | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions.                                                                                               |
