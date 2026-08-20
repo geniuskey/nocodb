@@ -158,7 +158,7 @@ const defaultScriptChecks = [
   },
   {
     path: "packages/nc-gui/package.json",
-    scripts: ["build", "dev", "ci:start"],
+    scripts: ["build", "dev", "ci:start", "test:run"],
   },
   {
     path: "tests/playwright/package.json",

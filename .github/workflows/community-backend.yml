@@ -69,6 +69,8 @@ jobs:
         run: pnpm run test:community-gui-stage
       - name: Build assembled Community application
         run: pnpm run build:community
+      - name: Test Community GUI behavior
+        run: pnpm --filter nc-gui run test:run
       - name: Build reproducible Community image
         run: docker build -f packages/nocodb/Dockerfile -t nocodb-community:test .
       - name: Verify bundled Litestream
