@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { expectPublicApiContract, expectPublicApiRuntimeCrud } from './public-api-contract';
+import { ViewTypes } from 'nocodb-sdk';
+import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
@@ -72,6 +73,37 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(createdTableBody.title).toBe('Tasks');
   expect(createdTableBody.id).toEqual(expect.any(String));
 
+  const sessionHeaders = { 'xc-auth': await getAuthToken(page) };
+
+  const listCreateResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/lists`, {
+    headers: sessionHeaders,
+    data: { title: 'Task List', type: ViewTypes.LIST },
+  });
+  const createdList = await listCreateResponse.json();
+  expect(listCreateResponse.ok(), JSON.stringify(createdList)).toBeTruthy();
+  expect(createdList).toEqual(
+    expect.objectContaining({
+      title: 'Task List',
+      type: ViewTypes.LIST,
+      view: expect.objectContaining({
+        density: 'comfortable',
+      }),
+    })
+  );
+  expect(Boolean(createdList.view.show_field_labels)).toBe(true);
+  const listUpdateResponse = await page.request.patch(`/api/v2/meta/lists/${createdList.id}`, {
+    headers: sessionHeaders,
+    data: { density: 'compact', show_field_labels: false },
+  });
+  expect(listUpdateResponse.ok()).toBeTruthy();
+  const updatedList = await listUpdateResponse.json();
+  expect(updatedList).toEqual(
+    expect.objectContaining({
+      view: expect.objectContaining({ density: 'compact' }),
+    })
+  );
+  expect(Boolean(updatedList.view.show_field_labels)).toBe(false);
+
   await expectPublicApiContract(page, createdBaseBody.id, createdTableBody.id);
 
   const grid = page.getByTestId('nc-grid-wrapper');
@@ -121,6 +153,16 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
   expect((await persistenceResponse).ok()).toBeTruthy();
   await expect(persistenceCell).toContainText('Persists across restart');
+
+  const listRowsResponse = await page.request.get(
+    `/api/v1/db/data/noco/${createdBaseBody.id}/${createdTableBody.id}/views/${createdList.id}`,
+    { headers: sessionHeaders }
+  );
+  expect(listRowsResponse.ok()).toBeTruthy();
+  const listRows = await listRowsResponse.json();
+  expect(listRows.list).toEqual(
+    expect.arrayContaining([expect.objectContaining({ Title: 'Persists across restart' })])
+  );
 
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 });

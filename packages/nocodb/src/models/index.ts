@@ -14,6 +14,8 @@ export { default as GalleryView } from './GalleryView';
 export { default as GalleryViewColumn } from './GalleryViewColumn';
 export { default as GridView } from './GridView';
 export { default as GridViewColumn } from './GridViewColumn';
+export { default as ListView } from './ListView';
+export { default as ListViewColumn } from './ListViewColumn';
 export { default as Hook } from './Hook';
 export { default as HookFilter } from './HookFilter';
 export { default as HookLog } from './HookLog';

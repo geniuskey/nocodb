@@ -51,6 +51,7 @@ import { GridsController } from '~/controllers/grids.controller';
 import { HooksController } from '~/controllers/hooks.controller';
 import { JobsMetaController } from '~/controllers/jobs-meta.controller';
 import { KanbansController } from '~/controllers/kanbans.controller';
+import { ListsController } from '~/controllers/lists.controller';
 import { MapsController } from '~/controllers/maps.controller';
 import { ModelVisibilitiesController } from '~/controllers/model-visibilities.controller';
 import { NotificationsController } from '~/controllers/notifications.controller';
@@ -89,6 +90,7 @@ import { GridsService } from '~/services/grids.service';
 import { HooksService } from '~/services/hooks.service';
 import { JobsMetaService } from '~/services/jobs-meta.service';
 import { KanbansService } from '~/services/kanbans.service';
+import { ListsService } from '~/services/lists.service';
 import { MapsService } from '~/services/maps.service';
 import { MetaDiffsService } from '~/services/meta-diffs.service';
 import { ModelVisibilitiesService } from '~/services/model-visibilities.service';
@@ -208,6 +210,7 @@ export const nocoModuleMetadata = {
           GridsController,
           HooksController,
           KanbansController,
+          ListsController,
           MapsController,
           ModelVisibilitiesController,
           OrgLcenseController,
@@ -291,6 +294,7 @@ export const nocoModuleMetadata = {
     GridsService,
     HooksService,
     KanbansService,
+    ListsService,
     MapsService,
     MetaDiffsService,
     ModelVisibilitiesService,
@@ -390,6 +394,7 @@ export const nocoModuleMetadata = {
     FormColumnsService,
     GalleriesService,
     KanbansService,
+    ListsService,
     BasesService,
     AttachmentsService,
     BaseUsersService,

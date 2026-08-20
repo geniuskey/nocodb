@@ -1,0 +1,144 @@
+{
+  "paths": {
+    "/api/v1/db/meta/tables/{tableId}/lists": {
+      "parameters": [
+        {
+          "name": "tableId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Table ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Create List View",
+        "operationId": "db-view-list-create",
+        "description": "Create a list view in a table",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ViewCreateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/lists/{viewId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "patch": {
+        "summary": "Update List View",
+        "operationId": "db-view-list-update",
+        "description": "Update list presentation settings",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ListUpdateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "List": {
+        "title": "List View Model",
+        "description": "Presentation settings for a list view",
+        "type": "object",
+        "properties": {
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_title_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_subtitle_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_image_column_id": { "$ref": "#/components/schemas/Id" },
+          "density": {
+            "type": "string",
+            "enum": ["compact", "comfortable", "spacious"],
+            "default": "comfortable"
+          },
+          "show_field_labels": { "$ref": "#/components/schemas/Bool" },
+          "meta": { "$ref": "#/components/schemas/Meta" },
+          "columns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ListColumn" }
+          }
+        }
+      },
+      "ListColumn": {
+        "title": "List View Column Model",
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_column_id": { "$ref": "#/components/schemas/Id" },
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      },
+      "ListUpdateReq": {
+        "title": "List View Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fk_title_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_subtitle_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_image_column_id": { "$ref": "#/components/schemas/Id" },
+          "density": {
+            "type": "string",
+            "enum": ["compact", "comfortable", "spacious"]
+          },
+          "show_field_labels": { "$ref": "#/components/schemas/Bool" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "ListColumnReq": {
+        "title": "List View Column Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,10 @@
         {
           "name": "nc_005_add_user_specific_and_meta_column_in_sync_configs",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_005_add_user_specific_and_meta_column_in_sync_configs.ts"
+        },
+        {
+          "name": "nc_006_list_view",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_006_list_view.ts"
         }
       ]
     },
@@ -468,6 +472,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_005_add_user_specific_and_meta_column_in_sync_configs.ts",
       "sha256": "a7e14cb5e491433e2ad7b525e554898392a6c2b481aa593166084acafbff5a85"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_006_list_view.ts",
+      "sha256": "ea6f82ef644d64ff43c1d08ae237b3a55b4be7f5aa0967a5a9274219cd0cb98b"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

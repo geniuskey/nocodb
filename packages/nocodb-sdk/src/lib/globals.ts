@@ -40,6 +40,7 @@ export enum ViewTypes {
   KANBAN = 4,
   MAP = 5,
   CALENDAR = 6,
+  LIST = 7,
 }
 
 export const viewTypeAlias: Record<ViewTypes, string> = {
@@ -49,6 +50,7 @@ export const viewTypeAlias: Record<ViewTypes, string> = {
   [ViewTypes.KANBAN]: 'kanban',
   [ViewTypes.MAP]: 'map',
   [ViewTypes.CALENDAR]: 'calendar',
+  [ViewTypes.LIST]: 'list',
 };
 
 export const viewTypeToStringMap: Record<ViewTypes, string> = {

@@ -192,6 +192,13 @@ export interface GridViewUpdateEvent extends NcBaseEvent {
   owner: UserType;
 }
 
+export interface ListViewUpdateEvent extends NcBaseEvent {
+  view: ViewType;
+  listView: any;
+  oldListView: any;
+  owner: UserType;
+}
+
 export interface KanbanViewUpdateEvent extends NcBaseEvent {
   view: ViewType;
   kanbanView: any;

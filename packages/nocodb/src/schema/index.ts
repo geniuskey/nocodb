@@ -2,17 +2,25 @@ import deepClone from 'src/helpers/deepClone';
 import * as swaggerV3ValidationPatch from './swagger-v3-validation-patch.json';
 import * as swaggerV3 from './swagger-v3.json';
 import * as swagger from './swagger.json';
+import * as listView from './list-view.json';
 
-export default {
+const communitySwagger: any = {
   ...swagger,
+  paths: {
+    ...swagger.paths,
+    ...listView.paths,
+  },
   components: {
     ...swagger.components,
     schemas: {
       ...swagger.components.schemas,
       ...swaggerV3.components.schemas,
+      ...listView.components.schemas,
     },
   },
 };
+
+export default communitySwagger;
 
 const swaggerV3Validation = deepClone(swaggerV3);
 for (const [key, value] of Object.entries(

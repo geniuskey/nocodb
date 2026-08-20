@@ -8,6 +8,7 @@ import {
 } from 'nocodb-sdk';
 import { Logger } from '@nestjs/common';
 import GridViewColumn from '../models/GridViewColumn';
+import ListViewColumn from '../models/ListViewColumn';
 import GalleryViewColumn from '../models/GalleryViewColumn';
 import KanbanViewColumn from '../models/KanbanViewColumn';
 import MapViewColumn from '../models/MapViewColumn';
@@ -292,6 +293,29 @@ export class ViewColumnsService {
                   context,
                   {
                     ...(column as GridColumnReqType),
+                    fk_view_id: viewId,
+                    fk_column_id: columnId,
+                  },
+                  ncMeta,
+                ),
+              );
+            }
+            break;
+          case ViewTypes.LIST:
+            validatePayload(
+              'swagger.json#/components/schemas/ListColumnReq',
+              column,
+            );
+            if (existingCol) {
+              updateOrInsertOptions.push(
+                ListViewColumn.update(context, existingCol.id, column, ncMeta),
+              );
+            } else {
+              updateOrInsertOptions.push(
+                ListViewColumn.insert(
+                  context,
+                  {
+                    ...(column as object),
                     fk_view_id: viewId,
                     fk_column_id: columnId,
                   },
