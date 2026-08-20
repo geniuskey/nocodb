@@ -65,7 +65,7 @@ test('Community image preserves login, schema, and records across restart', asyn
   );
 
   const restartToday = new Date().toISOString().slice(0, 10);
-  const restartTomorrow = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 24 * 60 * 60 * 1000)
+  const expectedStartDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
   const expectedEndDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 5 * 24 * 60 * 60 * 1000)
@@ -83,7 +83,7 @@ test('Community image preserves login, schema, and records across restart', asyn
   expect(persistedUiRange.list).toEqual([
     expect.objectContaining({
       Title: 'Current Timeline item',
-      'Timeline start': restartTomorrow,
+      'Timeline start': expectedStartDate,
       'Timeline end': expect.stringContaining(expectedEndDate),
     }),
   ]);

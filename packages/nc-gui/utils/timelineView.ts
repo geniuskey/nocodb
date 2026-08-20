@@ -162,3 +162,59 @@ export function buildTimelineEndResizePatch(
     fields: [endColumn.title],
   }
 }
+
+/**
+ * Build the row PATCH used by a left-edge Timeline resize. Only the mapped
+ * start field changes. An inclusive Date end permits a start anywhere on the
+ * same calendar day; a DateTime end is an exact upper bound.
+ */
+export function buildTimelineStartResizePatch(
+  record: Record<string, any>,
+  startColumn: { title?: string; uidt?: string },
+  endColumn: { title?: string; uidt?: string } | undefined,
+  deltaDays: number,
+): TimelineMutationPatch | undefined {
+  if (
+    !Number.isSafeInteger(deltaDays) ||
+    deltaDays === 0 ||
+    !startColumn.title ||
+    !endColumn?.title ||
+    startColumn.title === endColumn.title
+  ) {
+    return undefined
+  }
+
+  const startType = startColumn.uidt === 'Date' ? 'date' : startColumn.uidt === 'DateTime' ? 'datetime' : undefined
+  const endType = endColumn.uidt === 'Date' ? 'date' : endColumn.uidt === 'DateTime' ? 'datetime' : undefined
+  if (!startType || !endType) return undefined
+
+  const originalStart = record[startColumn.title]
+  const originalEnd = record[endColumn.title]
+  if (
+    originalStart === null ||
+    originalStart === undefined ||
+    originalStart === '' ||
+    originalEnd === null ||
+    originalEnd === undefined ||
+    originalEnd === ''
+  ) {
+    return undefined
+  }
+
+  const shiftedStart = shiftTimelineFieldValue(originalStart, startType, deltaDays)
+  const parsedEnd = dayjs(originalEnd as any)
+  if (!shiftedStart || !parsedEnd.isValid()) return undefined
+
+  const parsedStart = dayjs(shiftedStart)
+  const startFollowsEnd =
+    endType === 'date'
+      ? parsedStart.startOf('day').valueOf() > parsedEnd.startOf('day').valueOf()
+      : parsedStart.valueOf() > parsedEnd.valueOf()
+  if (startFollowsEnd) return undefined
+
+  return {
+    previous: { [startColumn.title]: originalStart },
+    next: { [startColumn.title]: shiftedStart },
+    fields: [startColumn.title],
+  }
+}
