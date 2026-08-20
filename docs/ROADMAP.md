@@ -146,9 +146,10 @@ date-field validation, SDK generation, general view lifecycle integration, and
 server-bounded temporal query contract are implemented. The Community GUI can
 create and configure a Timeline, load only its current bounded window, navigate
 day/week/month/quarter zooms, and render intervals in deterministic overlap
-lanes. The current renderer is deliberately read-only. Grouping,
-virtualization for dense ranges, and drag-to-reschedule remain intentionally
-separate follow-up slices.
+lanes. Whole-day drag and keyboard rescheduling use one
+permission-aware shared row PATCH for start/end, preserve duration, roll back
+failed writes, and participate in view-scoped undo/redo. Resize-based duration
+changes, grouping, and virtualization remain follow-up slices.
 
 ## Phase 4 — Gantt
 

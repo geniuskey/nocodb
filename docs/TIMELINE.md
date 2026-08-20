@@ -43,6 +43,25 @@ The third slice adds the authenticated, read-only Community renderer:
 The renderer does not mutate records. Dragging, resizing, grouping, and
 rescheduling remain later, independently reviewed slices.
 
+The fourth slice adds whole-day rescheduling without creating a Timeline-only
+mutation path:
+
+- an editable record can be dragged horizontally and snaps to a whole-day
+  delta at every zoom level;
+- keyboard users can move a focused item one day with Left Arrow or Right
+  Arrow;
+- start and non-blank end values move by the same delta in one existing shared
+  row PATCH, preserving interval duration;
+- Date values remain calendar dates, while DateTime values preserve their time
+  as the browser shifts the instant by calendar days;
+- blank optional ends remain blank; and
+- failed writes restore the original values, while successful writes enter the
+  existing view-scoped undo/redo history.
+
+Rescheduling is unavailable for locked views, SQL views, synced tables,
+read-only mapped fields, and users without `dataEdit`. Resize handles and
+partial-duration changes remain a later slice.
+
 ## Metadata contract
 
 `nc_timeline_view_v2` is keyed by `base_id` and `fk_view_id` and stores:
@@ -123,6 +142,14 @@ work can reuse and test interval behavior without mounting Vue. The normal view
 filter, sort, search, lock, and permission abstractions remain the source of
 truth. Timeline navigation never falls back to the general unbounded row list.
 
+Drag rescheduling deliberately calls the existing authenticated
+`dbViewRow.update` contract with the Timeline view id. That shared mutation path
+continues to own row authorization, field validation, hooks, webhooks, and
+database writes. Sending start and end in one PATCH prevents a visible
+half-moved interval. The renderer applies a local preview, restores the original
+record on error, reloads the bounded window after success, and registers the
+same PATCH pair with the existing view-scoped undo/redo service.
+
 ## Compatibility rules
 
 - The migration is append-only and does not rewrite earlier metadata.
@@ -149,3 +176,8 @@ The read-only renderer slice additionally requires unit coverage for stable
 overlap lanes, a successful Community GUI production build, and fresh/restart
 browser coverage for menu creation, field mapping, bounded loading, navigation,
 zoom persistence, and rendered record labels on SQLite, PostgreSQL, and MySQL.
+
+The rescheduling slice additionally requires unit coverage for mixed Date and
+DateTime shifts, blank ends, invalid values, and no-op deltas. Fresh and restart
+browser workflows must prove that one drag sends one row PATCH containing both
+mapped values and that the new dates persist on SQLite, PostgreSQL, and MySQL.

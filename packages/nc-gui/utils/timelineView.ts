@@ -1,3 +1,5 @@
+import dayjs from 'dayjs'
+
 export type TimelineZoom = 'day' | 'week' | 'month' | 'quarter'
 
 export interface TimelineLayoutInput<T = Record<string, any>> {
@@ -9,6 +11,12 @@ export interface TimelineLayoutInput<T = Record<string, any>> {
 
 export interface TimelineLayoutItem<T = Record<string, any>> extends TimelineLayoutInput<T> {
   lane: number
+}
+
+export interface TimelineReschedulePatch {
+  previous: Record<string, unknown>
+  next: Record<string, string>
+  fields: string[]
 }
 
 export const TIMELINE_WINDOW_DAYS: Record<TimelineZoom, number> = {
@@ -45,4 +53,56 @@ export function layoutTimelineItems<T>(items: TimelineLayoutInput<T>[]): Timelin
 
 export function timelineLaneCount(items: TimelineLayoutItem[]) {
   return items.reduce((count, item) => Math.max(count, item.lane + 1), 0)
+}
+
+function shiftTimelineFieldValue(value: unknown, type: 'date' | 'datetime', deltaDays: number) {
+  if (value === null || value === undefined || value === '') return undefined
+
+  const shifted = dayjs(value as any).add(deltaDays, 'day')
+  if (!shifted.isValid()) return undefined
+
+  return type === 'date' ? shifted.format('YYYY-MM-DD') : shifted.toISOString()
+}
+
+/**
+ * Build the single row PATCH used by Timeline rescheduling. Start and end are
+ * shifted by the same whole-calendar-day delta so the interval duration is
+ * preserved. A blank optional end remains blank and is not written.
+ */
+export function buildTimelineReschedulePatch(
+  record: Record<string, any>,
+  startColumn: { title?: string; uidt?: string },
+  endColumn: { title?: string; uidt?: string } | undefined,
+  deltaDays: number,
+): TimelineReschedulePatch | undefined {
+  if (!Number.isSafeInteger(deltaDays) || deltaDays === 0 || !startColumn.title) return undefined
+
+  const startType = startColumn.uidt === 'Date' ? 'date' : startColumn.uidt === 'DateTime' ? 'datetime' : undefined
+  if (!startType) return undefined
+
+  const shiftedStart = shiftTimelineFieldValue(record[startColumn.title], startType, deltaDays)
+  if (!shiftedStart) return undefined
+
+  const previous: Record<string, unknown> = { [startColumn.title]: record[startColumn.title] }
+  const next: Record<string, string> = { [startColumn.title]: shiftedStart }
+  const fields = [startColumn.title]
+
+  if (
+    endColumn?.title &&
+    record[endColumn.title] !== null &&
+    record[endColumn.title] !== undefined &&
+    record[endColumn.title] !== ''
+  ) {
+    const endType = endColumn.uidt === 'Date' ? 'date' : endColumn.uidt === 'DateTime' ? 'datetime' : undefined
+    if (!endType) return undefined
+
+    const shiftedEnd = shiftTimelineFieldValue(record[endColumn.title], endType, deltaDays)
+    if (!shiftedEnd) return undefined
+
+    previous[endColumn.title] = record[endColumn.title]
+    next[endColumn.title] = shiftedEnd
+    fields.push(endColumn.title)
+  }
+
+  return { previous, next, fields }
 }
