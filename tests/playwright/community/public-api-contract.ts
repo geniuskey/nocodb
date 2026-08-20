@@ -121,7 +121,7 @@ const expectTaskSchemas = (document: OpenApiDocument, version: string) => {
   }
 };
 
-const getAuthToken = async (page: Page) => {
+export const getAuthToken = async (page: Page) => {
   const token = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('nocodb-gui-v2') ?? '{}') as { token?: unknown };
     return typeof state.token === 'string' ? state.token : '';

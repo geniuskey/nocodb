@@ -205,8 +205,8 @@ pnpm run test:community:upgrade -- mysql
 The upgrade fixture is pinned in `docs/UPGRADE_FIXTURES.json`. It creates only
 the v2025.10.0 fresh-install v0 state (`nc_001_init`) using the retained,
 hash-verified AGPL migration, inserts a persistence marker, and then lets the
-current image apply `nc_002` through `nc_005`. Verification requires the exact
-ordered migration ledger, the new teams/workflow tables, the sync-config
+current image apply `nc_002` through `nc_006`. Verification requires the exact
+ordered migration ledger, the new List/teams/workflow tables, the sync-config
 columns, the row-order type change, marker preservation, and an idempotent
 application restart on every database. No historical full application image or
 excluded implementation tree is used. Set `COMMUNITY_UPGRADE_PORT` if host port

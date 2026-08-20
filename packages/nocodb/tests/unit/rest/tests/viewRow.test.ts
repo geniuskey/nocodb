@@ -63,6 +63,7 @@ let filmColumns;
 let rentalColumns;
 // views
 let customerGridView: View;
+let customerListView: View;
 let customerGalleryView: View;
 let customerFormView: View;
 // use film table because it has single select field
@@ -152,6 +153,11 @@ function viewRowStaticTests() {
       table: customerTable,
       type: ViewTypes.GRID,
     });
+    customerListView = await createView(context, {
+      title: 'Customer List',
+      table: customerTable,
+      type: ViewTypes.LIST,
+    });
     customerGalleryView = await createView(context, {
       title: 'Customer Gallery',
       table: customerTable,
@@ -205,6 +211,22 @@ function viewRowStaticTests() {
   });
   it('Get view row list grid', async () => {
     await testGetViewRowList(customerGridView);
+  });
+
+  it('Get view row list list', async () => {
+    await testGetViewRowList(customerListView);
+  });
+
+  it('Update list presentation settings', async () => {
+    const response = await request(context.app)
+      .patch(`/api/v1/db/meta/lists/${customerListView.id}`)
+      .set('xc-auth', context.token)
+      .send({ density: 'compact', show_field_labels: false })
+      .expect(200);
+
+    expect(response.body.type).to.equal(ViewTypes.LIST);
+    expect(response.body.view.density).to.equal('compact');
+    expect(response.body.view.show_field_labels).to.equal(false);
   });
 
   it('Get view row list Calendar', async () => {

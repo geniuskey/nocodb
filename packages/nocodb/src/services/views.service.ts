@@ -385,6 +385,8 @@ export class ViewsService {
     //  decide event based on type
     if (view.type === ViewTypes.FORM) {
       deleteEvent = AppEvents.FORM_DELETE;
+    } else if (view.type === ViewTypes.LIST) {
+      deleteEvent = AppEvents.LIST_DELETE;
     } else if (view.type === ViewTypes.CALENDAR) {
       deleteEvent = AppEvents.CALENDAR_DELETE;
     } else if (view.type === ViewTypes.GALLERY) {

@@ -136,6 +136,10 @@ export enum AppEvents {
   GRID_CREATE = 'grid.create',
   GRID_UPDATE = 'grid.update',
 
+  LIST_CREATE = 'list.create',
+  LIST_UPDATE = 'list.update',
+  LIST_DELETE = 'list.delete',
+
   GRID_COLUMN_UPDATE = 'grid.column.update',
 
   WEBHOOK_CREATE = 'webhook.create',

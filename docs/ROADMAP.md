@@ -97,7 +97,7 @@ disposable `xc-token` credential. This is an acceptance foundation for the
 remaining service-boundary and existing-database compatibility work. Existing
 metadata migrations and their v0/v1/v2/audit execution order are now protected
 by an append-only, hash-verified ledger. A provenance-pinned v2025.10.0 fresh
-metadata fixture now verifies the real `nc_001` to `nc_005` upgrade boundary,
+metadata fixture now verifies the real `nc_001` to `nc_006` upgrade boundary,
 schema changes, data preservation, and restart idempotence on SQLite,
 PostgreSQL, and MySQL without running a historical full application tree.
 Additional fork-release fixtures will be appended when this fork publishes new

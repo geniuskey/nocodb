@@ -26,10 +26,12 @@ import { RowColorViewHelpers } from '~/helpers/rowColorViewHelpers';
 import Model from '~/models/Model';
 import FormView from '~/models/FormView';
 import GridView from '~/models/GridView';
+import ListView from '~/models/ListView';
 import KanbanView from '~/models/KanbanView';
 import GalleryView from '~/models/GalleryView';
 import CalendarView from '~/models/CalendarView';
 import GridViewColumn from '~/models/GridViewColumn';
+import ListViewColumn from '~/models/ListViewColumn';
 import CalendarViewColumn from '~/models/CalendarViewColumn';
 import CalendarRange from '~/models/CalendarRange';
 import Sort from '~/models/Sort';
@@ -100,6 +102,7 @@ export default class View implements ViewType {
   view?:
     | FormView
     | GridView
+    | ListView
     | KanbanView
     | GalleryView
     | MapView
@@ -107,6 +110,7 @@ export default class View implements ViewType {
   columns?: Array<
     | FormViewColumn
     | GridViewColumn
+    | ListViewColumn
     | GalleryViewColumn
     | KanbanViewColumn
     | MapViewColumn
@@ -290,6 +294,7 @@ export default class View implements ViewType {
         Partial<
           | FormView
           | GridView
+          | ListView
           | GalleryView
           | KanbanView
           | MapView
@@ -364,6 +369,17 @@ export default class View implements ViewType {
             {
               ...((copyFromView?.view as GridView) || {}),
               ...(view as GridView),
+              fk_view_id: view_id,
+            },
+            ncMeta,
+          );
+          break;
+        case ViewTypes.LIST:
+          await ListView.insert(
+            context,
+            {
+              ...((copyFromView?.view as ListView) || {}),
+              ...(view as ListView),
               fk_view_id: view_id,
             },
             ncMeta,
@@ -766,6 +782,9 @@ export default class View implements ViewType {
         case ViewTypes.GRID:
           await GridViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
+        case ViewTypes.LIST:
+          await ListViewColumn.insert(context, modifiedInsertObj, ncMeta);
+          break;
         case ViewTypes.GALLERY:
           await GalleryViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
@@ -822,6 +841,18 @@ export default class View implements ViewType {
       case ViewTypes.GRID:
         {
           col = await GridViewColumn.insert(
+            context,
+            {
+              ...param,
+              fk_view_id: view.id,
+            },
+            ncMeta,
+          );
+        }
+        break;
+      case ViewTypes.LIST:
+        {
+          col = await ListViewColumn.insert(
             context,
             {
               ...param,
@@ -915,6 +946,7 @@ export default class View implements ViewType {
   ): Promise<
     Array<
       | GridViewColumn
+      | ListViewColumn
       | FormViewColumn
       | GalleryViewColumn
       | KanbanViewColumn
@@ -929,6 +961,9 @@ export default class View implements ViewType {
     switch (view.type) {
       case ViewTypes.GRID:
         columns = await GridViewColumn.list(context, viewId, ncMeta);
+        break;
+      case ViewTypes.LIST:
+        columns = await ListViewColumn.list(context, viewId, ncMeta);
         break;
       case ViewTypes.GALLERY:
         columns = await GalleryViewColumn.list(context, viewId, ncMeta);
@@ -971,6 +1006,10 @@ export default class View implements ViewType {
         tableName = MetaTable.GRID_VIEW_COLUMNS;
         cacheScope = CacheScope.GRID_VIEW_COLUMN;
 
+        break;
+      case ViewTypes.LIST:
+        tableName = MetaTable.LIST_VIEW_COLUMNS;
+        cacheScope = CacheScope.LIST_VIEW_COLUMN;
         break;
       case ViewTypes.GALLERY:
         tableName = MetaTable.GALLERY_VIEW_COLUMNS;
@@ -1040,6 +1079,10 @@ export default class View implements ViewType {
         table = MetaTable.GRID_VIEW_COLUMNS;
         cacheScope = CacheScope.GRID_VIEW_COLUMN;
         break;
+      case ViewTypes.LIST:
+        table = MetaTable.LIST_VIEW_COLUMNS;
+        cacheScope = CacheScope.LIST_VIEW_COLUMN;
+        break;
       case ViewTypes.MAP:
         table = MetaTable.MAP_VIEW_COLUMNS;
         cacheScope = CacheScope.MAP_VIEW_COLUMN;
@@ -1063,7 +1106,7 @@ export default class View implements ViewType {
     let updateObj = extractProps(colData, ['order', 'show']);
 
     // keep primary_value_column always visible and first in grid view
-    if (view.type === ViewTypes.GRID) {
+    if (view.type === ViewTypes.GRID || view.type === ViewTypes.LIST) {
       const primary_value_column_meta = await ncMeta.metaGet2(
         context.workspace_id,
         context.base_id,
@@ -1077,7 +1120,9 @@ export default class View implements ViewType {
       const primary_value_column = await ncMeta.metaGet2(
         context.workspace_id,
         context.base_id,
-        MetaTable.GRID_VIEW_COLUMNS,
+        view.type === ViewTypes.GRID
+          ? MetaTable.GRID_VIEW_COLUMNS
+          : MetaTable.LIST_VIEW_COLUMNS,
         {
           fk_view_id: view.id,
           fk_column_id: primary_value_column_meta.id,
@@ -1123,6 +1168,8 @@ export default class View implements ViewType {
     switch (view.type) {
       case ViewTypes.GRID:
         return GridViewColumn.get(context, colId, ncMeta);
+      case ViewTypes.LIST:
+        return ListViewColumn.get(context, colId, ncMeta);
       case ViewTypes.MAP:
         return MapViewColumn.get(context, colId, ncMeta);
       case ViewTypes.GALLERY:
@@ -1148,6 +1195,7 @@ export default class View implements ViewType {
     ncMeta = Noco.ncMeta,
   ): Promise<
     | GridViewColumn
+    | ListViewColumn
     | FormViewColumn
     | GalleryViewColumn
     | KanbanViewColumn
@@ -1192,6 +1240,17 @@ export default class View implements ViewType {
       switch (view.type) {
         case ViewTypes.GRID:
           return await GridViewColumn.insert(
+            context,
+            {
+              fk_view_id: viewId,
+              fk_column_id: fkColId,
+              order: colData.order,
+              show: colData.show,
+            },
+            ncMeta,
+          );
+        case ViewTypes.LIST:
+          return await ListViewColumn.insert(
             context,
             {
               fk_view_id: viewId,
@@ -1860,11 +1919,21 @@ export default class View implements ViewType {
     viewId,
     ncMeta = Noco.ncMeta,
   ) {
+    const view = await View.get(context, viewId, ncMeta);
+    const viewColumnsTable =
+      view.type === ViewTypes.LIST
+        ? MetaTable.LIST_VIEW_COLUMNS
+        : MetaTable.GRID_VIEW_COLUMNS;
+    const viewColumnsScope =
+      view.type === ViewTypes.LIST
+        ? CacheScope.LIST_VIEW_COLUMN
+        : CacheScope.GRID_VIEW_COLUMN;
+
     // get a list of view columns sorted by order
     const view_columns = await ncMeta.metaList2(
       context.workspace_id,
       context.base_id,
-      MetaTable.GRID_VIEW_COLUMNS,
+      viewColumnsTable,
       {
         condition: {
           fk_view_id: viewId,
@@ -1904,13 +1973,13 @@ export default class View implements ViewType {
         await ncMeta.metaUpdate(
           context.workspace_id,
           context.base_id,
-          MetaTable.GRID_VIEW_COLUMNS,
+          viewColumnsTable,
           { show: true },
           primary_value_column.id,
         );
         await NocoCache.set(
           context,
-          `${CacheScope.GRID_VIEW_COLUMN}:${primary_value_column.id}`,
+          `${viewColumnsScope}:${primary_value_column.id}`,
           primary_value_column,
         );
       }
@@ -1933,13 +2002,13 @@ export default class View implements ViewType {
           await ncMeta.metaUpdate(
             context.workspace_id,
             context.base_id,
-            MetaTable.GRID_VIEW_COLUMNS,
+            viewColumnsTable,
             { order: i + 1 },
             view_columns[i].id,
           );
           await NocoCache.set(
             context,
-            `${CacheScope.GRID_VIEW_COLUMN}:${view_columns[i].id}`,
+            `${viewColumnsScope}:${view_columns[i].id}`,
             view_columns[i],
           );
         }
@@ -1949,7 +2018,7 @@ export default class View implements ViewType {
     const views = await ncMeta.metaList2(
       context.workspace_id,
       context.base_id,
-      MetaTable.GRID_VIEW_COLUMNS,
+      viewColumnsTable,
       {
         condition: {
           fk_view_id: viewId,
@@ -1959,12 +2028,7 @@ export default class View implements ViewType {
         },
       },
     );
-    await NocoCache.setList(
-      context,
-      CacheScope.GRID_VIEW_COLUMN,
-      [viewId],
-      views,
-    );
+    await NocoCache.setList(context, viewColumnsScope, [viewId], views);
   }
 
   public static async clearSingleQueryCache(
@@ -2026,6 +2090,7 @@ export default class View implements ViewType {
       } & Column)[];
       viewColumns?: (
         | GridViewColumn
+        | ListViewColumn
         | GalleryViewColumn
         | FormViewColumn
         | KanbanViewColumn
@@ -2203,6 +2268,14 @@ export default class View implements ViewType {
           insertObjs,
         );
         break;
+      case ViewTypes.LIST:
+        await ncMeta.bulkMetaInsert(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.LIST_VIEW_COLUMNS,
+          insertObjs,
+        );
+        break;
       case ViewTypes.GALLERY:
         await ncMeta.bulkMetaInsert(
           context.workspace_id,
@@ -2256,6 +2329,7 @@ export default class View implements ViewType {
         Partial<
           | FormView
           | GridView
+          | ListView
           | GalleryView
           | KanbanView
           | MapView
@@ -2352,6 +2426,17 @@ export default class View implements ViewType {
           {
             ...((copyFromView?.view as GridView) || {}),
             ...(view as GridView),
+            fk_view_id: view_id,
+          },
+          ncMeta,
+        );
+        break;
+      case ViewTypes.LIST:
+        await ListView.insert(
+          context,
+          {
+            ...((copyFromView?.view as ListView) || {}),
+            ...(view as ListView),
             fk_view_id: view_id,
           },
           ncMeta,
@@ -2604,6 +2689,9 @@ export default class View implements ViewType {
       case ViewTypes.GRID:
         table = MetaTable.GRID_VIEW_COLUMNS;
         break;
+      case ViewTypes.LIST:
+        table = MetaTable.LIST_VIEW_COLUMNS;
+        break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW_COLUMNS;
         break;
@@ -2628,6 +2716,9 @@ export default class View implements ViewType {
     switch (view.type) {
       case ViewTypes.GRID:
         table = MetaTable.GRID_VIEW;
+        break;
+      case ViewTypes.LIST:
+        table = MetaTable.LIST_VIEW;
         break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW;
@@ -2654,6 +2745,9 @@ export default class View implements ViewType {
       case ViewTypes.GRID:
         scope = CacheScope.GRID_VIEW_COLUMN;
         break;
+      case ViewTypes.LIST:
+        scope = CacheScope.LIST_VIEW_COLUMN;
+        break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW_COLUMN;
         break;
@@ -2678,6 +2772,9 @@ export default class View implements ViewType {
     switch (view.type) {
       case ViewTypes.GRID:
         scope = CacheScope.GRID_VIEW;
+        break;
+      case ViewTypes.LIST:
+        scope = CacheScope.LIST_VIEW;
         break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW;
@@ -2722,6 +2819,9 @@ export default class View implements ViewType {
       case ViewTypes.GRID:
         this.view = await GridView.get(context, this.id, ncMeta);
         break;
+      case ViewTypes.LIST:
+        this.view = await ListView.get(context, this.id, ncMeta);
+        break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);
         break;
@@ -2744,10 +2844,14 @@ export default class View implements ViewType {
   async getViewWithInfo(
     context: NcContext,
     ncMeta = Noco.ncMeta,
-  ): Promise<FormView | GridView | KanbanView | GalleryView> {
+  ): Promise<FormView | GridView | ListView | KanbanView | GalleryView> {
     switch (this.type) {
       case ViewTypes.GRID:
         this.view = await GridView.getWithInfo(context, this.id, ncMeta);
+        break;
+      case ViewTypes.LIST:
+        this.view = await ListView.get(context, this.id, ncMeta);
+        await (this.view as ListView)?.getColumns(context);
         break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);

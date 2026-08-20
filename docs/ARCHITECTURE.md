@@ -170,4 +170,11 @@ The approved starting surface is the Community set identified in [BASELINE_AUDIT
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
+List is the first fork-owned view extension and documents the intended path in
+[LIST_VIEW.md](./LIST_VIEW.md): append a `ViewTypes` value, give the view and its
+ordered columns distinct metadata models/tables, register controller and service
+orchestration, merge an independently authored OpenAPI fragment into the SDK,
+and reuse the shared record/filter/sort engine. New view types should follow the
+same separation instead of adding view-specific record query paths.
+
 The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script. `pnpm run check:vendored-assets` independently verifies copied runtime assets, required notices, and the absence of obsolete duplicate bundles. `pnpm run check:migration-integrity` protects already-published metadata migrations and their execution order.

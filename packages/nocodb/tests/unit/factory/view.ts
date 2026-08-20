@@ -33,6 +33,8 @@ const createView = async (
         return 'forms';
       case ViewTypes.GRID:
         return 'grids';
+      case ViewTypes.LIST:
+        return 'lists';
       case ViewTypes.KANBAN:
         return 'kanbans';
       case ViewTypes.CALENDAR:
