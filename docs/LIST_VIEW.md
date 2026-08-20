@@ -11,7 +11,7 @@ List is a first-class view type (`ViewTypes.LIST`, numeric value `7`). It presen
 the same table records, filters, sorts, and permissions as other data views. It
 does not own a separate record-query engine.
 
-The first backend slice provides:
+The metadata and backend slice provides:
 
 - creation and deletion through the normal view lifecycle;
 - list-specific presentation settings;
@@ -19,8 +19,19 @@ The first backend slice provides:
 - migration-safe metadata tables; and
 - generated SDK contracts for create and update operations.
 
-The frontend renderer, keyboard navigation, selection, virtualization, and
-end-to-end interaction tests are subsequent slices.
+The first frontend slice provides:
+
+- List creation from the sidebar, compact sidebar, and topbar menus;
+- a dedicated responsive record-row renderer;
+- server-side pagination through the shared view-data composable;
+- shared field visibility, filtering, sorting, and search controls;
+- expanded-form record create/read/update/delete flows; and
+- production-image browser coverage on SQLite, PostgreSQL, and MySQL.
+
+Keyboard row navigation beyond Enter-to-open, multi-row selection, bulk
+operations, row coloring, image-field presentation, and large-dataset
+virtualization remain follow-up slices. The UI does not advertise controls for
+those capabilities yet.
 
 ## Metadata contract
 
@@ -51,3 +62,18 @@ The controller delegates to `ListsService`. The service owns orchestration,
 validation, events, cache-list maintenance, webhooks, and socket notification.
 `ListView` and `ListViewColumn` own metadata persistence and cache entries. Data
 reads and writes remain in the existing data services and database adapters.
+
+On the frontend, `useSmartsheetStore` identifies List as a normal data view,
+`Smartsheet.vue` selects the fork-owned `smartsheet/List.vue` renderer, and the
+renderer consumes the existing view-column injection and `useViewData`
+query/pagination path. Opening or creating a record delegates to the existing
+expanded-form implementation, so List does not introduce a parallel mutation
+engine.
+
+## Verification
+
+The Community image workflow creates and updates List metadata through the API,
+confirms the general table-view listing returns the List, creates a second List
+through the rendered UI, and verifies a persisted record appears in that List.
+The same workflow runs against SQLite, PostgreSQL, and MySQL; each database is
+also restarted before persistence is checked.

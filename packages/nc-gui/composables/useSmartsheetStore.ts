@@ -48,6 +48,7 @@ const [useProvideSmartsheetStore, useSmartsheetStore] = useInjectionState(
     )
     const isPkAvail = computed(() => (meta.value as TableType)?.columns?.some((c) => c.pk))
     const isGrid = computed(() => view.value?.type === ViewTypes.GRID)
+    const isList = computed(() => view.value?.type === ViewTypes.LIST)
     const isForm = computed(() => view.value?.type === ViewTypes.FORM)
     const isGallery = computed(() => view.value?.type === ViewTypes.GALLERY)
     const isCalendar = computed(() => view.value?.type === ViewTypes.CALENDAR)
@@ -124,7 +125,7 @@ const [useProvideSmartsheetStore, useSmartsheetStore] = useInjectionState(
     const totalRowsWithoutSearchQuery = ref(0)
 
     const fetchTotalRowsWithSearchQuery = computed(() => {
-      return search.value.query?.trim() && !isMobileMode.value && (isGrid.value || isGallery.value)
+      return search.value.query?.trim() && !isMobileMode.value && (isGrid.value || isList.value || isGallery.value)
     })
 
     const xWhere = computed(() => {
@@ -228,6 +229,7 @@ const [useProvideSmartsheetStore, useSmartsheetStore] = useInjectionState(
       isPkAvail,
       isForm,
       isGrid,
+      isList,
       isGallery,
       isKanban,
       isMap,

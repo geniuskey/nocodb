@@ -364,6 +364,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
         case ViewTypes.GRID:
           data = await $api.dbView.gridCreate(tableId, form)
           break
+        case ViewTypes.LIST:
+          data = await $api.dbView.listCreate(tableId, form)
+          break
         case ViewTypes.GALLERY:
           data = await $api.dbView.galleryCreate(tableId, form)
           break
@@ -623,6 +626,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
         switch (viewType) {
           case ViewTypes.GRID:
             updatedView = await $api.dbView.gridUpdate(viewId, updates)
+            break
+          case ViewTypes.LIST:
+            updatedView = await $api.dbView.listUpdate(viewId, updates)
             break
           case ViewTypes.GALLERY:
             updatedView = await $api.dbView.galleryUpdate(viewId, updates)
