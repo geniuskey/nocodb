@@ -146,13 +146,19 @@ pnpm --filter nocodb run test:unit
 
 The Community smoke test uses Community-only Jest aliases and TypeScript configuration. The default Jest discovery pattern and the broader historical Mocha suite still have baseline coverage and initialization debt recorded below.
 
-The GUI's current Vitest configuration can be checked with:
+Run the Community GUI behavior tests with:
 
 ```sh
-pnpm --filter nc-gui exec vitest -c test/vite.config.ts run
+pnpm --filter nocodb-sdk build
+pnpm --filter nc-gui run test:run
 ```
 
-It exits with code 1 in this baseline because there are no matching test files. For Community Playwright tests, install Chromium, start both development servers, and invoke Playwright without the baseline scripts that set `EE=true`:
+Vitest collects only `test/**/*.spec.ts` and intentionally fails when the suite
+is empty. The SDK build is required on a clean checkout because the GUI imports
+its workspace output. The current tests characterize the sorting behavior
+shared by Grid and future record-list surfaces. For Community Playwright tests, install
+Chromium, start both development servers, and invoke Playwright without the
+baseline scripts that set `EE=true`:
 
 ```sh
 pnpm --filter playwright exec playwright install chromium
@@ -285,6 +291,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Docker container signup, base creation, table creation, and record create/read/update/delete against SQLite: passed.
 - Docker-staged dashboard and generated GUI CSS returned HTTP 200.
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
+- Community GUI Vitest: 1 file and 10 sorting behavior tests passed.
 
 An interactive in-app browser session was unavailable in the execution environment, so the login/base/table/CRUD path was verified at the public API boundary while the frontend was independently verified running. This is not a claim that the full click path was exercised. Run the Community Playwright command above in an environment with Chromium to close that UI-verification gap.
 
@@ -309,7 +316,7 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | SDK CSpell                                     | Baseline vocabulary produces many findings                                                                      | Recorded; Enterprise and generated API paths are excluded.                                                                                                                                   |
 | Backend Jest                                   | The historical default pattern finds no tests and exits 0 because it uses `--passWithNoTests`                   | A Community-only smoke lane now runs an explicitly collected service test; broad Jest discovery remains test debt.                                                                           |
 | Backend Mocha unit suite                       | The baseline failed during module loading: `Cannot access 'isEE' before initialization`                         | Move edition constants to a dependency-free module. The command now initializes SQLite and exits 0, but emits no test-count summary, so it is not yet treated as a verified full-suite pass. |
-| GUI Vitest                                     | No matching test files; exits 1                                                                                 | Recorded.                                                                                                                                                                                    |
+| Initial GUI Vitest                             | No matching test files; exited 1                                                                                | Add a fork-owned non-watch Community suite and require at least one collected test; 10 sorting behavior tests now pass.                                                                       |
 | Initial Docker image build                     | Docker Desktop Linux engine pipe not present                                                                    | Started the installed local engine and reran the same build.                                                                                                                                 |
 | Initial Docker container start on Windows      | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF                      | Normalize the copied shell script inside the canonical Dockerfile; no application code changed.                                                                                              |
 | Second Docker container start                  | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM`               | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5.                                                                                                          |

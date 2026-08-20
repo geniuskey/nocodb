@@ -106,7 +106,10 @@ not fetch a package manager or SDK generator during the sandboxed build.
 
 - SDK: Jest unit tests plus ESLint, Prettier, and CSpell checks.
 - Backend: a Jest command that currently finds no tests, and a separate Mocha/SWC unit suite under `packages/nocodb/tests/unit`.
-- Frontend: Vitest is configured, but this baseline contains no matching GUI test files.
+- Frontend: Vitest runs fork-owned Community behavior tests under
+  `packages/nc-gui/test`. The first suite fixes the shared Grid/List sorting
+  contract for numeric, text, date/time, linked-record, attachment, and user
+  values, plus sort-metadata change detection.
 - End-to-end: Community Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. The package scripts and retained CI workflows no longer set Enterprise flags or install Enterprise-only identity-provider fixtures.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
