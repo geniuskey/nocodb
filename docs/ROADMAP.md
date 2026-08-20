@@ -101,8 +101,10 @@ metadata fixture now verifies the real `nc_001` to `nc_005` upgrade boundary,
 schema changes, data preservation, and restart idempotence on SQLite,
 PostgreSQL, and MySQL without running a historical full application tree.
 Additional fork-release fixtures will be appended when this fork publishes new
-migrations. Service-boundary clarification and broader compatibility work
-remain, so this does not by itself complete Phase 1.
+migrations. Backend dependency direction and the canonical record/view flow are
+now documented and enforced with removal-only exception inventories. Broader
+compatibility and modernization work remains, so this does not by itself
+complete Phase 1.
 
 ## Phase 2 — List View
 

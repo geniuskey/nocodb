@@ -42,6 +42,12 @@ The non-AGPL package declarations are not automatically relicensed by the reposi
 - `src/plugins`, `src/providers`, and Community integration interfaces: adapters for storage, notifications, authentication, and external services. New work here must be independently designed from public specifications and the Community baseline only.
 - `src/public`: server-owned static files. Audited third-party library bundles copied outside the pnpm graph have a pinned, machine-readable provenance inventory in [VENDORED_ASSETS.json](./VENDORED_ASSETS.json); CI verifies their normalized hashes and notices. Branding and provider-logo assets remain a separate review surface.
 
+The allowed dependency direction and the canonical record/view request flow are
+defined in [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md). CI prevents new
+controller-to-persistence, data-engine-to-service, domain-to-service, and
+lower-layer-to-controller runtime edges. The baseline exceptions are explicit
+and removal-only.
+
 The default local metadata/data store is SQLite. Knex-backed connections support PostgreSQL and MySQL, while separate workspace packages contain Snowflake and Databricks dialects. Metadata schema changes are performed by the migrations under `src/meta/migrations`; never edit an already-released migration for new fork work.
 
 `docs/MIGRATION_MANIFEST.json` records the cross-platform normalized SHA-256

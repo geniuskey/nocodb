@@ -6,9 +6,10 @@ on:
     paths:
       - "packages/nc-gui/**"
       - "packages/nc-secret-mgr/**"
-      - "packages/nocodb/src/public/**"
-      - "packages/nocodb/src/meta/migrations/**"
+      - "packages/nocodb/src/**"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/SERVICE_BOUNDARIES.md"
+      - "docs/SERVICE_BOUNDARY_EXCEPTIONS.json"
       - "docs/VENDORED_ASSETS.json"
       - "tests/playwright/**"
       - "scripts/**"
@@ -21,9 +22,10 @@ on:
     paths:
       - "packages/nc-gui/**"
       - "packages/nc-secret-mgr/**"
-      - "packages/nocodb/src/public/**"
-      - "packages/nocodb/src/meta/migrations/**"
+      - "packages/nocodb/src/**"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/SERVICE_BOUNDARIES.md"
+      - "docs/SERVICE_BOUNDARY_EXCEPTIONS.json"
       - "docs/VENDORED_ASSETS.json"
       - "tests/playwright/**"
       - "scripts/**"
@@ -53,6 +55,15 @@ jobs:
         run: node scripts/check-community-boundaries.mjs
       - name: Check vendored runtime assets
         run: node scripts/check-vendored-assets.mjs
+      - name: Check backend service boundaries
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE_REVISION" ] && [ "$BASE_REVISION" != "0000000000000000000000000000000000000000" ]; then
+            node scripts/check-service-boundaries.mjs --against "$BASE_REVISION"
+          else
+            node scripts/check-service-boundaries.mjs
+          fi
       - name: Check append-only migration ledger
         env:
           BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}

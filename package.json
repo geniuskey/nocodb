@@ -36,6 +36,7 @@
   },
   "scripts": {
     "check:community-boundaries": "node scripts/check-community-boundaries.mjs",
+    "check:service-boundaries": "node scripts/check-service-boundaries.mjs",
     "check:migration-integrity": "node scripts/check-migration-integrity.mjs",
     "check:vendored-assets": "node scripts/check-vendored-assets.mjs",
     "test:community-gui-stage": "node --test scripts/stage-community-gui.test.mjs",

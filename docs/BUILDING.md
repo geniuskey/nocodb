@@ -112,12 +112,13 @@ Verify the Community source boundary and copied runtime assets before building o
 
 ```sh
 pnpm run check:community-boundaries
+pnpm run check:service-boundaries
 pnpm run check:migration-integrity
 pnpm run check:vendored-assets
 pnpm run test:community-gui-stage
 ```
 
-The first static check confirms that removed Enterprise-labelled and provenance-excluded paths remain absent, that Nuxt/Windi/GUI extension discovery retains defensive exclusions, that Community sources do not import excluded path segments, that the integration workspace contains only its core interface contract, that workflows are fork-owned and allowlisted, and that principal package scripts do not select excluded builds. The migration check verifies every retained migration file's normalized SHA-256 digest and the exact v0/v1/v2/audit execution sequences. Pull-request CI also compares the ledger with the base commit and rejects changes, removals, or reordering of existing entries. The vendored-asset check validates the source, version markers, normalized SHA-256 digest, and license notices for every inventoried third-party library asset copied outside the pnpm graph. The staging test exercises replacement, validation, and path-safety behavior for Community GUI staging. See [VENDORED_ASSETS.md](./VENDORED_ASSETS.md).
+The first static check confirms that removed Enterprise-labelled and provenance-excluded paths remain absent, that Nuxt/Windi/GUI extension discovery retains defensive exclusions, that Community sources do not import excluded path segments, that the integration workspace contains only its core interface contract, that workflows are fork-owned and allowlisted, and that principal package scripts do not select excluded builds. The service-boundary check prevents new runtime dependency inversions and requires removal of stale legacy exceptions; see [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md). The migration check verifies every retained migration file's normalized SHA-256 digest and the exact v0/v1/v2/audit execution sequences. Pull-request CI also compares the ledger with the base commit and rejects changes, removals, or reordering of existing entries. The vendored-asset check validates the source, version markers, normalized SHA-256 digest, and license notices for every inventoried third-party library asset copied outside the pnpm graph. The staging test exercises replacement, validation, and path-safety behavior for Community GUI staging. See [VENDORED_ASSETS.md](./VENDORED_ASSETS.md).
 
 For a new metadata change, add a new migration and append its registration to
 the appropriate source. Then regenerate the ledger and review the resulting
