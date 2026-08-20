@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 interface Props {
   checked?: boolean
+  indeterminate?: boolean
   size?: 'small' | 'default' | 'large'
   disabled?: boolean
   theme?: 'default' | 'ai'
@@ -26,6 +27,7 @@ const onChange = (e: Event) => {
 <template>
   <a-checkbox
     v-model:checked="checked"
+    :indeterminate="props.indeterminate"
     class="nc-checkbox"
     :class="`theme-${props.theme}`"
     :disabled="props.disabled"

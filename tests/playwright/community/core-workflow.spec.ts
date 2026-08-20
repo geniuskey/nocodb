@@ -169,6 +169,14 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect((await persistenceResponse).ok()).toBeTruthy();
   await expect(persistenceCell).toContainText('Persists across restart');
 
+  await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
+
+  const bulkListRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: Array.from({ length: 30 }, (_, index) => ({ Title: `Virtualized task ${index + 1}` })),
+  });
+  expect(bulkListRecordsResponse.ok(), await bulkListRecordsResponse.text()).toBeTruthy();
+
   const listRowsResponse = await page.request.get(
     `/api/v1/db/data/noco/${createdBaseBody.id}/${createdTableBody.id}/views/${createdList.id}`,
     { headers: sessionHeaders }
@@ -206,5 +214,57 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-add-record')).toBeVisible();
 
-  await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
+  const renderedListRows = listView.locator('[role="option"]');
+  await expect.poll(() => renderedListRows.count()).toBeGreaterThan(1);
+  await expect.poll(() => renderedListRows.count()).toBeLessThan(25);
+
+  const secondListRow = listView.getByTestId('nc-list-row-1');
+  await secondListRow.focus();
+  await secondListRow.press(' ');
+  await expect(secondListRow).toHaveAttribute('aria-selected', 'true');
+
+  await secondListRow.press('Shift+ArrowDown');
+  const thirdListRow = listView.getByTestId('nc-list-row-2');
+  await expect(thirdListRow).toBeFocused();
+  await expect(thirdListRow).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('2 selected');
+
+  const bulkDeleteResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/api/v2/tables/${createdTableBody.id}/records`) &&
+      response.request().method() === 'DELETE'
+  );
+  await page.getByTestId('nc-list-delete-selected').click();
+  expect((await bulkDeleteResponse).ok()).toBeTruthy();
+  await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
+
+  const firstListRow = listView.getByTestId('nc-list-row-0');
+  await firstListRow.focus();
+  await firstListRow.press('End');
+  const lastPageListRow = listView.getByTestId('nc-list-row-24');
+  await expect(lastPageListRow).toBeFocused();
+  await expect(listView.getByTestId('nc-list-row-0')).toHaveCount(0);
+
+  await lastPageListRow.press('Control+a');
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('25 selected');
+  await lastPageListRow.press('Escape');
+  await expect(page.getByTestId('nc-list-delete-selected')).toHaveCount(0);
+
+  const cleanupListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  expect(cleanupListResponse.ok()).toBeTruthy();
+  const cleanupList = (await cleanupListResponse.json()) as {
+    list: Array<{ Id: number; Title?: string }>;
+  };
+  const temporaryRecords = cleanupList.list
+    .filter(record => record.Title?.startsWith('Virtualized task '))
+    .map(record => ({ Id: record.Id }));
+  expect(temporaryRecords.length).toBeGreaterThan(0);
+
+  const cleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: temporaryRecords,
+  });
+  expect(cleanupResponse.ok(), await cleanupResponse.text()).toBeTruthy();
 });

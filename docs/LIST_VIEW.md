@@ -19,19 +19,45 @@ The metadata and backend slice provides:
 - migration-safe metadata tables; and
 - generated SDK contracts for create and update operations.
 
-The first frontend slice provides:
+The frontend provides:
 
 - List creation from the sidebar, compact sidebar, and topbar menus;
 - a dedicated responsive record-row renderer;
 - server-side pagination through the shared view-data composable;
 - shared field visibility, filtering, sorting, and search controls;
 - expanded-form record create/read/update/delete flows; and
+- variable-height, overscanned row virtualization;
+- page-scoped row selection and permission-aware bulk deletion;
+- keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Keyboard row navigation beyond Enter-to-open, multi-row selection, bulk
-operations, row coloring, image-field presentation, and large-dataset
-virtualization remain follow-up slices. The UI does not advertise controls for
-those capabilities yet.
+Image-field presentation, row coloring, cross-page selection, bulk update, and
+server-range loading beyond the existing pagination contract remain follow-up
+slices. The UI does not advertise controls for those capabilities yet.
+
+## Interaction contract
+
+List rows form an accessible multi-select listbox. One row participates in the
+tab order at a time. The keyboard contract is:
+
+- `ArrowUp` and `ArrowDown` move focus by one row;
+- `Home` and `End` move to the first and last row on the loaded page;
+- holding `Shift` while moving focus selects the contiguous range;
+- `Space` toggles the focused row;
+- `Enter` opens the focused row in the expanded form;
+- `Ctrl+A` or `Cmd+A` selects every row on the loaded page; and
+- `Escape` clears the selection.
+
+Selection is deliberately page-scoped. Changing the loaded page resets the
+focus anchor, and no control claims that unloaded records are selected. The
+bulk-delete action is displayed only when the current user has record-delete
+permission and delegates to the existing Community data mutation path.
+
+The renderer virtualizes the loaded page with a fixed height calculated for the
+current viewport, density, and number of visible detail rows. A small overscan
+keeps keyboard navigation smooth while limiting the number of record elements
+mounted in the DOM. Data retrieval remains server-paginated; virtualization
+does not fetch or retain unbounded table data.
 
 ## Metadata contract
 
@@ -68,12 +94,18 @@ On the frontend, `useSmartsheetStore` identifies List as a normal data view,
 renderer consumes the existing view-column injection and `useViewData`
 query/pagination path. Opening or creating a record delegates to the existing
 expanded-form implementation, so List does not introduce a parallel mutation
-engine.
+engine. `useViewRowSelection` contains presentation-independent page selection
+and keyboard behavior, while the List renderer owns virtualization, focus, and
+accessibility markup.
 
 ## Verification
 
 The Community image workflow creates and updates List metadata through the API,
 confirms the general table-view listing returns the List, creates a second List
 through the rendered UI, and verifies a persisted record appears in that List.
-The same workflow runs against SQLite, PostgreSQL, and MySQL; each database is
-also restarted before persistence is checked.
+It also creates enough records to prove the DOM window is bounded, exercises
+keyboard range selection, page selection, clearing, virtual focus movement,
+and bulk deletion, then removes temporary records. The same workflow runs
+against SQLite, PostgreSQL, and MySQL; each database is also restarted before
+persistence is checked. Unit tests cover selection state and keyboard boundary
+behavior independently of the renderer.

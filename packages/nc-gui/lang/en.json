@@ -1587,6 +1587,8 @@
     "limitOptions": "Limit options",
     "limitOptionsSubtext": "Limit options visible to users by selecting available options",
     "clearSelection": "Clear selection",
+    "listViewRecords": "List view records",
+    "selectRecord": "Select record {index}",
     "displayAsProgress": "Display as progress",
     "relationType": "Relation type",
     "showThousandsSeparator": "Show thousands separator",
