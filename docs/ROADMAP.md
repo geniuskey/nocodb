@@ -114,6 +114,15 @@ navigation, virtualization, saved view configuration, API definitions, and
 browser coverage. This phase should extract reusable row-selection and bulk
 operation primitives for later views.
 
+Current evidence: List metadata, SDK contracts, Community service endpoints,
+creation menus, responsive rendering, shared query controls, expanded-form
+CRUD, server pagination, variable-height DOM virtualization, accessible
+keyboard navigation, page-scoped range selection, and permission-aware bulk
+deletion are implemented. Unit tests cover the reusable selection primitive,
+and the production-image browser workflow covers the rendered interactions on
+SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration,
+image-field presentation, row coloring, and cross-page operations remain.
+
 ## Phase 3 — Timeline
 
 Add a date-range Timeline view using the shared view/query contracts. Define
