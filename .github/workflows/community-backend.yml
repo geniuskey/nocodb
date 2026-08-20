@@ -17,11 +17,13 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
+      - "docs/MIGRATION_MANIFEST.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -41,11 +43,13 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
+      - "docs/MIGRATION_MANIFEST.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -73,6 +77,8 @@ jobs:
         run: pnpm run check:community-boundaries
       - name: Check vendored runtime assets
         run: pnpm run check:vendored-assets
+      - name: Check migration integrity
+        run: pnpm run check:migration-integrity
       - name: Test Community GUI staging
         run: pnpm run test:community-gui-stage
       - name: Build assembled Community application

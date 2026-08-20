@@ -44,6 +44,13 @@ The non-AGPL package declarations are not automatically relicensed by the reposi
 
 The default local metadata/data store is SQLite. Knex-backed connections support PostgreSQL and MySQL, while separate workspace packages contain Snowflake and Databricks dialects. Metadata schema changes are performed by the migrations under `src/meta/migrations`; never edit an already-released migration for new fork work.
 
+`docs/MIGRATION_MANIFEST.json` records the cross-platform normalized SHA-256
+digest of every retained metadata migration/support file and the exact order of
+the v0, v1, v2, and audit migration sources. The migration integrity check
+requires the working tree to match that ledger. In pull requests it additionally
+compares the ledger with the base commit, so an existing file, registration, or
+ordering cannot be changed or removed; a new migration must be appended.
+
 ## Frontend
 
 `packages/nc-gui` is a client-only Nuxt 3 application (`ssr: false`) using Vue 3, Vite, Pinia, Windi CSS, and the workspace SDK. Its main Community extension surfaces are:
@@ -148,4 +155,4 @@ The approved starting surface is the Community set identified in [BASELINE_AUDIT
 
 Future features should enter through Community controllers/services, public schemas, database adapters, migrations, Vue components/composables, or newly created fork-owned packages. Their design inputs must be the AGPL baseline, public behavior/specifications, and independently authored tests.
 
-The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script. `pnpm run check:vendored-assets` independently verifies copied runtime assets, required notices, and the absence of obsolete duplicate bundles.
+The default root bootstrap and backend build/development/test entry points are Community-only. `pnpm run check:community-boundaries` verifies that excluded implementation paths remain absent, scans Community module specifiers, restricts the integration workspace to its core contract, allowlists fork-owned workflows, and rejects excluded source selectors in every principal package script. `pnpm run check:vendored-assets` independently verifies copied runtime assets, required notices, and the absence of obsolete duplicate bundles. `pnpm run check:migration-integrity` protects already-published metadata migrations and their execution order.
