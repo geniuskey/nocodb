@@ -387,8 +387,16 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     .locator('.ant-select-dropdown:visible .ant-select-item-option-content')
     .getByText('Blocked', { exact: true })
     .click();
+  await page.getByTestId('nc-list-bulk-update-add-field').click();
+  await page.getByTestId('nc-list-bulk-update-field-1').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Title', { exact: true }).click();
+  await page.getByTestId('nc-list-bulk-update-value-1').locator('input').fill('Bulk updated task');
   await page.getByTestId('nc-list-bulk-update-apply').click();
-  expect((await updateAllMatchingResponse).ok()).toBeTruthy();
+  const updateAllMatching = await updateAllMatchingResponse;
+  expect(updateAllMatching.ok()).toBeTruthy();
+  expect(updateAllMatching.request().postDataJSON()).toEqual(
+    expect.objectContaining({ Status: 'Blocked', Title: 'Bulk updated task' })
+  );
 
   const updatedListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
     headers: sessionHeaders,
@@ -397,12 +405,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const updatedListRecords = (await updatedListResponse.json()) as {
     list: Array<{ Title?: string; Status?: string }>;
   };
-  expect(updatedListRecords.list.filter(record => record.Title?.startsWith('Virtualized task '))).toHaveLength(28);
   expect(
-    updatedListRecords.list
-      .filter(record => record.Title?.startsWith('Virtualized task '))
-      .every(record => record.Status === 'Blocked')
-  ).toBe(true);
+    updatedListRecords.list.filter(record => record.Title === 'Bulk updated task' && record.Status === 'Blocked')
+  ).toHaveLength(28);
   expect(updatedListRecords.list.find(record => record.Title === 'Persists across restart')?.Status).not.toBe(
     'Blocked'
   );

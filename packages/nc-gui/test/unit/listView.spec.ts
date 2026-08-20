@@ -2,6 +2,7 @@ import { UITypes } from 'nocodb-sdk'
 import type { ColumnType } from 'nocodb-sdk'
 import { describe, expect, it } from 'vitest'
 import {
+  buildListBulkUpdateData,
   isListBulkUpdateColumn,
   isListColorRuleColumn,
   parseListColorRules,
@@ -138,5 +139,28 @@ describe('List view presentation', () => {
     expect(isListBulkUpdateColumn({ id: 'formula', title: 'Total', uidt: UITypes.Formula })).toBe(false)
     expect(isListBulkUpdateColumn({ id: 'unique', title: 'Code', uidt: UITypes.SingleLineText, unique: true })).toBe(false)
     expect(isListBulkUpdateColumn({ id: 'readonly', title: 'Locked', uidt: UITypes.SingleLineText, readonly: true })).toBe(false)
+  })
+
+  it('builds one permission-checked payload for multi-field bulk update', () => {
+    expect(
+      buildListBulkUpdateData(
+        [
+          { field: fields[0], value: 'Renamed' },
+          { field: fields[1], value: 'Blocked' },
+        ],
+        fields.slice(0, 3),
+      ),
+    ).toEqual({ Title: 'Renamed', Status: 'Blocked' })
+
+    expect(buildListBulkUpdateData([{ field: fields[3], value: [] }], fields.slice(0, 3))).toBeUndefined()
+    expect(
+      buildListBulkUpdateData(
+        [
+          { field: fields[0], value: 'First' },
+          { field: fields[0], value: 'Second' },
+        ],
+        fields,
+      ),
+    ).toBeUndefined()
   })
 })
