@@ -110,7 +110,14 @@ not fetch a package manager or SDK generator during the sandboxed build.
   `packages/nc-gui/test`. The first suite fixes the shared Grid/List sorting
   contract for numeric, text, date/time, linked-record, attachment, and user
   values, plus sort-metadata change detection.
-- End-to-end: Community Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. The package scripts and retained CI workflows no longer set Enterprise flags or install Enterprise-only identity-provider fixtures.
+- End-to-end: Community Playwright tests under `tests/playwright`, with SQLite, PostgreSQL, and MySQL environments. A separate fork-owned configuration at
+  `playwright.community.config.ts` exercises the canonical Community Docker
+  image in Chromium through signup, base creation, table creation, and record
+  create/read/update/delete. It uses the frozen frontend's built-in Playwright
+  mode so the stable DOM Grid is selected instead of the beta Canvas Grid;
+  backend routes, persistence, and the assembled production frontend remain the
+  same as the shipped image. The package scripts and retained CI workflows no
+  longer set Enterprise flags or install Enterprise-only identity-provider fixtures.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 

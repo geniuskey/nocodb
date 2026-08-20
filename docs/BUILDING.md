@@ -167,6 +167,26 @@ pnpm --filter playwright exec playwright test --project=chromium
 
 The full browser suite owns test data and is best run against dedicated services/databases, not a developer's working database.
 
+For the reproducible core acceptance test, build the canonical image and start
+it with an empty SQLite data directory:
+
+```sh
+pnpm run docker:build:community
+docker run --detach --name nocodb-community-acceptance --publish 18080:8080 nocodb-agpl-baseline:dev
+pnpm --filter playwright exec playwright install chromium
+pnpm --filter playwright run ci:test:community
+docker rm --force nocodb-community-acceptance
+```
+
+Set `PW_BASE_URL` to test a separately started image on another origin. The
+default is `http://127.0.0.1:18080`. The test must start against a fresh instance
+because it verifies first-user signup. It performs signup, lets the baseline
+finish its starter-base bootstrap, creates a separate base and table, and then
+creates, reads, updates, reads back, and deletes a record through Chromium. The
+frontend's existing `window.isPlaywright` hook selects its stable DOM Grid for
+deterministic cell interaction; no server flag, Enterprise mode, or license
+mechanism is changed.
+
 ## Docker build
 
 Build the complete Community application and local image with the same
@@ -292,8 +312,12 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Docker-staged dashboard and generated GUI CSS returned HTTP 200.
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
 - Community GUI Vitest: 1 file and 10 sorting behavior tests passed.
+- Canonical Docker image Chromium acceptance: 1 signup/base/table/record CRUD workflow passed.
 
-An interactive in-app browser session was unavailable in the execution environment, so the login/base/table/CRUD path was verified at the public API boundary while the frontend was independently verified running. This is not a claim that the full click path was exercised. Run the Community Playwright command above in an environment with Chromium to close that UI-verification gap.
+The complete login/base/table/CRUD click path is now exercised by Chromium
+against the assembled Docker image in both local verification and the Community
+backend workflow. The earlier API-only verification remains useful as a lower
+level diagnostic, but is no longer the sole acceptance evidence.
 
 Docker Desktop was initially stopped; after starting its Linux engine, the image built successfully. Container smoke testing then exposed a Windows CRLF shebang and a Node.js major-version mismatch between build and runtime stages. The local Dockerfile now normalizes the copied script and pins both stages to Node.js `22.12.0` with pnpm `9.15.5`; the corrected container returned HTTP 200 from `/api/v1/health`.
 
