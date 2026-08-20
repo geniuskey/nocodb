@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import { MetaTable } from '~/utils/globals';
+import { createOAuthTokenValueIndexes } from '~/meta/migrations/oauthTokenIndexes';
 
 const up = async (knex: Knex) => {
   // OAuth Clients Table
@@ -84,8 +85,6 @@ const up = async (knex: Knex) => {
     // Indexes for performance
     table.index('fk_client_id');
     table.index('fk_user_id');
-    table.index('access_token');
-    table.index('refresh_token');
     table.index('access_token_expires_at');
     table.index('refresh_token_expires_at');
     table.index('is_revoked');
@@ -93,6 +92,7 @@ const up = async (knex: Knex) => {
     table.index(['fk_client_id', 'fk_user_id']);
     table.index(['is_revoked', 'access_token_expires_at']);
   });
+  await createOAuthTokenValueIndexes(knex);
 };
 
 const down = async (knex: Knex) => {

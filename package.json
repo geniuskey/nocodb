@@ -40,6 +40,7 @@
     "test:community-gui-stage": "node --test scripts/stage-community-gui.test.mjs",
     "build:community": "pnpm --filter nocodb-sdk build && pnpm --filter nc-gui generate && pnpm --filter nocodb build && pnpm --filter nocodb run stage:gui",
     "docker:build:community": "pnpm run build:community && docker build -f packages/nocodb/Dockerfile -t nocodb-agpl-baseline:dev .",
+    "test:community:image": "node scripts/test-community-image.mjs",
     "bootstrap": "pnpm run bootstrap:ce",
     "bootstrap:ce": "pnpm --filter=nocodb-sdk install && pnpm --filter=nocodb-sdk run build && pnpm --filter=nocodb --filter=nc-gui --filter=nc-sql-executor --filter=playwright install && pnpm run integrations:build:core",
     "integrations:install": "cross-env CI=true pnpm --dir ./packages/noco-integrations install --frozen-lockfile",

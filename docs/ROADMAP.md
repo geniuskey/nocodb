@@ -84,6 +84,12 @@ split into small reviewable changes:
 Phase 1 is complete only when a clean checkout can run the documented build
 and Community test matrix in CI without depending on excluded directories.
 
+Current evidence: the canonical Community image now completes the same
+Chromium signup/base/table/record CRUD workflow independently against fresh
+SQLite, PostgreSQL 16.6, and MySQL 8.3.0 metadata stores. The database matrix is
+an acceptance foundation for the remaining service-boundary and compatibility
+work; it does not by itself complete Phase 1.
+
 ## Phase 2 — List View
 
 Create an independently designed record List view with shared view contracts,
