@@ -155,8 +155,10 @@ The symmetric left-edge handle now updates only the mapped start with the same
 permission, boundary, rollback, and history guarantees. One-field visual
 grouping now persists in the Timeline presentation metadata, validates and
 projects the mapped field through the shared query AST, lays out overlaps per
-group, and provides accessible local collapse controls. Virtualization remains
-a follow-up slice.
+group, and provides accessible local collapse controls. Two-axis viewport
+virtualization now preserves the complete bounded layout while mounting only
+overscanned day headers, group bands, and records; active keyboard and pointer
+interactions remain pinned in the DOM. Phase 3 is complete.
 
 ## Phase 4 — Gantt
 

@@ -108,6 +108,21 @@ Compound values remain one exact group value. This slice deliberately does not
 duplicate a multi-valued record across bands, and grouping never widens the
 server-enforced date window or 1,000-record page bound.
 
+The eighth slice virtualizes the bounded Timeline canvas:
+
+- the complete deterministic layout and scroll dimensions remain available,
+  but only day headers, group bands, and records intersecting the viewport plus
+  a fixed pixel overscan are mounted;
+- both horizontal and vertical axes participate, so long zoom windows and deep
+  overlap lanes do not create proportional DOM growth;
+- a focused, dragged, or resized record remains mounted until its interaction
+  ends, even when scrolling moves it beyond the overscan; and
+- an unmeasured initial viewport renders the complete already-bounded result,
+  avoiding an empty hydration or first-paint state.
+
+Virtualization changes presentation cost only. It does not increase the server
+window, request limit, retained record set, or mutation authority.
+
 ## Metadata contract
 
 `nc_timeline_view_v2` is keyed by `base_id` and `fk_view_id` and stores:
@@ -210,6 +225,13 @@ dependency mechanism projects it; `layoutTimelineGroups` then normalizes values,
 orders groups, and invokes the existing interval-partitioning function once per
 group. No grouped record endpoint or Timeline-specific data store is added.
 
+Viewport virtualization is implemented after layout. Pure helpers calculate an
+end-exclusive visible day range and two-axis rectangle intersection. The Vue
+renderer observes only its scroll region, preserves the full canvas dimensions,
+and filters headers, groups, and records with fixed overscan. This separation
+keeps the same layout primitives reusable by Gantt and makes virtualization
+independent of record fetching.
+
 ## Compatibility rules
 
 - The migration is append-only and does not rewrite earlier metadata.
@@ -260,3 +282,10 @@ lanes, blank values, compound values, and collision-resistant keys. Fresh and
 restart workflows must prove metadata persistence, required group-field
 projection, grouped rendering, record counts, and keyboard-accessible collapse
 state on SQLite, PostgreSQL, and MySQL.
+
+The virtualization slice requires unit coverage for clamped day ranges,
+unmeasured viewports, two-axis intersection, overscan, and half-open edges.
+Fresh and restart workflows must load a deep overlapping layout, prove that the
+mounted item count remains below the bounded result count, reveal offscreen
+records after scrolling, and keep a focused record mounted on SQLite,
+PostgreSQL, and MySQL.

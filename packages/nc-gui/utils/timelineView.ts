@@ -24,6 +24,25 @@ export interface TimelineLayoutGroup<T = Record<string, any>> extends TimelineGr
   laneCount: number
 }
 
+export interface TimelineBounds {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export interface TimelineViewport {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export interface TimelineVirtualRange {
+  start: number
+  end: number
+}
+
 export interface TimelineMutationPatch {
   previous: Record<string, unknown>
   next: Record<string, string>
@@ -64,6 +83,50 @@ export function layoutTimelineItems<T>(items: TimelineLayoutInput<T>[]): Timelin
 
 export function timelineLaneCount(items: TimelineLayoutItem[]) {
   return items.reduce((count, item) => Math.max(count, item.lane + 1), 0)
+}
+
+/**
+ * Return an end-exclusive unit range covering the horizontal viewport plus
+ * overscan. A not-yet-measured viewport returns the complete bounded range so
+ * initial and server-side rendering remain deterministic.
+ */
+export function timelineVirtualRange(
+  total: number,
+  unitSize: number,
+  offset: number,
+  viewportSize: number,
+  overscan = 0,
+): TimelineVirtualRange {
+  const safeTotal = Math.max(0, Math.floor(total))
+  if (!safeTotal || unitSize <= 0) return { start: 0, end: 0 }
+  if (viewportSize <= 0) return { start: 0, end: safeTotal }
+
+  const start = Math.min(safeTotal, Math.max(0, Math.floor((Math.max(0, offset) - Math.max(0, overscan)) / unitSize)))
+  const end = Math.min(
+    safeTotal,
+    Math.max(start, Math.ceil((Math.max(0, offset) + viewportSize + Math.max(0, overscan)) / unitSize)),
+  )
+
+  return { start, end }
+}
+
+/** Test a positioned Timeline entry against both viewport axes. */
+export function timelineBoundsVisible(bounds: TimelineBounds, viewport: TimelineViewport, overscanX = 0, overscanY = 0) {
+  if (viewport.width <= 0 || viewport.height <= 0) return true
+
+  const horizontalPadding = Math.max(0, overscanX)
+  const verticalPadding = Math.max(0, overscanY)
+  const viewportRight = viewport.left + viewport.width + horizontalPadding
+  const viewportBottom = viewport.top + viewport.height + verticalPadding
+  const boundsRight = bounds.left + Math.max(0, bounds.width)
+  const boundsBottom = bounds.top + Math.max(0, bounds.height)
+
+  return (
+    boundsRight > viewport.left - horizontalPadding &&
+    bounds.left < viewportRight &&
+    boundsBottom > viewport.top - verticalPadding &&
+    bounds.top < viewportBottom
+  )
 }
 
 function stableTimelineValue(value: unknown): string {

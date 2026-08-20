@@ -944,4 +944,59 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       .slice(0, 10),
   });
   await expect(page.getByTestId('nc-timeline-announcement')).toContainText('start moved 1 day later');
+
+  const virtualTimelineStart = new Date(Date.parse(`${currentTimelineDate}T00:00:00Z`) + 5 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const virtualTimelineEnd = new Date(
+    Date.parse(`${currentTimelineDate}T00:00:00Z`) + 6 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const virtualTimelineRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: Array.from({ length: 36 }, (_, index) => ({
+      Title: `Virtualized Timeline item ${String(index + 1).padStart(2, '0')}`,
+      Status: 'Ready',
+      'Timeline start': virtualTimelineStart,
+      'Timeline end': virtualTimelineEnd,
+    })),
+  });
+  expect(virtualTimelineRecordsResponse.ok(), await virtualTimelineRecordsResponse.text()).toBeTruthy();
+
+  const virtualTimelineNextResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/timeline-data/') && response.request().method() === 'GET'
+  );
+  await page.getByTestId('nc-timeline-next').click();
+  expect((await virtualTimelineNextResponse).ok()).toBeTruthy();
+  const virtualTimelineTodayResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/timeline-data/') && response.request().method() === 'GET'
+  );
+  await page.getByTestId('nc-timeline-today').click();
+  expect((await virtualTimelineTodayResponse).ok()).toBeTruthy();
+
+  const timelineCanvas = timelineView.getByTestId('nc-timeline-canvas');
+  const timelineHeader = timelineView.getByTestId('nc-timeline-header');
+  await expect(timelineCanvas).toHaveAttribute('data-total-items', '38');
+  await expect(timelineCanvas).toHaveAttribute('data-total-groups', '2');
+
+  const initiallyRenderedItems = Number(await timelineCanvas.getAttribute('data-rendered-items'));
+  const initiallyRenderedDays = Number(await timelineHeader.getAttribute('data-rendered-days'));
+  expect(initiallyRenderedItems).toBeGreaterThan(0);
+  expect(initiallyRenderedItems).toBeLessThan(38);
+  expect(initiallyRenderedDays).toBeGreaterThan(0);
+  expect(initiallyRenderedDays).toBeLessThan(14);
+
+  const pinnedTimelineItem = timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' });
+  await pinnedTimelineItem.focus();
+  await timelineView.getByTestId('nc-timeline-scroll-region').evaluate(element => {
+    element.scrollTop = element.scrollHeight;
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event('scroll'));
+  });
+
+  await expect(pinnedTimelineItem).toHaveCount(1);
+  await expect(timelineView.locator('[data-day-index="13"]')).toBeVisible();
+  await expect(timelineView.locator('[data-group-label="Uncategorized"]')).toBeVisible();
+  await expect(
+    timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
+  ).toBeVisible();
 });

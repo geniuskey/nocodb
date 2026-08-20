@@ -5,8 +5,10 @@ import {
   buildTimelineStartResizePatch,
   layoutTimelineGroups,
   layoutTimelineItems,
+  timelineBoundsVisible,
   timelineGroupValue,
   timelineLaneCount,
+  timelineVirtualRange,
 } from '../../utils/timelineView'
 
 describe('Timeline overlap layout', () => {
@@ -77,6 +79,36 @@ describe('Timeline grouping', () => {
     expect(timelineGroupValue(['Alpha', 'Beta']).label).toBe('Alpha, Beta')
     expect(timelineGroupValue(null)).toEqual({ key: 'blank:', label: 'Uncategorized', blank: true })
     expect(timelineGroupValue('Uncategorized').key).not.toBe(timelineGroupValue(null).key)
+  })
+})
+
+describe('Timeline viewport virtualization', () => {
+  it('returns a clamped end-exclusive day range with overscan', () => {
+    expect(timelineVirtualRange(14, 120, 480, 360, 120)).toEqual({ start: 3, end: 8 })
+    expect(timelineVirtualRange(14, 120, -50, 240, 0)).toEqual({ start: 0, end: 2 })
+    expect(timelineVirtualRange(14, 120, 1_500, 360, 120)).toEqual({ start: 11, end: 14 })
+    expect(timelineVirtualRange(14, 120, 5_000, 360, 120)).toEqual({ start: 14, end: 14 })
+  })
+
+  it('renders the complete bounded range until the viewport is measured', () => {
+    expect(timelineVirtualRange(14, 120, 0, 0, 120)).toEqual({ start: 0, end: 14 })
+    expect(timelineVirtualRange(0, 120, 0, 400, 120)).toEqual({ start: 0, end: 0 })
+  })
+
+  it('tests both axes with independent overscan and half-open edges', () => {
+    const viewport = { left: 100, top: 100, width: 200, height: 100 }
+
+    expect(timelineBoundsVisible({ left: 80, top: 80, width: 20, height: 20 }, viewport)).toBe(false)
+    expect(timelineBoundsVisible({ left: 80, top: 80, width: 20, height: 20 }, viewport, 1, 1)).toBe(true)
+    expect(timelineBoundsVisible({ left: 150, top: 120, width: 40, height: 30 }, viewport)).toBe(true)
+    expect(timelineBoundsVisible({ left: 150, top: 220, width: 40, height: 30 }, viewport, 0, 19)).toBe(false)
+    expect(timelineBoundsVisible({ left: 150, top: 220, width: 40, height: 30 }, viewport, 0, 21)).toBe(true)
+  })
+
+  it('keeps entries visible before measurement', () => {
+    expect(
+      timelineBoundsVisible({ left: 10_000, top: 10_000, width: 20, height: 20 }, { left: 0, top: 0, width: 0, height: 0 }),
+    ).toBe(true)
   })
 })
 
