@@ -161,6 +161,7 @@ const typeAlias = computed(
   () =>
     ({
       [ViewTypes.GRID]: 'grid',
+      [ViewTypes.LIST]: 'list',
       [ViewTypes.GALLERY]: 'gallery',
       [ViewTypes.FORM]: 'form',
       [ViewTypes.KANBAN]: 'kanban',
@@ -801,6 +802,14 @@ watch(activeBaseId, () => {
             </template>
             <template v-else>
               {{ $t(`labels.${getPluralName('createGridView')}`) }}
+            </template>
+          </template>
+          <template v-else-if="form.type === ViewTypes.LIST">
+            <template v-if="form.copy_from_id">
+              {{ $t('labels.duplicateListView') }}
+            </template>
+            <template v-else>
+              {{ $t(`labels.${getPluralName('createListView')}`) }}
             </template>
           </template>
           <template v-else-if="form.type === ViewTypes.GALLERY">
@@ -1464,6 +1473,7 @@ watch(activeBaseId, () => {
           <NcButton
             v-if="!aiMode"
             v-e="[form.copy_from_id ? 'a:view:duplicate' : 'a:view:create']"
+            data-testid="nc-view-create-submit"
             :disabled="!isNecessaryColumnsPresent || isViewCreating"
             :loading="isViewCreating"
             type="primary"

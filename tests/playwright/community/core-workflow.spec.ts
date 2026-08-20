@@ -104,6 +104,21 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(Boolean(updatedList.view.show_field_labels)).toBe(false);
 
+  const viewsResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}/views`, {
+    headers: sessionHeaders,
+  });
+  expect(viewsResponse.ok()).toBeTruthy();
+  const tableViews = await viewsResponse.json();
+  expect(tableViews.list).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: createdList.id,
+        title: 'Task List',
+        type: ViewTypes.LIST,
+      }),
+    ])
+  );
+
   await expectPublicApiContract(page, createdBaseBody.id, createdTableBody.id);
 
   const grid = page.getByTestId('nc-grid-wrapper');
@@ -163,6 +178,33 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(listRows.list).toEqual(
     expect.arrayContaining([expect.objectContaining({ Title: 'Persists across restart' })])
   );
+
+  await page.locator('.nc-create-view-btn').click();
+  await page.getByTestId('sidebar-view-create-list').click();
+
+  const listName = page.locator('.nc-view-create-modal .nc-view-input');
+  await expect(listName).toBeVisible();
+  await listName.fill('Task List UI');
+
+  const uiListCreateResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/tables/${createdTableBody.id}/lists`) && response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-view-create-submit').click();
+  const createdUiListResponse = await uiListCreateResponse;
+  expect(createdUiListResponse.ok()).toBeTruthy();
+  const createdUiList = await createdUiListResponse.json();
+  expect(createdUiList).toEqual(
+    expect.objectContaining({
+      title: 'Task List UI',
+      type: ViewTypes.LIST,
+    })
+  );
+
+  const listView = page.getByTestId('nc-list-wrapper');
+  await expect(listView).toBeVisible({ timeout: 30_000 });
+  await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
+  await expect(page.getByTestId('nc-list-add-record')).toBeVisible();
 
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 });

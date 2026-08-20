@@ -121,6 +121,18 @@ async function onOpenModal({
           </div>
         </NcMenuItem>
 
+        <NcMenuItem @click.stop="onOpenModal({ type: ViewTypes.LIST })">
+          <div class="item" data-testid="sidebar-view-create-list">
+            <div class="item-inner">
+              <GeneralViewIcon :meta="{ type: ViewTypes.LIST }" />
+              <div>{{ $t('objects.viewType.list') }}</div>
+            </div>
+
+            <GeneralLoader v-if="toBeCreateType === ViewTypes.LIST && isViewListLoading" />
+            <GeneralIcon v-else class="plus" icon="plus" />
+          </div>
+        </NcMenuItem>
+
         <NcTooltip
           :title="isSyncedTable ? $t('tooltip.formViewCreationNotSupportedForSyncedTable') : $t('tooltip.sourceDataIsReadonly')"
           :disabled="!source.is_data_readonly && !isSqlView && !isSyncedTable"

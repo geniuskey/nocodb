@@ -37,7 +37,7 @@ const { activeWorkspaceId } = storeToRefs(useWorkspace())
 const viewStore = useViewsStore()
 
 const { activeView, openedViewsTab, activeViewTitleOrId, isViewsLoading } = storeToRefs(viewStore)
-const { isGallery, isGrid, isForm, isKanban, isLocked, isMap, isCalendar, xWhere, eventBus } = useProvideSmartsheetStore(
+const { isGallery, isGrid, isList, isForm, isKanban, isLocked, isMap, isCalendar, xWhere, eventBus } = useProvideSmartsheetStore(
   activeView,
   meta,
 )
@@ -287,7 +287,9 @@ watch(isViewsLoading, async () => {
                     <LazySmartsheetGrid v-if="isGrid || !meta || !activeView" ref="grid" />
 
                     <template v-if="activeView && meta">
-                      <LazySmartsheetGallery v-if="isGallery" />
+                      <LazySmartsheetList v-if="isList" />
+
+                      <LazySmartsheetGallery v-else-if="isGallery" />
 
                       <LazySmartsheetForm v-else-if="isForm && !$route.query.reload" />
 

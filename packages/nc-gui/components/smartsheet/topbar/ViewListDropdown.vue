@@ -197,6 +197,13 @@ async function onOpenModal({
                   </div>
                 </a-menu-item>
 
+                <a-menu-item @click.stop="onOpenModal({ type: ViewTypes.LIST })">
+                  <div class="nc-viewlist-submenu-popup-item" data-testid="topbar-view-create-list">
+                    <GeneralViewIcon :meta="{ type: ViewTypes.LIST }" />
+                    {{ $t('objects.viewType.list') }}
+                  </div>
+                </a-menu-item>
+
                 <NcTooltip
                   :title="
                     isSyncedTable ? $t('tooltip.formViewCreationNotSupportedForSyncedTable') : $t('tooltip.sourceDataIsReadonly')
