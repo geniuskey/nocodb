@@ -120,8 +120,9 @@ CRUD, server pagination, variable-height DOM virtualization, accessible
 keyboard navigation, page-scoped range selection, and permission-aware bulk
 deletion are implemented. Unit tests cover the reusable selection primitive,
 and the production-image browser workflow covers the rendered interactions on
-SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration,
-image-field presentation, row coloring, and cross-page operations remain.
+SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration, density
+and label controls, and attachment-image presentation are implemented. Row
+coloring and cross-page operations remain.
 
 ## Phase 3 — Timeline
 
