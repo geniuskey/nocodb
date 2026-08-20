@@ -59,8 +59,24 @@ mutation path:
   existing view-scoped undo/redo history.
 
 Rescheduling is unavailable for locked views, SQL views, synced tables,
-read-only mapped fields, and users without `dataEdit`. Resize handles and
-partial-duration changes remain a later slice.
+read-only mapped fields, and users without `dataEdit`. At that slice, resize
+handles and partial-duration changes remained deferred.
+
+The fifth slice adds right-edge duration resizing for records with a distinct,
+non-blank end mapping:
+
+- the visible end handle snaps pointer movement to whole-day deltas at every
+  zoom level;
+- a focused handle supports Left Arrow and Right Arrow for one-day changes;
+- only the mapped end field is sent through the existing shared row PATCH;
+- inclusive Date ends may equal the start calendar day, while DateTime ends
+  may equal but never precede the start instant; and
+- optimistic preview, permission boundaries, rollback, bounded reload, and
+  view-scoped undo/redo match whole-item rescheduling.
+
+An interval whose real end lies beyond the loaded window does not expose a
+handle at the clipped viewport edge. Blank ends remain point events, and
+left-edge/start resizing is intentionally outside this slice.
 
 ## Metadata contract
 
@@ -150,6 +166,10 @@ half-moved interval. The renderer applies a local preview, restores the original
 record on error, reloads the bounded window after success, and registers the
 same PATCH pair with the existing view-scoped undo/redo service.
 
+Right-edge resizing reuses that exact mutation/history path with a one-field
+end patch. Its pure patch builder owns the Date-versus-DateTime boundary check,
+so pointer and keyboard input cannot diverge on minimum-duration behavior.
+
 ## Compatibility rules
 
 - The migration is append-only and does not rewrite earlier metadata.
@@ -181,3 +201,9 @@ The rescheduling slice additionally requires unit coverage for mixed Date and
 DateTime shifts, blank ends, invalid values, and no-op deltas. Fresh and restart
 browser workflows must prove that one drag sends one row PATCH containing both
 mapped values and that the new dates persist on SQLite, PostgreSQL, and MySQL.
+
+The end-resize slice additionally requires unit coverage for one-field patches,
+inclusive same-day Date ends, reversed intervals, blank ends, and unsupported
+mappings. Fresh and restart browser workflows must prove that the end handle
+sends only the mapped end and that the resized duration persists on all three
+metadata databases.
