@@ -1594,6 +1594,7 @@
     "listTitleField": "Title field",
     "listSubtitleField": "Subtitle field",
     "listImageField": "Image field",
+    "listColorByField": "Color rows by",
     "listDensity": "Density",
     "listDensityCompact": "Compact",
     "listDensityComfortable": "Comfortable",

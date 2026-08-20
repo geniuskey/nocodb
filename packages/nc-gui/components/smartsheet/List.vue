@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { useVirtualList } from '@vueuse/core'
+import tinycolor from 'tinycolor2'
 import { PermissionEntity, PermissionKey, ViewTypes, isVirtualCol } from 'nocodb-sdk'
 import type { ColumnType, ListType } from 'nocodb-sdk'
 import type { ComponentPublicInstance } from 'vue'
 import type { Row as RowType } from '#imports'
-import { parseListImageAttachment, resolveListPresentationFields } from '~/utils/listView'
+import {
+  parseListImageAttachment,
+  resolveListColorField,
+  resolveListPresentationFields,
+  resolveListRowColor,
+} from '~/utils/listView'
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -37,6 +43,7 @@ const titleField = computed(() => presentation.value.titleField)
 const subtitleField = computed(() => presentation.value.subtitleField)
 const imageField = computed(() => presentation.value.imageField)
 const detailFields = computed(() => presentation.value.detailFields)
+const colorField = computed(() => resolveListColorField(fields.value, listConfig.value.meta))
 
 const imageAttachment = (record: RowType) =>
   imageField.value?.title ? parseListImageAttachment(record.row[imageField.value.title]) : undefined
@@ -79,6 +86,21 @@ const listItemHeight = computed(() => {
   // Include the eight-pixel gap after every record in the virtual item size.
   return contentHeight + densityVerticalPadding.value * 2 + 8
 })
+
+const listRowStyle = (record: RowType) => {
+  const color = resolveListRowColor(record.row, colorField.value)
+
+  return {
+    height: `${listItemHeight.value - 8}px`,
+    ...(color && !record.rowMeta.selected
+      ? {
+          backgroundColor: tinycolor.mix(color, '#ffffff', 85).toString(),
+          borderLeftColor: color,
+          borderLeftWidth: '4px',
+        }
+      : {}),
+  }
+}
 
 const {
   list: virtualRows,
@@ -305,7 +327,7 @@ onBeforeUnmount(() => {
                   '!border-nc-border-brand bg-nc-bg-brand-light': virtualRow.data.rowMeta.selected,
                 },
               ]"
-              :style="{ height: `${listItemHeight - 8}px` }"
+              :style="listRowStyle(virtualRow.data)"
               role="option"
               :aria-selected="!!virtualRow.data.rowMeta.selected"
               :tabindex="activeIndex === null ? (virtualRow.index === 0 ? 0 : -1) : activeIndex === virtualRow.index ? 0 : -1"

@@ -122,7 +122,9 @@ deletion are implemented. Unit tests cover the reusable selection primitive,
 and the production-image browser workflow covers the rendered interactions on
 SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration, density
 and label controls, and attachment-image presentation are implemented. Row
-coloring and cross-page operations remain.
+accents derived from Single Select option colors are implemented without using
+the shared gated row-color subsystem. General condition-based coloring and
+cross-page operations remain.
 
 ## Phase 3 — Timeline
 

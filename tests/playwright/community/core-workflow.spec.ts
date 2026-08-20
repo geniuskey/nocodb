@@ -73,7 +73,31 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(createdTableBody.title).toBe('Tasks');
   expect(createdTableBody.id).toEqual(expect.any(String));
 
+  const grid = page.getByTestId('nc-grid-wrapper');
+  await expect(grid).toBeVisible();
+
   const sessionHeaders = { 'xc-auth': await getAuthToken(page) };
+
+  await grid.locator('.nc-column-add').click();
+  const columnForm = page.locator('form[data-testid="add-or-edit-column"]');
+  await expect(columnForm).toBeVisible();
+  await columnForm.locator('.nc-column-name-input').fill('Status');
+  const columnTypeSearch = columnForm.locator('.nc-column-type-search-input input');
+  await columnTypeSearch.fill('SingleSelect');
+  await columnForm.locator('.nc-column-list-wrapper').getByTestId('SingleSelect').click();
+  await columnForm.getByTestId('nc-add-select-option-btn').click();
+  await columnForm.getByTestId('select-column-option-input-0').fill('Ready');
+  await columnForm.getByTestId('nc-add-select-option-btn').click();
+  await columnForm.getByTestId('select-column-option-input-1').fill('Blocked');
+
+  const statusColumnResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/tables/${createdTableBody.id}/columns`) && response.request().method() === 'POST'
+  );
+  await columnForm.getByRole('button', { name: 'Save Field', exact: true }).click();
+  expect((await statusColumnResponse).ok()).toBeTruthy();
+  await expect(columnForm).toBeHidden();
+  await expect(grid.locator('[data-title="Status"]')).toBeVisible();
 
   const listCreateResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/lists`, {
     headers: sessionHeaders,
@@ -121,7 +145,6 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   await expectPublicApiContract(page, createdBaseBody.id, createdTableBody.id);
 
-  const grid = page.getByTestId('nc-grid-wrapper');
   await expect(grid).toBeVisible();
   await expect(page.getByTestId('nc-pagination-add-record')).toBeVisible();
 
@@ -173,7 +196,10 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   const bulkListRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
-    data: Array.from({ length: 30 }, (_, index) => ({ Title: `Virtualized task ${index + 1}` })),
+    data: Array.from({ length: 30 }, (_, index) => ({
+      Title: `Virtualized task ${index + 1}`,
+      Status: 'Ready',
+    })),
   });
   expect(bulkListRecordsResponse.ok(), await bulkListRecordsResponse.text()).toBeTruthy();
 
@@ -235,11 +261,29 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(Boolean((await labelsUpdate.json()).view.show_field_labels)).toBe(false);
 
   await expect(listSettings.getByTestId('nc-list-title-field')).toContainText('Title');
-  await expect(listSettings.getByTestId('nc-list-subtitle-field')).toContainText('None');
+  await expect(listSettings.getByTestId('nc-list-subtitle-field')).toContainText('Status');
   await expect(listSettings.getByTestId('nc-list-image-field')).toContainText('None');
+
+  const colorUpdateResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await listSettings.getByTestId('nc-list-color-field').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Status', { exact: true }).click();
+  const colorUpdate = await colorUpdateResponse;
+  expect(colorUpdate.ok()).toBeTruthy();
+  const colorUpdateBody = await colorUpdate.json();
+  const savedColorMeta =
+    typeof colorUpdateBody.view.meta === 'string' ? JSON.parse(colorUpdateBody.view.meta) : colorUpdateBody.view.meta;
+  expect(savedColorMeta).toEqual(expect.objectContaining({ color_by_field_id: expect.any(String) }));
+
   await page.keyboard.press('Escape');
 
   await expect(listView.getByTestId('nc-list-row-0')).toHaveCSS('height', '86px');
+  const coloredListRow = listView.locator('[role="option"]').filter({ hasText: 'Virtualized task' }).first();
+  await expect(coloredListRow).toBeVisible();
+  await expect
+    .poll(() => coloredListRow.evaluate(element => getComputedStyle(element).backgroundColor))
+    .not.toBe('rgb(255, 255, 255)');
 
   const renderedListRows = listView.locator('[role="option"]');
   await expect.poll(() => renderedListRows.count()).toBeGreaterThan(1);

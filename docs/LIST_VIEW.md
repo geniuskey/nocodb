@@ -28,14 +28,15 @@ The frontend provides:
 - expanded-form record create/read/update/delete flows; and
 - saved title, subtitle, image, density, and field-label presentation settings;
 - attachment thumbnails with a stable empty-image fallback;
+- optional row accents derived from visible Single Select option colors;
 - variable-height, overscanned row virtualization;
 - page-scoped row selection and permission-aware bulk deletion;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Row coloring, cross-page selection, bulk update, and server-range loading beyond
-the existing pagination contract remain follow-up slices. The UI does not
-advertise controls for those capabilities yet.
+Condition-based row coloring, cross-page selection, bulk update, and
+server-range loading beyond the existing pagination contract remain follow-up
+slices. The UI does not advertise controls for those capabilities yet.
 
 ## Interaction contract
 
@@ -85,6 +86,17 @@ attachment value and removes that field from the detail list. Records without a
 valid attachment retain the same layout with a neutral image placeholder. Image
 height participates in the virtual-row height calculation.
 
+The optional `meta.color_by_field_id` setting references a currently visible
+Single Select field. A row whose cell value matches an existing select option
+receives a subtle background and left accent using that option's stored color.
+Missing fields, stale option values, and empty cells render without an accent.
+The renderer evaluates only data already projected into the List response.
+
+This List-only presentation path is intentionally independent of the existing
+shared row-color subsystem: it does not read or write `row_coloring_mode`, call
+row-color endpoints, alter `useEeConfig`, or change any licensing check. More
+general condition-based coloring requires a separate independent design.
+
 ## API contract
 
 - `POST /api/v1/db/meta/tables/{tableId}/lists`
@@ -117,10 +129,11 @@ accessibility markup.
 The Community image workflow creates and updates List metadata through the API,
 confirms the general table-view listing returns the List, creates a second List
 through the rendered UI, and verifies a persisted record appears in that List.
-It also saves Appearance settings and verifies the resulting layout, creates
-enough records to prove the DOM window is bounded, exercises keyboard range
-selection, page selection, clearing, virtual focus movement, and bulk deletion,
-then removes temporary records. The same workflow runs against SQLite,
-PostgreSQL, and MySQL; each database is also restarted before persistence is
-checked. Unit tests cover presentation-field resolution, attachment parsing,
-selection state, and keyboard boundary behavior independently of the renderer.
+It also saves Appearance settings, applies Single Select option colors, verifies
+the resulting layout, creates enough records to prove the DOM window is
+bounded, exercises keyboard range selection, page selection, clearing, virtual
+focus movement, and bulk deletion, then removes temporary records. The same
+workflow runs against SQLite, PostgreSQL, and MySQL; each database is also
+restarted before persistence is checked. Unit tests cover presentation-field
+resolution, attachment parsing, select-color resolution, selection state, and
+keyboard boundary behavior independently of the renderer.
