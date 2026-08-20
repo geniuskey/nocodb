@@ -36,7 +36,7 @@ const column = toRef(props, 'column')
 
 const editEnabled = computed(() => !props.disabled)
 
-const readOnly = ref(props.filter.readOnly || props.disabled)
+const readOnly = computed(() => props.filter.readOnly || props.disabled)
 
 provide(ColumnInj, column)
 

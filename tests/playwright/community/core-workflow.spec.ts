@@ -276,6 +276,44 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     typeof colorUpdateBody.view.meta === 'string' ? JSON.parse(colorUpdateBody.view.meta) : colorUpdateBody.view.meta;
   expect(savedColorMeta).toEqual(expect.objectContaining({ color_by_field_id: expect.any(String) }));
 
+  const addColorRuleResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await listSettings.getByTestId('nc-list-add-color-rule').click();
+  expect((await addColorRuleResponse).ok()).toBeTruthy();
+
+  const colorRule = listSettings.getByTestId('nc-list-color-rule-0');
+  const colorRuleFieldResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-field-0').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Status', { exact: true }).click();
+  expect((await colorRuleFieldResponse).ok()).toBeTruthy();
+
+  const colorRuleValueResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-value-0').click();
+  await page
+    .locator('.ant-select-dropdown:visible .ant-select-item-option-content')
+    .getByText('Ready', { exact: true })
+    .click();
+  const colorRuleValueUpdate = await colorRuleValueResponse;
+  expect(colorRuleValueUpdate.ok()).toBeTruthy();
+  const colorRuleUpdateBody = await colorRuleValueUpdate.json();
+  const savedConditionalColorMeta =
+    typeof colorRuleUpdateBody.view.meta === 'string'
+      ? JSON.parse(colorRuleUpdateBody.view.meta)
+      : colorRuleUpdateBody.view.meta;
+  expect(savedConditionalColorMeta.list_color_rules).toEqual([
+    expect.objectContaining({
+      fk_column_id: expect.any(String),
+      comparison_op: 'eq',
+      value: 'Ready',
+      color: '#4F46E5',
+    }),
+  ]);
+
   await page.keyboard.press('Escape');
 
   await expect(listView.getByTestId('nc-list-row-0')).toHaveCSS('height', '86px');
@@ -284,6 +322,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect
     .poll(() => coloredListRow.evaluate(element => getComputedStyle(element).backgroundColor))
     .not.toBe('rgb(255, 255, 255)');
+  await expect(coloredListRow).toHaveCSS('border-left-color', 'rgb(79, 70, 229)');
 
   const renderedListRows = listView.locator('[role="option"]');
   await expect.poll(() => renderedListRows.count()).toBeGreaterThan(1);

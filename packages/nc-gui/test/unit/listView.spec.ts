@@ -3,8 +3,11 @@ import type { ColumnType } from 'nocodb-sdk'
 import { describe, expect, it } from 'vitest'
 import {
   isListBulkUpdateColumn,
+  isListColorRuleColumn,
+  parseListColorRules,
   parseListImageAttachment,
   resolveListColorField,
+  resolveListConditionalRowColor,
   resolveListPresentationFields,
   resolveListRowColor,
 } from '../../utils/listView'
@@ -80,6 +83,51 @@ describe('List view presentation', () => {
     expect(resolveListRowColor({ Status: 'Unknown' }, colorField)).toBeUndefined()
     expect(resolveListColorField(fields, { color_by_field_id: 'notes' })).toBeUndefined()
     expect(resolveListColorField(fields.slice(0, 1), { color_by_field_id: 'status' })).toBeUndefined()
+  })
+
+  it('parses and evaluates ordered List-only conditional color rules', () => {
+    const rules = parseListColorRules({
+      list_color_rules: [
+        {
+          id: 'blocked',
+          fk_column_id: 'status',
+          comparison_op: 'eq',
+          value: 'Blocked',
+          color: '#dc2626',
+        },
+        {
+          id: 'urgent',
+          fk_column_id: 'notes',
+          comparison_op: 'like',
+          value: 'urgent',
+          color: '#d97706',
+        },
+      ],
+    })
+
+    expect(rules).toHaveLength(2)
+    expect(resolveListConditionalRowColor({ Status: 'Blocked', Notes: 'urgent' }, fields, rules, { client: 'pg' })).toBe(
+      '#dc2626',
+    )
+    expect(resolveListConditionalRowColor({ Status: 'Ready', Notes: 'urgent request' }, fields, rules, { client: 'pg' })).toBe(
+      '#d97706',
+    )
+    expect(resolveListConditionalRowColor({ Status: 'Ready', Notes: 'routine' }, fields, rules, { client: 'pg' })).toBeUndefined()
+  })
+
+  it('ignores malformed, stale, and unsupported List color rules', () => {
+    const rules = parseListColorRules({
+      list_color_rules: [
+        { id: 'bad-color', fk_column_id: 'status', comparison_op: 'eq', value: 'Ready', color: 'red' },
+        { id: 'stale', fk_column_id: 'missing', comparison_op: 'eq', value: 'Ready', color: '#2563eb' },
+        { id: 'image', fk_column_id: 'image', comparison_op: 'blank', color: '#059669' },
+      ],
+    })
+
+    expect(rules.map((rule) => rule.id)).toEqual(['stale', 'image'])
+    expect(resolveListConditionalRowColor({ Status: 'Ready' }, fields, rules, { client: 'pg' })).toBeUndefined()
+    expect(isListColorRuleColumn(fields[1])).toBe(true)
+    expect(isListColorRuleColumn(fields[3])).toBe(false)
   })
 
   it('only offers ordinary mutable fields for bulk update', () => {
