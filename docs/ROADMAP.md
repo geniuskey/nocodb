@@ -140,6 +140,12 @@ start/end field mapping, grouping, zoom levels, range loading, overlap layout,
 and drag-to-reschedule behavior. Timeline data loading must remain bounded for
 large tables.
 
+Current evidence: the independently designed metadata contract, numeric view
+type, append-only Timeline and Timeline-column tables, create/read/update API,
+date-field validation, SDK generation, and general view lifecycle integration
+are implemented. The renderer, bounded temporal query, grouping, overlap
+layout, and rescheduling remain intentionally separate follow-up slices.
+
 ## Phase 4 — Gantt
 
 Build Gantt independently on the Timeline primitives. Planned concepts include

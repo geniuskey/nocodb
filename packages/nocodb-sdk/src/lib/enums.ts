@@ -140,6 +140,10 @@ export enum AppEvents {
   LIST_UPDATE = 'list.update',
   LIST_DELETE = 'list.delete',
 
+  TIMELINE_CREATE = 'timeline.create',
+  TIMELINE_UPDATE = 'timeline.update',
+  TIMELINE_DELETE = 'timeline.delete',
+
   GRID_COLUMN_UPDATE = 'grid.column.update',
 
   WEBHOOK_CREATE = 'webhook.create',

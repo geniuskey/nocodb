@@ -29,6 +29,10 @@
         {
           "name": "nc_006_list_view",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_006_list_view.ts"
+        },
+        {
+          "name": "nc_007_timeline_view",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_007_timeline_view.ts"
         }
       ]
     },
@@ -476,6 +480,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_006_list_view.ts",
       "sha256": "ea6f82ef644d64ff43c1d08ae237b3a55b4be7f5aa0967a5a9274219cd0cb98b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_007_timeline_view.ts",
+      "sha256": "ecfcc7005f564aff909ee857600afd310d57882b5160d6b812faf1fac6733d97"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

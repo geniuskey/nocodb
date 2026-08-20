@@ -27,11 +27,13 @@ import Model from '~/models/Model';
 import FormView from '~/models/FormView';
 import GridView from '~/models/GridView';
 import ListView from '~/models/ListView';
+import TimelineView from '~/models/TimelineView';
 import KanbanView from '~/models/KanbanView';
 import GalleryView from '~/models/GalleryView';
 import CalendarView from '~/models/CalendarView';
 import GridViewColumn from '~/models/GridViewColumn';
 import ListViewColumn from '~/models/ListViewColumn';
+import TimelineViewColumn from '~/models/TimelineViewColumn';
 import CalendarViewColumn from '~/models/CalendarViewColumn';
 import CalendarRange from '~/models/CalendarRange';
 import Sort from '~/models/Sort';
@@ -103,6 +105,7 @@ export default class View implements ViewType {
     | FormView
     | GridView
     | ListView
+    | TimelineView
     | KanbanView
     | GalleryView
     | MapView
@@ -111,6 +114,7 @@ export default class View implements ViewType {
     | FormViewColumn
     | GridViewColumn
     | ListViewColumn
+    | TimelineViewColumn
     | GalleryViewColumn
     | KanbanViewColumn
     | MapViewColumn
@@ -295,6 +299,7 @@ export default class View implements ViewType {
           | FormView
           | GridView
           | ListView
+          | TimelineView
           | GalleryView
           | KanbanView
           | MapView
@@ -380,6 +385,17 @@ export default class View implements ViewType {
             {
               ...((copyFromView?.view as ListView) || {}),
               ...(view as ListView),
+              fk_view_id: view_id,
+            },
+            ncMeta,
+          );
+          break;
+        case ViewTypes.TIMELINE:
+          await TimelineView.insert(
+            context,
+            {
+              ...((copyFromView?.view as TimelineView) || {}),
+              ...(view as TimelineView),
               fk_view_id: view_id,
             },
             ncMeta,
@@ -785,6 +801,9 @@ export default class View implements ViewType {
         case ViewTypes.LIST:
           await ListViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
+        case ViewTypes.TIMELINE:
+          await TimelineViewColumn.insert(context, modifiedInsertObj, ncMeta);
+          break;
         case ViewTypes.GALLERY:
           await GalleryViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
@@ -853,6 +872,18 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         {
           col = await ListViewColumn.insert(
+            context,
+            {
+              ...param,
+              fk_view_id: view.id,
+            },
+            ncMeta,
+          );
+        }
+        break;
+      case ViewTypes.TIMELINE:
+        {
+          col = await TimelineViewColumn.insert(
             context,
             {
               ...param,
@@ -947,6 +978,7 @@ export default class View implements ViewType {
     Array<
       | GridViewColumn
       | ListViewColumn
+      | TimelineViewColumn
       | FormViewColumn
       | GalleryViewColumn
       | KanbanViewColumn
@@ -964,6 +996,9 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         columns = await ListViewColumn.list(context, viewId, ncMeta);
+        break;
+      case ViewTypes.TIMELINE:
+        columns = await TimelineViewColumn.list(context, viewId, ncMeta);
         break;
       case ViewTypes.GALLERY:
         columns = await GalleryViewColumn.list(context, viewId, ncMeta);
@@ -1010,6 +1045,10 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         tableName = MetaTable.LIST_VIEW_COLUMNS;
         cacheScope = CacheScope.LIST_VIEW_COLUMN;
+        break;
+      case ViewTypes.TIMELINE:
+        tableName = MetaTable.TIMELINE_VIEW_COLUMNS;
+        cacheScope = CacheScope.TIMELINE_VIEW_COLUMN;
         break;
       case ViewTypes.GALLERY:
         tableName = MetaTable.GALLERY_VIEW_COLUMNS;
@@ -1082,6 +1121,10 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         table = MetaTable.LIST_VIEW_COLUMNS;
         cacheScope = CacheScope.LIST_VIEW_COLUMN;
+        break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW_COLUMNS;
+        cacheScope = CacheScope.TIMELINE_VIEW_COLUMN;
         break;
       case ViewTypes.MAP:
         table = MetaTable.MAP_VIEW_COLUMNS;
@@ -1170,6 +1213,8 @@ export default class View implements ViewType {
         return GridViewColumn.get(context, colId, ncMeta);
       case ViewTypes.LIST:
         return ListViewColumn.get(context, colId, ncMeta);
+      case ViewTypes.TIMELINE:
+        return TimelineViewColumn.get(context, colId, ncMeta);
       case ViewTypes.MAP:
         return MapViewColumn.get(context, colId, ncMeta);
       case ViewTypes.GALLERY:
@@ -1196,6 +1241,7 @@ export default class View implements ViewType {
   ): Promise<
     | GridViewColumn
     | ListViewColumn
+    | TimelineViewColumn
     | FormViewColumn
     | GalleryViewColumn
     | KanbanViewColumn
@@ -1251,6 +1297,17 @@ export default class View implements ViewType {
           );
         case ViewTypes.LIST:
           return await ListViewColumn.insert(
+            context,
+            {
+              fk_view_id: viewId,
+              fk_column_id: fkColId,
+              order: colData.order,
+              show: colData.show,
+            },
+            ncMeta,
+          );
+        case ViewTypes.TIMELINE:
+          return await TimelineViewColumn.insert(
             context,
             {
               fk_view_id: viewId,
@@ -2091,6 +2148,7 @@ export default class View implements ViewType {
       viewColumns?: (
         | GridViewColumn
         | ListViewColumn
+        | TimelineViewColumn
         | GalleryViewColumn
         | FormViewColumn
         | KanbanViewColumn
@@ -2276,6 +2334,14 @@ export default class View implements ViewType {
           insertObjs,
         );
         break;
+      case ViewTypes.TIMELINE:
+        await ncMeta.bulkMetaInsert(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.TIMELINE_VIEW_COLUMNS,
+          insertObjs,
+        );
+        break;
       case ViewTypes.GALLERY:
         await ncMeta.bulkMetaInsert(
           context.workspace_id,
@@ -2330,6 +2396,7 @@ export default class View implements ViewType {
           | FormView
           | GridView
           | ListView
+          | TimelineView
           | GalleryView
           | KanbanView
           | MapView
@@ -2437,6 +2504,17 @@ export default class View implements ViewType {
           {
             ...((copyFromView?.view as ListView) || {}),
             ...(view as ListView),
+            fk_view_id: view_id,
+          },
+          ncMeta,
+        );
+        break;
+      case ViewTypes.TIMELINE:
+        await TimelineView.insert(
+          context,
+          {
+            ...((copyFromView?.view as TimelineView) || {}),
+            ...(view as TimelineView),
             fk_view_id: view_id,
           },
           ncMeta,
@@ -2692,6 +2770,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         table = MetaTable.LIST_VIEW_COLUMNS;
         break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW_COLUMNS;
+        break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW_COLUMNS;
         break;
@@ -2719,6 +2800,9 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         table = MetaTable.LIST_VIEW;
+        break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW;
         break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW;
@@ -2748,6 +2832,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         scope = CacheScope.LIST_VIEW_COLUMN;
         break;
+      case ViewTypes.TIMELINE:
+        scope = CacheScope.TIMELINE_VIEW_COLUMN;
+        break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW_COLUMN;
         break;
@@ -2775,6 +2862,9 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         scope = CacheScope.LIST_VIEW;
+        break;
+      case ViewTypes.TIMELINE:
+        scope = CacheScope.TIMELINE_VIEW;
         break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW;
@@ -2822,6 +2912,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         this.view = await ListView.get(context, this.id, ncMeta);
         break;
+      case ViewTypes.TIMELINE:
+        this.view = await TimelineView.get(context, this.id, ncMeta);
+        break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);
         break;
@@ -2844,7 +2937,9 @@ export default class View implements ViewType {
   async getViewWithInfo(
     context: NcContext,
     ncMeta = Noco.ncMeta,
-  ): Promise<FormView | GridView | ListView | KanbanView | GalleryView> {
+  ): Promise<
+    FormView | GridView | ListView | TimelineView | KanbanView | GalleryView
+  > {
     switch (this.type) {
       case ViewTypes.GRID:
         this.view = await GridView.getWithInfo(context, this.id, ncMeta);
@@ -2852,6 +2947,10 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         this.view = await ListView.get(context, this.id, ncMeta);
         await (this.view as ListView)?.getColumns(context);
+        break;
+      case ViewTypes.TIMELINE:
+        this.view = await TimelineView.get(context, this.id, ncMeta);
+        await (this.view as TimelineView)?.getColumns(context, ncMeta);
         break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);
