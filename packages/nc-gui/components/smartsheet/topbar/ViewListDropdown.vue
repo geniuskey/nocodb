@@ -245,6 +245,12 @@ async function onOpenModal({
                     {{ $t('objects.viewType.calendar') }}
                   </div>
                 </a-menu-item>
+                <a-menu-item data-testid="topbar-view-create-timeline" @click="onOpenModal({ type: ViewTypes.TIMELINE })">
+                  <div class="nc-viewlist-submenu-popup-item">
+                    <GeneralViewIcon :meta="{ type: ViewTypes.TIMELINE }" class="!w-4 !h-4" />
+                    Timeline
+                  </div>
+                </a-menu-item>
 
                 <template v-if="isAiFeaturesEnabled">
                   <NcDivider />

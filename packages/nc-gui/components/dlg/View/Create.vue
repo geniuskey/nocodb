@@ -14,6 +14,7 @@ import {
   PlanFeatureTypes,
   type SerializedAiViewType,
   type TableType,
+  type ViewType,
   stringToViewTypeMap,
   viewTypeToStringMap,
 } from 'nocodb-sdk'
@@ -53,7 +54,7 @@ interface Props {
 interface Emits {
   (event: 'update:modelValue', value: boolean): void
 
-  (event: 'created', value: GridType | KanbanType | GalleryType | FormType | MapType | CalendarType): void
+  (event: 'created', value: GridType | KanbanType | GalleryType | FormType | MapType | CalendarType | ViewType): void
 }
 
 interface Form {
@@ -71,6 +72,10 @@ interface Form {
     fk_to_column_id: string | null // for ee only
   }>
   fk_cover_image_col_id: string | null | undefined
+  fk_timeline_title_column_id: string | null
+  fk_timeline_start_column_id: string | null
+  fk_timeline_end_column_id: string | null
+  timeline_zoom: 'day' | 'week' | 'month' | 'quarter'
 }
 
 type AiSuggestedViewType = SerializedAiViewType & {
@@ -123,6 +128,7 @@ const errorMessages = {
   [ViewTypes.KANBAN]: t('msg.warning.kanbanNoFields'),
   [ViewTypes.MAP]: t('msg.warning.mapNoFields'),
   [ViewTypes.CALENDAR]: t('msg.warning.calendarNoFields'),
+  [ViewTypes.TIMELINE]: 'Timeline view requires at least one Date or DateTime field.',
 }
 
 const form = reactive<Form>({
@@ -133,10 +139,17 @@ const form = reactive<Form>({
   fk_geo_data_col_id: null,
   calendar_range: props.calendarRange || [],
   fk_cover_image_col_id: undefined,
+  fk_timeline_title_column_id: null,
+  fk_timeline_start_column_id: null,
+  fk_timeline_end_column_id: null,
+  timeline_zoom: 'week',
   description: props.description || '',
 })
 
 const viewSelectFieldOptions = ref<SelectProps['options']>([])
+
+const timelineDateFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
+const timelineTitleFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
 
 const viewNameRules = [
   // name is required
@@ -157,6 +170,8 @@ const groupingFieldColumnRules = [{ required: true, message: `${t('general.group
 
 const geoDataFieldColumnRules = [{ required: true, message: `${t('general.geoDataField')} ${t('general.required')}` }]
 
+const timelineStartFieldRules = [{ required: true, message: `Start field ${t('general.required').toLowerCase()}` }]
+
 const typeAlias = computed(
   () =>
     ({
@@ -167,6 +182,7 @@ const typeAlias = computed(
       [ViewTypes.KANBAN]: 'kanban',
       [ViewTypes.MAP]: 'map',
       [ViewTypes.CALENDAR]: 'calendar',
+      [ViewTypes.TIMELINE]: 'timeline',
       // Todo: add ai view docs route
       AI: '',
     }[props.type]),
@@ -334,12 +350,12 @@ onMounted(async () => {
   }
 
   if (
-    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR].includes(props.type) ||
+    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR, ViewTypes.TIMELINE].includes(props.type) ||
     aiIntegrationAvailable.value
   ) {
     isMetaLoading.value = true
     try {
-      meta.value = (await getMeta(tableId.value))!
+      meta.value = (await getMeta(tableId.value, props.type === ViewTypes.TIMELINE))!
 
       if (props.type === ViewTypes.MAP) {
         viewSelectFieldOptions.value = meta
@@ -503,6 +519,23 @@ onMounted(async () => {
           }
         } else {
           // if there is no grouping field column, disable the create button
+          isNecessaryColumnsPresent.value = false
+        }
+      }
+
+      if (props.type === ViewTypes.TIMELINE) {
+        timelineDateFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => [UITypes.Date, UITypes.DateTime].includes(column.uidt))
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        timelineTitleFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => ![UITypes.Attachment, UITypes.Barcode, UITypes.QrCode].includes(column.uidt))
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        form.fk_timeline_title_column_id = meta.value?.columns?.find((column) => column.pv)?.id || null
+        form.fk_timeline_start_column_id = timelineDateFieldOptions.value[0]?.value || null
+
+        if (!form.fk_timeline_start_column_id) {
           isNecessaryColumnsPresent.value = false
         }
       }
@@ -844,6 +877,9 @@ watch(activeBaseId, () => {
               {{ $t(`labels.${getPluralName('createCalendarView')}`) }}
             </template>
           </template>
+          <template v-else-if="form.type === ViewTypes.TIMELINE">
+            {{ form.copy_from_id ? 'Duplicate Timeline View' : 'Create Timeline View' }}
+          </template>
           <template v-else-if="form.type === 'AI'">
             {{ $t('labels.createViewUsingAi') }}
           </template>
@@ -885,6 +921,72 @@ watch(activeBaseId, () => {
               @keydown.enter="onSubmit"
             />
           </a-form-item>
+
+          <template v-if="form.type === ViewTypes.TIMELINE && !form.copy_from_id">
+            <a-form-item label="Start field" :rules="timelineStartFieldRules" name="fk_timeline_start_column_id">
+              <NcSelect
+                v-model:value="form.fk_timeline_start_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full nc-timeline-start-field-select"
+                data-testid="nc-timeline-start-field-select"
+                show-search
+              >
+                <a-select-option v-for="option in timelineDateFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="End field (optional)" name="fk_timeline_end_column_id">
+              <NcSelect
+                v-model:value="form.fk_timeline_end_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full nc-timeline-end-field-select"
+                data-testid="nc-timeline-end-field-select"
+                allow-clear
+                show-search
+              >
+                <a-select-option v-for="option in timelineDateFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Title field (optional)" name="fk_timeline_title_column_id">
+              <NcSelect
+                v-model:value="form.fk_timeline_title_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full nc-timeline-title-field-select"
+                data-testid="nc-timeline-title-field-select"
+                allow-clear
+                show-search
+              >
+                <a-select-option v-for="option in timelineTitleFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Initial zoom" name="timeline_zoom">
+              <NcSelect v-model:value="form.timeline_zoom" class="nc-select-shadow w-full" data-testid="nc-timeline-zoom-select">
+                <a-select-option v-for="zoom in ['day', 'week', 'month', 'quarter']" :key="zoom" :value="zoom">
+                  {{ zoom[0].toUpperCase() + zoom.slice(1) }}
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+          </template>
 
           <a-form-item
             v-if="form.type === ViewTypes.GALLERY && !form.copy_from_id"
