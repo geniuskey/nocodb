@@ -116,10 +116,12 @@ const getAst = async (
     }
   } else if (view && view.type === ViewTypes.TIMELINE) {
     const timeline = await TimelineView.get(context, view.id);
+    const timelineMeta = parseProp(timeline?.meta);
     dependencyFieldsForTimelineView = [
       timeline?.fk_title_column_id,
       timeline?.fk_start_column_id,
       timeline?.fk_end_column_id,
+      timelineMeta?.group_by_column_id,
     ]
       .filter(Boolean)
       .map(String);

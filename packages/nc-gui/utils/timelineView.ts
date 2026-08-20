@@ -13,6 +13,17 @@ export interface TimelineLayoutItem<T = Record<string, any>> extends TimelineLay
   lane: number
 }
 
+export interface TimelineGroupValue {
+  key: string
+  label: string
+  blank: boolean
+}
+
+export interface TimelineLayoutGroup<T = Record<string, any>> extends TimelineGroupValue {
+  items: TimelineLayoutItem<T>[]
+  laneCount: number
+}
+
 export interface TimelineMutationPatch {
   previous: Record<string, unknown>
   next: Record<string, string>
@@ -53,6 +64,74 @@ export function layoutTimelineItems<T>(items: TimelineLayoutInput<T>[]): Timelin
 
 export function timelineLaneCount(items: TimelineLayoutItem[]) {
   return items.reduce((count, item) => Math.max(count, item.lane + 1), 0)
+}
+
+function stableTimelineValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableTimelineValue).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableTimelineValue(nested)}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value) ?? String(value)
+}
+
+function timelineValueLabel(value: unknown): string {
+  if (Array.isArray(value)) return value.map(timelineValueLabel).filter(Boolean).join(', ')
+  if (value && typeof value === 'object') {
+    const objectValue = value as Record<string, unknown>
+    for (const key of ['title', 'name', 'display_name', 'email', 'label', 'value']) {
+      const candidate = objectValue[key]
+      if (['string', 'number', 'boolean'].includes(typeof candidate)) return String(candidate)
+    }
+    return stableTimelineValue(value)
+  }
+  if (typeof value === 'boolean') return value ? 'Checked' : 'Unchecked'
+  return String(value)
+}
+
+/**
+ * Normalize an arbitrary cell value into one stable group. Compound values stay
+ * together rather than duplicating a record into multiple Timeline bands.
+ */
+export function timelineGroupValue(value: unknown): TimelineGroupValue {
+  const blank = value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)
+  if (blank) return { key: 'blank:', label: 'Uncategorized', blank: true }
+
+  return {
+    key: `${typeof value}:${stableTimelineValue(value)}`,
+    label: timelineValueLabel(value) || 'Uncategorized',
+    blank: false,
+  }
+}
+
+/** Layout each group independently so overlaps in one group do not consume lanes in another. */
+export function layoutTimelineGroups<T>(
+  items: TimelineLayoutInput<T>[],
+  groupValue: (item: TimelineLayoutInput<T>) => unknown,
+): TimelineLayoutGroup<T>[] {
+  const grouped = new Map<string, { value: TimelineGroupValue; items: TimelineLayoutInput<T>[] }>()
+
+  for (const item of items) {
+    const value = timelineGroupValue(groupValue(item))
+    const group = grouped.get(value.key)
+    if (group) group.items.push(item)
+    else grouped.set(value.key, { value, items: [item] })
+  }
+
+  return [...grouped.values()]
+    .sort((left, right) => {
+      if (left.value.blank !== right.value.blank) return left.value.blank ? 1 : -1
+      const leftLabel = left.value.label.toLowerCase()
+      const rightLabel = right.value.label.toLowerCase()
+      if (leftLabel !== rightLabel) return leftLabel < rightLabel ? -1 : 1
+      return left.value.key < right.value.key ? -1 : left.value.key > right.value.key ? 1 : 0
+    })
+    .map(({ value, items: groupItems }) => {
+      const laidOut = layoutTimelineItems(groupItems)
+      return { ...value, items: laidOut, laneCount: timelineLaneCount(laidOut) }
+    })
 }
 
 function shiftTimelineFieldValue(value: unknown, type: 'date' | 'datetime', deltaDays: number) {

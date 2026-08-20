@@ -3,7 +3,9 @@ import {
   buildTimelineEndResizePatch,
   buildTimelineReschedulePatch,
   buildTimelineStartResizePatch,
+  layoutTimelineGroups,
   layoutTimelineItems,
+  timelineGroupValue,
   timelineLaneCount,
 } from '../../utils/timelineView'
 
@@ -43,6 +45,38 @@ describe('Timeline overlap layout', () => {
     ])
 
     expect(layout.map((item) => item.lane)).toEqual([0, 1])
+  })
+})
+
+describe('Timeline grouping', () => {
+  it('orders named groups deterministically, leaves blank last, and lays out lanes per group', () => {
+    const groups = layoutTimelineGroups(
+      [
+        { id: 'blank', start: 10, end: 20, record: { Status: null } },
+        { id: 'ready-later', start: 15, end: 25, record: { Status: 'Ready' } },
+        { id: 'blocked', start: 10, end: 20, record: { Status: 'Blocked' } },
+        { id: 'ready-first', start: 10, end: 20, record: { Status: 'Ready' } },
+      ],
+      (item) => item.record.Status,
+    )
+
+    expect(groups.map(({ label, laneCount, items }) => ({ label, laneCount, ids: items.map((item) => item.id) }))).toEqual([
+      { label: 'Blocked', laneCount: 1, ids: ['blocked'] },
+      { label: 'Ready', laneCount: 2, ids: ['ready-first', 'ready-later'] },
+      { label: 'Uncategorized', laneCount: 1, ids: ['blank'] },
+    ])
+  })
+
+  it('normalizes scalar, compound, and blank values without key collisions', () => {
+    expect(timelineGroupValue(true)).toEqual({ key: 'boolean:true', label: 'Checked', blank: false })
+    expect(timelineGroupValue({ name: 'Ada', id: 2 })).toEqual({
+      key: 'object:{"id":2,"name":"Ada"}',
+      label: 'Ada',
+      blank: false,
+    })
+    expect(timelineGroupValue(['Alpha', 'Beta']).label).toBe('Alpha, Beta')
+    expect(timelineGroupValue(null)).toEqual({ key: 'blank:', label: 'Uncategorized', blank: true })
+    expect(timelineGroupValue('Uncategorized').key).not.toBe(timelineGroupValue(null).key)
   })
 })
 
