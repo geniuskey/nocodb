@@ -121,6 +121,7 @@ import { ViewRowColorV3Service } from '~/services/v3/view-row-color-v3.service';
 /* Datas */
 import { BulkDataAliasController } from '~/controllers/bulk-data-alias.controller';
 import { CalendarDatasController } from '~/controllers/calendars-datas.controller';
+import { TimelineDatasController } from '~/controllers/timeline-datas.controller';
 import { DataAliasNestedController } from '~/controllers/data-alias-nested.controller';
 import { DataAliasController } from '~/controllers/data-alias.controller';
 import { DataTableController } from '~/controllers/data-table.controller';
@@ -137,6 +138,7 @@ import { SortsV3Controller } from '~/controllers/v3/sorts-v3.controller';
 import { TablesV3Controller } from '~/controllers/v3/tables-v3.controller';
 import { BulkDataAliasService } from '~/services/bulk-data-alias.service';
 import { CalendarDatasService } from '~/services/calendar-datas.service';
+import { TimelineDatasService } from '~/services/timeline-datas.service';
 import { BaseMembersV3Service } from '~/services/v3/base-members-v3.service';
 import { ViewRowColorService } from '~/services/view-row-color.service';
 import { DataAliasNestedService } from '~/services/data-alias-nested.service';
@@ -252,6 +254,7 @@ export const nocoModuleMetadata = {
           DataTableController,
           DatasController,
           CalendarDatasController,
+          TimelineDatasController,
           BulkDataAliasController,
           DataAliasController,
           DataAliasNestedController,
@@ -341,6 +344,7 @@ export const nocoModuleMetadata = {
     BulkDataAliasService,
     DataAliasNestedService,
     CalendarDatasService,
+    TimelineDatasService,
     OldDatasService,
     PublicDatasService,
     PublicDatasExportService,

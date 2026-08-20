@@ -29,6 +29,7 @@ import {
   GridViewColumn,
   KanbanView,
   KanbanViewColumn,
+  TimelineView,
   View,
 } from '~/models';
 import RowColorCondition from '~/models/RowColorCondition';
@@ -91,6 +92,7 @@ const getAst = async (
 
   let coverImageId;
   let dependencyFieldsForCalenderView;
+  let dependencyFieldsForTimelineView;
   let kanbanGroupColumnId;
   let sortColumnIds: string[] = [];
   let filterColumnIds: string[] = [];
@@ -112,6 +114,15 @@ const getAst = async (
         )
         .map(String);
     }
+  } else if (view && view.type === ViewTypes.TIMELINE) {
+    const timeline = await TimelineView.get(context, view.id);
+    dependencyFieldsForTimelineView = [
+      timeline?.fk_title_column_id,
+      timeline?.fk_start_column_id,
+      timeline?.fk_end_column_id,
+    ]
+      .filter(Boolean)
+      .map(String);
   }
 
   if (view && includeSortAndFilterColumns) {
@@ -221,6 +232,11 @@ const getAst = async (
         allowedCols[id] = 1;
       });
     }
+    if (dependencyFieldsForTimelineView) {
+      dependencyFieldsForTimelineView.forEach((id) => {
+        allowedCols[id] = 1;
+      });
+    }
     if (includeSortAndFilterColumns) {
       sortColumnIds.forEach((id) => (allowedCols[id] = 1));
       filterColumnIds.forEach((id) => (allowedCols[id] = 1));
@@ -294,8 +310,11 @@ const getAst = async (
     const isSortOrFilterColumn =
       includeSortAndFilterColumns &&
       (sortColumnIds.includes(col.id) || filterColumnIds.includes(col.id));
+    const isTimelineMappingColumn = dependencyFieldsForTimelineView?.includes(
+      col.id,
+    );
 
-    if (isSortOrFilterColumn) {
+    if (isSortOrFilterColumn || isTimelineMappingColumn) {
       isRequested = true;
     } else if (rowColoringColumnIds.has(col.id)) {
       isRequested = true;
