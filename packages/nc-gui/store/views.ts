@@ -1,4 +1,14 @@
-import type { CalendarType, FilterType, GalleryType, KanbanType, MapType, RowColoringInfo, SortType, ViewType } from 'nocodb-sdk'
+import type {
+  CalendarType,
+  FilterType,
+  GalleryType,
+  KanbanType,
+  MapType,
+  RowColoringInfo,
+  SortType,
+  TimelineType,
+  ViewType,
+} from 'nocodb-sdk'
 import {
   ProjectRoles,
   ViewSettingOverrideOptions,
@@ -391,6 +401,18 @@ export const useViewsStore = defineStore('viewsStore', () => {
             })),
           })
           break
+        case ViewTypes.TIMELINE: {
+          data = await $api.dbView.timelineCreate(tableId, form)
+          if (data?.id && !form.copy_from_id) {
+            data = await $api.dbView.timelineUpdate(data.id, {
+              fk_title_column_id: form.fk_timeline_title_column_id,
+              fk_start_column_id: form.fk_timeline_start_column_id,
+              fk_end_column_id: form.fk_timeline_end_column_id,
+              zoom: form.timeline_zoom || 'week',
+            })
+          }
+          break
+        }
       }
 
       if (data) {
@@ -446,6 +468,10 @@ export const useViewsStore = defineStore('viewsStore', () => {
           fk_from_column_id: string
           fk_to_column_id: string | null
         }>,
+        fk_timeline_title_column_id: null as string | null,
+        fk_timeline_start_column_id: null as string | null,
+        fk_timeline_end_column_id: null as string | null,
+        timeline_zoom: 'week' as const,
       }
 
       switch (sourceView.type) {
@@ -474,6 +500,16 @@ export const useViewsStore = defineStore('viewsStore', () => {
                 fk_to_column_id: range.fk_to_column_id as string,
               })) || [],
           }
+        case ViewTypes.TIMELINE: {
+          const timeline = sourceView.view as TimelineType
+          return {
+            ...baseProps,
+            fk_timeline_title_column_id: timeline?.fk_title_column_id || null,
+            fk_timeline_start_column_id: timeline?.fk_start_column_id || null,
+            fk_timeline_end_column_id: timeline?.fk_end_column_id || null,
+            timeline_zoom: timeline?.zoom || 'week',
+          }
+        }
         default:
           return baseProps
       }
@@ -641,6 +677,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
             break
           case ViewTypes.CALENDAR:
             updatedView = await $api.dbView.calendarUpdate(viewId, updates)
+            break
+          case ViewTypes.TIMELINE:
+            updatedView = await $api.dbView.timelineUpdate(viewId, updates)
             break
           case ViewTypes.FORM:
             updatedView = await $api.dbView.formUpdate(viewId, updates)

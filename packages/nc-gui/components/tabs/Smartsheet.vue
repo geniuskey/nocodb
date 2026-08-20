@@ -37,10 +37,8 @@ const { activeWorkspaceId } = storeToRefs(useWorkspace())
 const viewStore = useViewsStore()
 
 const { activeView, openedViewsTab, activeViewTitleOrId, isViewsLoading } = storeToRefs(viewStore)
-const { isGallery, isGrid, isList, isForm, isKanban, isLocked, isMap, isCalendar, xWhere, eventBus } = useProvideSmartsheetStore(
-  activeView,
-  meta,
-)
+const { isGallery, isGrid, isList, isForm, isKanban, isLocked, isMap, isCalendar, isTimeline, xWhere, eventBus } =
+  useProvideSmartsheetStore(activeView, meta)
 
 useViewRowColorProvider({ view: activeView, eventBus })
 
@@ -296,6 +294,8 @@ watch(isViewsLoading, async () => {
                       <LazySmartsheetKanban v-else-if="isKanban" />
 
                       <LazySmartsheetCalendar v-else-if="isCalendar" />
+
+                      <LazySmartsheetTimeline v-else-if="isTimeline" />
 
                       <LazySmartsheetMap v-else-if="isMap" />
                     </template>

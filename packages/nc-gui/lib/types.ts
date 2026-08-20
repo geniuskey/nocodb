@@ -901,6 +901,11 @@ interface CreateViewForm {
     fk_to_column_id: string | null // for ee only
   }>
   fk_cover_image_col_id: string | null | undefined
+  // for timeline view only
+  fk_timeline_title_column_id?: string | null
+  fk_timeline_start_column_id?: string | null
+  fk_timeline_end_column_id?: string | null
+  timeline_zoom?: 'day' | 'week' | 'month' | 'quarter'
 }
 
 // NcClipboardDataType type starts here

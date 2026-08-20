@@ -143,9 +143,12 @@ large tables.
 Current evidence: the independently designed metadata contract, numeric view
 type, append-only Timeline and Timeline-column tables, create/read/update API,
 date-field validation, SDK generation, general view lifecycle integration, and
-server-bounded temporal query contract are implemented. The renderer,
-grouping, overlap layout, and rescheduling remain intentionally separate
-follow-up slices.
+server-bounded temporal query contract are implemented. The Community GUI can
+create and configure a Timeline, load only its current bounded window, navigate
+day/week/month/quarter zooms, and render intervals in deterministic overlap
+lanes. The current renderer is deliberately read-only. Grouping,
+virtualization for dense ranges, and drag-to-reschedule remain intentionally
+separate follow-up slices.
 
 ## Phase 4 — Gantt
 

@@ -45,6 +45,24 @@ test('Community image preserves login, schema, and records across restart', asyn
     (view: { title?: string; type?: number }) => view.title === 'Task Timeline' && view.type === ViewTypes.TIMELINE
   );
   expect(timeline?.id).toEqual(expect.any(String));
+  const uiTimeline = views.list.find(
+    (view: { title?: string; type?: number }) => view.title === 'Task Timeline UI' && view.type === ViewTypes.TIMELINE
+  );
+  expect(uiTimeline?.id).toEqual(expect.any(String));
+
+  const uiTimelineResponse = await page.request.get(`/api/v2/meta/timelines/${uiTimeline.id}`, {
+    headers: sessionHeaders,
+  });
+  const uiTimelineMeta = await uiTimelineResponse.json();
+  expect(uiTimelineResponse.ok(), JSON.stringify(uiTimelineMeta)).toBeTruthy();
+  expect(uiTimelineMeta).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: expect.any(String),
+      fk_start_column_id: expect.any(String),
+      fk_end_column_id: expect.any(String),
+      zoom: 'day',
+    })
+  );
 
   const timelineResponse = await page.request.get(`/api/v2/meta/timelines/${timeline.id}`, {
     headers: sessionHeaders,
@@ -104,6 +122,15 @@ test('Community image preserves login, schema, and records across restart', asyn
   await expect(grid).toBeVisible({ timeout: 30_000 });
   const persistenceCell = grid.getByTestId('cell-Title-0');
   await expect(persistenceCell).toContainText('Persists across restart');
+
+  await page.getByTestId('view-sidebar-view-Task Timeline UI').click();
+  const timelineView = page.getByTestId('nc-timeline-wrapper');
+  await expect(timelineView).toBeVisible({ timeout: 30_000 });
+  await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+
+  await tasksTable.click();
+  await expect(grid).toBeVisible({ timeout: 30_000 });
 
   await persistenceCell.dblclick();
   await persistenceCell.locator('input').fill('Persisted after restart');

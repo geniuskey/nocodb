@@ -705,4 +705,90 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     .filter(record => record.Title?.startsWith('Virtualized task '))
     .map(record => ({ Id: record.Id }));
   expect(temporaryRecords).toEqual([]);
+
+  const currentTimelineDate = new Date().toISOString().slice(0, 10);
+  const currentTimelineEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+  const uiTimelineRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: {
+      Title: 'Current Timeline item',
+      Status: 'Ready',
+      'Timeline start': currentTimelineDate,
+      'Timeline end': currentTimelineEnd,
+    },
+  });
+  expect(uiTimelineRecordResponse.ok(), await uiTimelineRecordResponse.text()).toBeTruthy();
+
+  await page.locator('.nc-create-view-btn').click();
+  await page.getByTestId('sidebar-view-create-timeline').click();
+
+  const timelineName = page.locator('.nc-view-create-modal .nc-view-input');
+  await expect(timelineName).toBeVisible();
+  await timelineName.fill('Task Timeline UI');
+
+  await page.getByTestId('nc-timeline-start-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Timeline start', { exact: true }).click();
+  await page.getByTestId('nc-timeline-end-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Timeline end', { exact: true }).click();
+
+  const uiTimelineCreateResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/tables/${createdTableBody.id}/timelines`) && response.request().method() === 'POST'
+  );
+  const uiTimelineUpdateResponse = page.waitForResponse(
+    response => response.url().includes('/meta/timelines/') && response.request().method() === 'PATCH'
+  );
+  const firstTimelineRangeResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/timeline-data/') && response.request().method() === 'GET'
+  );
+  await page.getByTestId('nc-view-create-submit').click();
+
+  const createdUiTimeline = await (await uiTimelineCreateResponse).json();
+  expect(createdUiTimeline).toEqual(expect.objectContaining({ title: 'Task Timeline UI', type: ViewTypes.TIMELINE }));
+  const configuredUiTimelineResponse = await uiTimelineUpdateResponse;
+  expect(configuredUiTimelineResponse.ok()).toBeTruthy();
+  expect((await configuredUiTimelineResponse.json()).view).toEqual(
+    expect.objectContaining({
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      zoom: 'week',
+    })
+  );
+
+  const initialRange = await firstTimelineRangeResponse;
+  expect(initialRange.ok(), await initialRange.text()).toBeTruthy();
+  const initialRangeUrl = new URL(initialRange.url());
+  expect(initialRangeUrl.searchParams.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(initialRangeUrl.searchParams.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(initialRangeUrl.searchParams.get('limit')).toBe('1000');
+
+  const timelineView = page.getByTestId('nc-timeline-wrapper');
+  await expect(timelineView).toBeVisible({ timeout: 30_000 });
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+
+  await page.getByTestId('nc-timeline-next').click();
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toHaveCount(
+    0
+  );
+  await page.getByTestId('nc-timeline-today').click();
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+
+  await page.getByTestId('nc-timeline-settings-toggle').click();
+  await page.getByTestId('nc-timeline-settings-zoom').click();
+  await page
+    .locator('.ant-select-dropdown:visible')
+    .last()
+    .locator('span.capitalize')
+    .filter({ hasText: /^day$/ })
+    .click();
+  const timelineZoomUpdateResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/timelines/${createdUiTimeline.id}`) && response.request().method() === 'PATCH'
+  );
+  await page.getByTestId('nc-timeline-settings-save').click();
+  const timelineZoomUpdate = await timelineZoomUpdateResponse;
+  expect(timelineZoomUpdate.ok()).toBeTruthy();
+  expect((await timelineZoomUpdate.json()).view).toEqual(expect.objectContaining({ zoom: 'day' }));
+  await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
 });

@@ -19,14 +19,29 @@ The first slice establishes only the durable contract:
 - validated start, end, and title field mappings; and
 - normal view-column visibility and ordering.
 
-It intentionally does not expose a frontend creation menu or renderer. Later
-slices will add bounded date-range loading, overlap layout and virtualization,
-then editing and drag-to-reschedule behavior. A metadata-only view therefore
-cannot be created accidentally by the current UI.
+This metadata slice intentionally did not expose a frontend creation menu or
+renderer. Those capabilities are added only by the later slices described
+below.
 
-The second slice adds the bounded record-loading contract without adding a
-renderer. It continues to use the shared data service rather than introducing a
-Timeline-specific CRUD engine.
+The second slice adds the bounded record-loading contract. It continues to use
+the shared data service rather than introducing a Timeline-specific CRUD
+engine.
+
+The third slice adds the authenticated, read-only Community renderer:
+
+- Timeline creation is available from the ordinary view menus;
+- creation requires a Date or DateTime start field and accepts optional end and
+  title fields;
+- day, week, month, and quarter zooms use server-bounded windows of 14, 42, 120,
+  and 366 days respectively;
+- previous, today, and next navigation replace the bounded window instead of
+  accumulating an unbounded client data set;
+- a deterministic greedy interval-partitioning algorithm assigns overlapping
+  records to lanes; and
+- Timeline settings persist through the existing metadata PATCH endpoint.
+
+The renderer does not mutate records. Dragging, resizing, grouping, and
+rescheduling remain later, independently reviewed slices.
 
 ## Metadata contract
 
@@ -99,8 +114,14 @@ duplicates, lists, and removes the companion metadata.
 
 The range loader uses `DatasService.getDataList` for record projection, filters,
 sorts, permissions, and pagination. It supplies only the server-owned temporal
-conditions and hard bounds. The future renderer must use the same shared data
-and mutation services; it must not create a Timeline-only CRUD path.
+conditions and hard bounds. The renderer uses this endpoint and the same shared
+view settings; it does not create a Timeline-only CRUD path.
+
+The GUI renderer is `components/smartsheet/Timeline.vue`. Its pure overlap
+layout is isolated in `utils/timelineView.ts` so later virtualization and Gantt
+work can reuse and test interval behavior without mounting Vue. The normal view
+filter, sort, search, lock, and permission abstractions remain the source of
+truth. Timeline navigation never falls back to the general unbounded row list.
 
 ## Compatibility rules
 
@@ -123,3 +144,8 @@ The range slice additionally requires fresh and post-restart browser workflows
 to prove both v1 and v2 routes, interval and point-event overlap, hard request
 bounds, view/request filter composition, required mapping projection, and
 pagination against SQLite, PostgreSQL, and MySQL.
+
+The read-only renderer slice additionally requires unit coverage for stable
+overlap lanes, a successful Community GUI production build, and fresh/restart
+browser coverage for menu creation, field mapping, bounded loading, navigation,
+zoom persistence, and rendered record labels on SQLite, PostgreSQL, and MySQL.

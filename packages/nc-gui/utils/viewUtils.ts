@@ -11,6 +11,7 @@ export const viewIcons: Record<number | string, { icon: any; color: string }> = 
   [ViewTypes.LIST]: { icon: iconMap.list, color: '#00897B' },
   [ViewTypes.FORM]: { icon: iconMap.form, color: '#7D26CD' },
   [ViewTypes.CALENDAR]: { icon: iconMap.calendar, color: '#B33771' },
+  [ViewTypes.TIMELINE]: { icon: iconMap.calendar, color: '#2563EB' },
   [ViewTypes.GALLERY]: { icon: iconMap.gallery, color: '#FC3AC6' },
   [ViewTypes.MAP]: { icon: iconMap.map, color: 'blue' },
   [ViewTypes.KANBAN]: { icon: iconMap.kanban, color: '#FF9052' },
