@@ -32,13 +32,12 @@ The frontend provides:
 - ordered, condition-based row color rules stored in List metadata;
 - variable-height, overscanned row virtualization;
 - cross-page explicit selection and all-matching, permission-aware bulk deletion;
-- cross-page explicit and all-matching, permission-aware single-field bulk update;
+- cross-page explicit and all-matching, permission-aware multi-field bulk update;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Multi-field bulk update and server-range loading beyond the existing pagination
-contract remain follow-up slices. The UI does not advertise controls for those
-capabilities yet.
+Server-range loading beyond the existing pagination contract remains a follow-up
+slice. The UI does not advertise controls for that capability yet.
 
 ## Interaction contract
 
@@ -68,15 +67,17 @@ does not load every matching row into the browser. Both paths require the shared
 destructive-action confirmation dialog.
 
 The bulk-update action is displayed only when the current user has data-edit
-permission and at least one field grants `RECORD_FIELD_EDIT`. It applies one
-value to one field per operation. Primary keys, unique, auto-increment,
+permission and at least one field grants `RECORD_FIELD_EDIT`. The editor applies
+one value per selected field and prevents duplicate field entries. Primary keys, unique, auto-increment,
 read-only, system, virtual, attachment, foreign-key, and database-specific
-fields are intentionally excluded. Explicit selection uses the Community bulk
-record update endpoint. All-matching selection uses the Community conditional
-bulk-update endpoint with the active view, search expression, and excluded
-primary keys. The backend applies those exclusions to the same query used for
-counting, audit, and mutation, and hooks receive the resulting count. Selection
-clears only after a successful response.
+fields are intentionally excluded, and the allowed field set is checked again
+when Apply is pressed. Explicit selection sends every selected value through the
+Community transaction-backed bulk record update endpoint. All-matching selection
+sends the same object through one Community conditional SQL update with the
+active view, search expression, and excluded primary keys. The backend applies
+those exclusions to the same query used for counting, audit, and mutation, and
+hooks receive the resulting count. Selection clears only after the complete
+multi-field operation succeeds.
 
 The renderer virtualizes the loaded page with a fixed height calculated for the
 current viewport, density, and number of visible detail rows. A small overscan
@@ -167,7 +168,7 @@ through the rendered UI, and verifies a persisted record appears in that List.
 It also saves Appearance settings, applies ordered conditional colors with a
 Single Select fallback, verifies the resulting layout, creates enough records
 to prove the DOM window is bounded, exercises keyboard range selection, explicit deletion, all-matching
-selection, cross-page exclusions, permission-aware single-field bulk update,
+selection, cross-page exclusions, permission-aware multi-field bulk update,
 virtual focus movement, and server-side bulk deletion. The same workflow runs
 against SQLite, PostgreSQL, and MySQL; each database is also restarted before
 persistence is checked. Unit tests cover presentation-field resolution,

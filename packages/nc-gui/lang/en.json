@@ -1600,6 +1600,7 @@
     "listConditionalColors": "Conditional colors",
     "listConditionalColorsHint": "The first matching rule wins; select colors are used as a fallback.",
     "listNoConditionalColors": "No conditional color rules.",
+    "addAnotherField": "Add another field",
     "listDensity": "Density",
     "listDensityCompact": "Compact",
     "listDensityComfortable": "Comfortable",

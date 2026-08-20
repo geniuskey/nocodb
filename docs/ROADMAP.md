@@ -119,15 +119,15 @@ creation menus, responsive rendering, shared query controls, expanded-form
 CRUD, server pagination, variable-height DOM virtualization, accessible
 keyboard navigation, cross-page explicit selection, all-matching selection
 with primary-key exclusions, and confirmed permission-aware bulk deletion are
-implemented. Permission-aware single-field bulk update now uses the same
-cross-page selection model and enforces primary-key exclusions in the Community
-conditional update query. Unit tests cover the reusable selection primitive,
+implemented. Permission-aware multi-field bulk update uses the same cross-page
+selection model, validates the field permission set again on Apply, and enforces
+primary-key exclusions in the Community conditional update query. Unit tests cover the reusable selection primitive,
 and the production-image browser workflow covers the rendered interactions on
 SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration, density
 and label controls, and attachment-image presentation are implemented. Ordered
 conditional row colors and Single Select fallback colors are implemented as
 List-only metadata without using the shared gated row-color subsystem. Grouped
-color conditions and multi-field bulk update remain.
+color conditions and server-range loading remain.
 
 ## Phase 3 — Timeline
 

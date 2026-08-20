@@ -175,3 +175,23 @@ export const isListBulkUpdateColumn = (column: ColumnType) =>
   !isSystemColumn(column) &&
   !isVirtualCol(column) &&
   !listBulkUpdateUnsupportedTypes.has(column.uidt as UITypes)
+
+export const buildListBulkUpdateData = (
+  updates: Array<{ field: ColumnType; value: any }>,
+  allowedFields: ColumnType[],
+): Record<string, any> | undefined => {
+  if (!updates.length) return undefined
+
+  const allowedFieldIds = new Set(allowedFields.map((field) => field.id).filter(Boolean))
+  const usedFieldIds = new Set<string>()
+  const data: Record<string, any> = {}
+
+  for (const { field, value } of updates) {
+    if (!field.id || !field.title || !allowedFieldIds.has(field.id) || usedFieldIds.has(field.id)) return undefined
+
+    usedFieldIds.add(field.id)
+    data[field.title] = value
+  }
+
+  return data
+}

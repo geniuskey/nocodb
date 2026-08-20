@@ -6,6 +6,7 @@ import type { ColumnType, ListType } from 'nocodb-sdk'
 import type { ComponentPublicInstance } from 'vue'
 import type { Row as RowType } from '#imports'
 import {
+  buildListBulkUpdateData,
   parseListColorRules,
   parseListImageAttachment,
   resolveListColorField,
@@ -252,14 +253,17 @@ const bulkUpdateFields = computed(() =>
   ),
 )
 
-const bulkUpdateSelection = async ({ field, value }: { field: ColumnType; value: any }) => {
-  if (!field.title || isUpdatingSelection.value) return
+const bulkUpdateSelection = async ({ updates }: { updates: Array<{ field: ColumnType; value: any }> }) => {
+  if (isUpdatingSelection.value || !updates.length) return
+
+  const data = buildListBulkUpdateData(updates, bulkUpdateFields.value)
+  if (!data) return
 
   isUpdatingSelection.value = true
   try {
     const updated = isAllMatchingSelected.value
-      ? await updateAllMatchingRows({ [field.title]: value }, excludedKeys.value)
-      : await updateRowsByPk(selectedValues.value as Record<string, any>[], { [field.title]: value })
+      ? await updateAllMatchingRows(data, excludedKeys.value)
+      : await updateRowsByPk(selectedValues.value as Record<string, any>[], data)
 
     if (!updated) return
 
