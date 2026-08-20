@@ -817,4 +817,48 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   await expect(page.getByTestId('nc-timeline-announcement')).toContainText('moved 1 day later');
   await expect(rescheduledTimelineItem).toBeVisible();
+
+  await rescheduledTimelineItem.hover();
+  const timelineEndResizeHandle = rescheduledTimelineItem.getByTestId('nc-timeline-resize-end');
+  await expect(timelineEndResizeHandle).toBeVisible();
+  const timelineEndResizeBox = await timelineEndResizeHandle.boundingBox();
+  expect(timelineEndResizeBox).not.toBeNull();
+  const resizeResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await page.mouse.move(
+    timelineEndResizeBox!.x + timelineEndResizeBox!.width / 2,
+    timelineEndResizeBox!.y + timelineEndResizeBox!.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    timelineEndResizeBox!.x + timelineEndResizeBox!.width / 2 + 120,
+    timelineEndResizeBox!.y + timelineEndResizeBox!.height / 2,
+    { steps: 5 }
+  );
+  await page.mouse.up();
+
+  const resizeResponse = await resizeResponsePromise;
+  expect(resizeResponse.ok(), await resizeResponse.text()).toBeTruthy();
+  expect(resizeResponse.request().postDataJSON()).toEqual({
+    'Timeline end': new Date(
+      Math.floor(Date.parse(currentTimelineEnd) / 1000) * 1000 + 2 * 24 * 60 * 60 * 1000
+    ).toISOString(),
+  });
+  await expect(page.getByTestId('nc-timeline-announcement')).toContainText('duration increased by 1 day');
+  await expect(rescheduledTimelineItem).toBeVisible();
+
+  const keyboardResizeResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await timelineEndResizeHandle.focus();
+  await timelineEndResizeHandle.press('ArrowRight');
+  const keyboardResizeResponse = await keyboardResizeResponsePromise;
+  expect(keyboardResizeResponse.ok(), await keyboardResizeResponse.text()).toBeTruthy();
+  expect(keyboardResizeResponse.request().postDataJSON()).toEqual({
+    'Timeline end': new Date(
+      Math.floor(Date.parse(currentTimelineEnd) / 1000) * 1000 + 3 * 24 * 60 * 60 * 1000
+    ).toISOString(),
+  });
+  await expect(page.getByTestId('nc-timeline-announcement')).toContainText('duration increased by 1 day');
 });

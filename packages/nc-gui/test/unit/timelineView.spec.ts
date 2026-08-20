@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildTimelineReschedulePatch, layoutTimelineItems, timelineLaneCount } from '../../utils/timelineView'
+import {
+  buildTimelineEndResizePatch,
+  buildTimelineReschedulePatch,
+  layoutTimelineItems,
+  timelineLaneCount,
+} from '../../utils/timelineView'
 
 describe('Timeline overlap layout', () => {
   it('packs non-overlapping and touching intervals into the same lane', () => {
@@ -78,5 +83,46 @@ describe('Timeline rescheduling', () => {
     expect(
       buildTimelineReschedulePatch({ Start: '2026-08-21' }, { title: 'Start', uidt: 'Date' }, undefined, 0.5),
     ).toBeUndefined()
+  })
+})
+
+describe('Timeline end resizing', () => {
+  it('changes only a DateTime end by a whole-day delta', () => {
+    expect(
+      buildTimelineEndResizePatch(
+        { Start: '2026-08-21', End: '2026-08-23T10:15:00.000Z' },
+        { title: 'Start', uidt: 'Date' },
+        { title: 'End', uidt: 'DateTime' },
+        2,
+      ),
+    ).toEqual({
+      previous: { End: '2026-08-23T10:15:00.000Z' },
+      next: { End: '2026-08-25T10:15:00.000Z' },
+      fields: ['End'],
+    })
+  })
+
+  it('allows an inclusive Date end on the same calendar day as a DateTime start', () => {
+    expect(
+      buildTimelineEndResizePatch(
+        { Start: '2026-08-21T22:00:00', End: '2026-08-22' },
+        { title: 'Start', uidt: 'DateTime' },
+        { title: 'End', uidt: 'Date' },
+        -1,
+      )?.next,
+    ).toEqual({ End: '2026-08-21' })
+  })
+
+  it('rejects blank, reversed, no-op, unsupported, and same-field ends', () => {
+    const start = { title: 'Start', uidt: 'Date' }
+    const end = { title: 'End', uidt: 'Date' }
+
+    expect(buildTimelineEndResizePatch({ Start: '2026-08-21', End: null }, start, end, 1)).toBeUndefined()
+    expect(buildTimelineEndResizePatch({ Start: '2026-08-21', End: '2026-08-21' }, start, end, -1)).toBeUndefined()
+    expect(buildTimelineEndResizePatch({ Start: '2026-08-21', End: '2026-08-22' }, start, end, 0)).toBeUndefined()
+    expect(
+      buildTimelineEndResizePatch({ Start: '2026-08-21', End: '2026-08-22' }, start, { ...end, uidt: 'Text' }, 1),
+    ).toBeUndefined()
+    expect(buildTimelineEndResizePatch({ Start: '2026-08-21' }, start, { title: 'Start', uidt: 'Date' }, 1)).toBeUndefined()
   })
 })

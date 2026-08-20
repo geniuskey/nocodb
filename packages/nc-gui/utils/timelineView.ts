@@ -13,7 +13,7 @@ export interface TimelineLayoutItem<T = Record<string, any>> extends TimelineLay
   lane: number
 }
 
-export interface TimelineReschedulePatch {
+export interface TimelineMutationPatch {
   previous: Record<string, unknown>
   next: Record<string, string>
   fields: string[]
@@ -74,7 +74,7 @@ export function buildTimelineReschedulePatch(
   startColumn: { title?: string; uidt?: string },
   endColumn: { title?: string; uidt?: string } | undefined,
   deltaDays: number,
-): TimelineReschedulePatch | undefined {
+): TimelineMutationPatch | undefined {
   if (!Number.isSafeInteger(deltaDays) || deltaDays === 0 || !startColumn.title) return undefined
 
   const startType = startColumn.uidt === 'Date' ? 'date' : startColumn.uidt === 'DateTime' ? 'datetime' : undefined
@@ -105,4 +105,60 @@ export function buildTimelineReschedulePatch(
   }
 
   return { previous, next, fields }
+}
+
+/**
+ * Build the row PATCH used by a right-edge Timeline resize. Only the mapped
+ * end field changes. Date ends are inclusive calendar days; DateTime ends are
+ * instants. A resize may not move the end before the mapped start.
+ */
+export function buildTimelineEndResizePatch(
+  record: Record<string, any>,
+  startColumn: { title?: string; uidt?: string },
+  endColumn: { title?: string; uidt?: string } | undefined,
+  deltaDays: number,
+): TimelineMutationPatch | undefined {
+  if (
+    !Number.isSafeInteger(deltaDays) ||
+    deltaDays === 0 ||
+    !startColumn.title ||
+    !endColumn?.title ||
+    startColumn.title === endColumn.title
+  ) {
+    return undefined
+  }
+
+  const startType = startColumn.uidt === 'Date' ? 'date' : startColumn.uidt === 'DateTime' ? 'datetime' : undefined
+  const endType = endColumn.uidt === 'Date' ? 'date' : endColumn.uidt === 'DateTime' ? 'datetime' : undefined
+  if (!startType || !endType) return undefined
+
+  const originalStart = record[startColumn.title]
+  const originalEnd = record[endColumn.title]
+  if (
+    originalStart === null ||
+    originalStart === undefined ||
+    originalStart === '' ||
+    originalEnd === null ||
+    originalEnd === undefined ||
+    originalEnd === ''
+  ) {
+    return undefined
+  }
+
+  const parsedStart = dayjs(originalStart as any)
+  const shiftedEnd = shiftTimelineFieldValue(originalEnd, endType, deltaDays)
+  if (!parsedStart.isValid() || !shiftedEnd) return undefined
+
+  const parsedEnd = dayjs(shiftedEnd)
+  const endPrecedesStart =
+    endType === 'date'
+      ? parsedEnd.startOf('day').valueOf() < parsedStart.startOf('day').valueOf()
+      : parsedEnd.valueOf() < parsedStart.valueOf()
+  if (endPrecedesStart) return undefined
+
+  return {
+    previous: { [endColumn.title]: originalEnd },
+    next: { [endColumn.title]: shiftedEnd },
+    fields: [endColumn.title],
+  }
 }

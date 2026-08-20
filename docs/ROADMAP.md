@@ -149,7 +149,9 @@ day/week/month/quarter zooms, and render intervals in deterministic overlap
 lanes. Whole-day drag and keyboard rescheduling use one
 permission-aware shared row PATCH for start/end, preserve duration, roll back
 failed writes, and participate in view-scoped undo/redo. Resize-based duration
-changes, grouping, and virtualization remain follow-up slices.
+changes now use a permission-aware right-edge handle and keyboard controls,
+with a one-field PATCH, minimum-bound validation, rollback, and undo/redo.
+Left-edge resizing, grouping, and virtualization remain follow-up slices.
 
 ## Phase 4 — Gantt
 
