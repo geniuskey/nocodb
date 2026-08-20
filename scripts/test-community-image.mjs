@@ -32,8 +32,10 @@ const DATABASES = {
   },
 };
 
-const database = process.argv[2];
-if (!Object.hasOwn(DATABASES, database)) {
+const commandArguments = process.argv.slice(2);
+if (commandArguments[0] === "--") commandArguments.shift();
+const database = commandArguments[0];
+if (commandArguments.length !== 1 || !Object.hasOwn(DATABASES, database)) {
   console.error(
     `Usage: pnpm run test:community:image -- ${Object.keys(DATABASES).join(
       "|"
