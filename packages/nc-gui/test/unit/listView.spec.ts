@@ -2,6 +2,7 @@ import { UITypes } from 'nocodb-sdk'
 import type { ColumnType } from 'nocodb-sdk'
 import { describe, expect, it } from 'vitest'
 import {
+  isListBulkUpdateColumn,
   parseListImageAttachment,
   resolveListColorField,
   resolveListPresentationFields,
@@ -79,5 +80,15 @@ describe('List view presentation', () => {
     expect(resolveListRowColor({ Status: 'Unknown' }, colorField)).toBeUndefined()
     expect(resolveListColorField(fields, { color_by_field_id: 'notes' })).toBeUndefined()
     expect(resolveListColorField(fields.slice(0, 1), { color_by_field_id: 'status' })).toBeUndefined()
+  })
+
+  it('only offers ordinary mutable fields for bulk update', () => {
+    expect(isListBulkUpdateColumn(fields[0])).toBe(true)
+    expect(isListBulkUpdateColumn(fields[1])).toBe(true)
+    expect(isListBulkUpdateColumn(fields[3])).toBe(false)
+    expect(isListBulkUpdateColumn({ id: 'pk', title: 'Id', uidt: UITypes.ID, pk: true })).toBe(false)
+    expect(isListBulkUpdateColumn({ id: 'formula', title: 'Total', uidt: UITypes.Formula })).toBe(false)
+    expect(isListBulkUpdateColumn({ id: 'unique', title: 'Code', uidt: UITypes.SingleLineText, unique: true })).toBe(false)
+    expect(isListBulkUpdateColumn({ id: 'readonly', title: 'Locked', uidt: UITypes.SingleLineText, readonly: true })).toBe(false)
   })
 })

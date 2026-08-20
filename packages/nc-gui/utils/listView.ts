@@ -1,4 +1,4 @@
-import { UITypes, parseProp } from 'nocodb-sdk'
+import { UITypes, isSystemColumn, isVirtualCol, parseProp } from 'nocodb-sdk'
 import type { ColumnType, ListType, SelectOptionsType } from 'nocodb-sdk'
 
 type ListPresentationConfig = Partial<ListType> & {
@@ -74,3 +74,16 @@ export const resolveListRowColor = (record: Record<string, any>, colorField?: Co
 
   return option?.color || undefined
 }
+
+const listBulkUpdateUnsupportedTypes = new Set([UITypes.Attachment, UITypes.ForeignKey, UITypes.SpecificDBType])
+
+export const isListBulkUpdateColumn = (column: ColumnType) =>
+  !!column.id &&
+  !!column.title &&
+  !column.readonly &&
+  !column.pk &&
+  !column.ai &&
+  !column.unique &&
+  !isSystemColumn(column) &&
+  !isVirtualCol(column) &&
+  !listBulkUpdateUnsupportedTypes.has(column.uidt as UITypes)

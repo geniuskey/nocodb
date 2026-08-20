@@ -337,6 +337,45 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await secondPageFirstRow.getByRole('checkbox').click();
   await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 28 matching records selected');
 
+  const updateAllMatchingResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/data/bulk/noco/') && response.request().method() === 'PATCH'
+  );
+  await page.getByTestId('nc-list-update-selected').click();
+  await page.getByTestId('nc-list-bulk-update-field').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Status', { exact: true }).click();
+  await page.getByTestId('nc-list-bulk-update-value').click();
+  await page
+    .locator('.ant-select-dropdown:visible .ant-select-item-option-content')
+    .getByText('Blocked', { exact: true })
+    .click();
+  await page.getByTestId('nc-list-bulk-update-apply').click();
+  expect((await updateAllMatchingResponse).ok()).toBeTruthy();
+
+  const updatedListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  expect(updatedListResponse.ok()).toBeTruthy();
+  const updatedListRecords = (await updatedListResponse.json()) as {
+    list: Array<{ Title?: string; Status?: string }>;
+  };
+  expect(updatedListRecords.list.filter(record => record.Title?.startsWith('Virtualized task '))).toHaveLength(28);
+  expect(
+    updatedListRecords.list
+      .filter(record => record.Title?.startsWith('Virtualized task '))
+      .every(record => record.Status === 'Blocked')
+  ).toBe(true);
+  expect(updatedListRecords.list.find(record => record.Title === 'Persists across restart')?.Status).not.toBe(
+    'Blocked'
+  );
+
+  await page.getByTestId('nc-list-select-all').click();
+  await page.getByTestId('nc-list-select-all-matching').click();
+  await page.locator('.nc-grid-pagination-wrapper .prev-page').click();
+  const persistentRowAfterUpdate = listView.getByTestId('nc-list-row-0');
+  await expect(persistentRowAfterUpdate).toContainText('Persists across restart');
+  await persistentRowAfterUpdate.getByRole('checkbox').click();
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 28 matching records selected');
+
   const deleteAllMatchingResponse = page.waitForResponse(
     response => response.url().includes('/api/v1/db/data/bulk/noco/') && response.request().method() === 'DELETE'
   );

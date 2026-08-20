@@ -378,6 +378,41 @@ export function useViewData(
     }
   }
 
+  async function updateRowsByPk(rows: Record<string, any>[], data: Record<string, any>) {
+    if (!rows.length || !base.value?.id || !meta.value?.id) return false
+
+    try {
+      await $api.dbTableRow.bulkUpdate(
+        NOCO,
+        base.value.id,
+        meta.value.id,
+        rows.map((row) => ({ ...data, ...row })),
+      )
+      await loadData()
+      return true
+    } catch (error: any) {
+      message.error(await extractSdkResponseErrorMsg(error))
+      return false
+    }
+  }
+
+  async function updateAllMatchingRows(data: Record<string, any>, skipPks: string[] = []) {
+    if (!base.value?.id || !meta.value?.id || !viewMeta.value?.id) return false
+
+    try {
+      await $api.dbTableRow.bulkUpdateAll(NOCO, base.value.id, meta.value.id, data, {
+        where: where?.value,
+        viewId: viewMeta.value.id,
+        skipPks: skipPks.join(','),
+      })
+      await loadData()
+      return true
+    } catch (error: any) {
+      message.error(await extractSdkResponseErrorMsg(error))
+      return false
+    }
+  }
+
   async function loadFormView() {
     if (!viewMeta?.value?.id) return
     try {
@@ -500,6 +535,8 @@ export function useViewData(
     deleteSelectedRows,
     deleteRowsByPk,
     deleteAllMatchingRows,
+    updateRowsByPk,
+    updateAllMatchingRows,
     deleteRangeOfRows,
     updateOrSaveRow,
     bulkUpdateRows,

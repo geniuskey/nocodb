@@ -41,6 +41,8 @@ const {
   changePage,
   deleteRowsByPk,
   deleteAllMatchingRows,
+  updateRowsByPk,
+  updateAllMatchingRows,
   navigateToSiblingRow,
   isFirstRow,
   islastRow,
@@ -225,6 +227,36 @@ const onRowSelectionChange = (event: Event, index: number) => {
 }
 
 const isDeletingSelection = ref(false)
+const isUpdatingSelection = ref(false)
+const bulkUpdateVisible = ref(false)
+const { isAllowed: isFieldAllowed } = usePermissions()
+
+const bulkUpdateFields = computed(() =>
+  fields.value.filter(
+    (field) =>
+      isListBulkUpdateColumn(field) &&
+      !!field.id &&
+      isFieldAllowed(PermissionEntity.FIELD, field.id, PermissionKey.RECORD_FIELD_EDIT),
+  ),
+)
+
+const bulkUpdateSelection = async ({ field, value }: { field: ColumnType; value: any }) => {
+  if (!field.title || isUpdatingSelection.value) return
+
+  isUpdatingSelection.value = true
+  try {
+    const updated = isAllMatchingSelected.value
+      ? await updateAllMatchingRows({ [field.title]: value }, excludedKeys.value)
+      : await updateRowsByPk(selectedValues.value as Record<string, any>[], { [field.title]: value })
+
+    if (!updated) return
+
+    clearSelection()
+    bulkUpdateVisible.value = false
+  } finally {
+    isUpdatingSelection.value = false
+  }
+}
 
 const deleteSelection = () => {
   if (!hasSelection.value || isDeletingSelection.value) return
@@ -345,6 +377,17 @@ onBeforeUnmount(() => {
       <div v-if="hasSelection" class="ml-auto flex items-center gap-1">
         <NcButton data-testid="nc-list-clear-selection" type="text" size="small" @click="clearSelection">
           {{ $t('labels.clearSelection') }}
+        </NcButton>
+        <NcButton
+          v-if="isUIAllowed('dataEdit') && !isSyncedTable && bulkUpdateFields.length"
+          data-testid="nc-list-update-selected"
+          type="secondary"
+          size="small"
+          :loading="isUpdatingSelection"
+          @click="bulkUpdateVisible = true"
+        >
+          <template #icon><GeneralIcon icon="edit" /></template>
+          {{ $t('labels.updateSelectedRows') }}
         </NcButton>
         <PermissionsTooltip
           v-if="isUIAllowed('dataDelete') && !isSyncedTable"
@@ -561,6 +604,15 @@ onBeforeUnmount(() => {
       @prev="navigateToSiblingRow(NavigateDir.PREV)"
     />
   </Suspense>
+
+  <LazySmartsheetListBulkUpdate
+    v-if="bulkUpdateVisible"
+    v-model="bulkUpdateVisible"
+    :fields="bulkUpdateFields"
+    :record-count="selectedCount"
+    :loading="isUpdatingSelection"
+    @apply="bulkUpdateSelection"
+  />
 </template>
 
 <style scoped lang="scss">
