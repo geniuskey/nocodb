@@ -50,6 +50,15 @@ const configurationChecks = [
     ],
   },
   {
+    path: "packages/nocodb/package.json",
+    forbidden: ['"nc-lib-gui"'],
+  },
+  {
+    path: "packages/nocodb/src/middlewares/gui/gui.middleware.ts",
+    required: ["path.join(__dirname, 'nc-gui')"],
+    forbidden: ["nc-lib-gui"],
+  },
+  {
     path: "packages/noco-integrations/package.json",
     required: [
       '"license": "AGPL-3.0-or-later"',
@@ -72,12 +81,18 @@ const configurationChecks = [
 const defaultScriptChecks = [
   {
     path: "package.json",
-    scripts: ["bootstrap", "bootstrap:ce", "integrations:build:core"],
+    scripts: [
+      "bootstrap",
+      "bootstrap:ce",
+      "build:community",
+      "integrations:build:core",
+    ],
   },
   {
     path: "packages/nocodb/package.json",
     scripts: [
       "docker:build",
+      "stage:gui",
       "watch:run",
       "watch:run:mysql",
       "watch:run:pg",
@@ -176,6 +191,8 @@ const forbiddenPaths = [
     "scripts/self-hosted-gh-runner",
     "scripts/downgradeSqlite.js",
     "scripts/updateCliVersion.js",
+    "scripts/bumpNcGuiVersion.js",
+    "scripts/upgradeNcGui.js",
     ".github/workflows/openreplay-cdn-build.yml",
     ".github/workflows/release-cloud-build.yml",
     ".github/workflows/release-cloud-pr-build.yml",
@@ -207,6 +224,7 @@ const sourceExtensions = new Set([
   ".vue",
 ]);
 const excludedModuleSegments = new Set(["ee", "ee-cloud", "ee-on-prem"]);
+const forbiddenModuleSpecifiers = new Set(["nc-lib-gui"]);
 const moduleSpecifierPattern =
   /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["'`]([^"'`\r\n]+)["'`]/g;
 const forbiddenScriptPattern =
@@ -239,13 +257,13 @@ async function hasRelevantContents(path) {
 for (const forbiddenPath of forbiddenPaths) {
   const relativePath = relative(repositoryRoot, forbiddenPath).replaceAll(
     "\\",
-    "/",
+    "/"
   );
   if (
     trackedPaths.some(
       (trackedPath) =>
         trackedPath === relativePath ||
-        trackedPath.startsWith(`${relativePath}/`),
+        trackedPath.startsWith(`${relativePath}/`)
     )
   ) {
     failures.push(`${relativePath}: excluded path is tracked`);
@@ -351,7 +369,10 @@ for (const sourceRoot of sourceRoots) {
 
     for (const match of source.matchAll(moduleSpecifierPattern)) {
       const segments = match[1].replaceAll("\\", "/").split("/");
-      if (segments.some((segment) => excludedModuleSegments.has(segment))) {
+      if (
+        forbiddenModuleSpecifiers.has(match[1]) ||
+        segments.some((segment) => excludedModuleSegments.has(segment))
+      ) {
         const lineNumber =
           1 + (source.slice(0, match.index).match(/\n/g)?.length ?? 0);
         failures.push(

@@ -1,17 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import NcToolGui from 'nc-lib-gui';
 import { ConfigService } from '@nestjs/config';
+import express from 'express';
+import path from 'node:path';
 import type { NestMiddleware } from '@nestjs/common';
 import type { AppConfig } from '~/interface/config';
 
 @Injectable()
 export class GuiMiddleware implements NestMiddleware {
-  constructor(private configService: ConfigService<AppConfig>) {}
+  private readonly router = express.Router();
 
-  use(req: any, res: any, next: () => void) {
-    const dashboardPath = this.configService.get('dashboardPath', {
+  constructor(configService: ConfigService<AppConfig>) {
+    const dashboardPath = configService.get('dashboardPath', {
       infer: true,
     });
-    NcToolGui.expressMiddleware(dashboardPath)(req, res, next);
+    this.router.use(
+      dashboardPath,
+      express.static(path.join(__dirname, 'nc-gui')),
+    );
+  }
+
+  use(req: any, res: any, next: () => void) {
+    this.router(req, res, next);
   }
 }
