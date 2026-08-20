@@ -19,6 +19,8 @@ const presentation = computed(() => resolveListPresentationFields(fields.value, 
 
 const fieldOptions = computed(() => fields.value.filter((field) => field.id))
 const attachmentOptions = computed(() => fieldOptions.value.filter((field) => field.uidt === UITypes.Attachment))
+const colorFieldOptions = computed(() => fieldOptions.value.filter((field) => field.uidt === UITypes.SingleSelect))
+const listMeta = computed<Record<string, unknown>>(() => parseProp(listConfig.value.meta))
 
 const saveSettings = async (updates: Record<string, unknown>, undo = false) => {
   if (!activeView.value?.id || isLocked.value || isSaving.value) return
@@ -59,6 +61,7 @@ const subtitleColumnId = computed(() =>
     : listConfig.value.fk_subtitle_column_id || presentation.value.subtitleField?.id || noFieldValue,
 )
 const imageColumnId = computed(() => listConfig.value.fk_image_column_id || noFieldValue)
+const colorByFieldId = computed(() => listMeta.value.color_by_field_id || noFieldValue)
 const density = computed(() => listConfig.value.density || 'comfortable')
 const showFieldLabels = computed(() => ![false, 0, '0'].includes(listConfig.value.show_field_labels))
 
@@ -145,6 +148,29 @@ useMenuCloseOnEsc(open)
             >
               <a-select-option :value="noFieldValue">{{ $t('general.none') }}</a-select-option>
               <a-select-option v-for="field in attachmentOptions" :key="field.id" :value="field.id">
+                <div class="flex items-center gap-2">
+                  <SmartsheetHeaderIcon :column="field" class="!h-3.5 !w-3.5" />
+                  <span class="truncate">{{ field.title }}</span>
+                </div>
+              </a-select-option>
+            </a-select>
+          </label>
+
+          <label class="flex flex-col gap-1 text-xs text-nc-content-gray-muted">
+            {{ $t('labels.listColorByField') }}
+            <a-select
+              :value="colorByFieldId"
+              data-testid="nc-list-color-field"
+              :disabled="isLocked || isSaving"
+              @change="
+                (value) =>
+                  saveSettings({
+                    meta: { ...listMeta, color_by_field_id: value === noFieldValue ? '' : value },
+                  })
+              "
+            >
+              <a-select-option :value="noFieldValue">{{ $t('general.none') }}</a-select-option>
+              <a-select-option v-for="field in colorFieldOptions" :key="field.id" :value="field.id">
                 <div class="flex items-center gap-2">
                   <SmartsheetHeaderIcon :column="field" class="!h-3.5 !w-3.5" />
                   <span class="truncate">{{ field.title }}</span>

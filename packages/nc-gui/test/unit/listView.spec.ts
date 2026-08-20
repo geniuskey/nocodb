@@ -1,11 +1,26 @@
 import { UITypes } from 'nocodb-sdk'
 import type { ColumnType } from 'nocodb-sdk'
 import { describe, expect, it } from 'vitest'
-import { parseListImageAttachment, resolveListPresentationFields } from '../../utils/listView'
+import {
+  parseListImageAttachment,
+  resolveListColorField,
+  resolveListPresentationFields,
+  resolveListRowColor,
+} from '../../utils/listView'
 
 const fields = [
   { id: 'title', title: 'Title', pv: true, uidt: UITypes.SingleLineText },
-  { id: 'status', title: 'Status', uidt: UITypes.SingleSelect },
+  {
+    id: 'status',
+    title: 'Status',
+    uidt: UITypes.SingleSelect,
+    colOptions: {
+      options: [
+        { title: 'Ready', color: '#cfdffe' },
+        { title: 'Blocked', color: '#ffdce5' },
+      ],
+    },
+  },
   { id: 'notes', title: 'Notes', uidt: UITypes.LongText },
   { id: 'image', title: 'Image', uidt: UITypes.Attachment },
 ] as ColumnType[]
@@ -54,5 +69,15 @@ describe('List view presentation', () => {
     expect(parseListImageAttachment(JSON.stringify([JSON.stringify(attachment)]))).toEqual(attachment)
     expect(parseListImageAttachment('invalid')).toBeUndefined()
     expect(parseListImageAttachment({ value: attachment })).toBeUndefined()
+  })
+
+  it('resolves List-only select coloring without using the shared row-color system', () => {
+    const colorField = resolveListColorField(fields, JSON.stringify({ color_by_field_id: 'status' }))
+
+    expect(colorField?.id).toBe('status')
+    expect(resolveListRowColor({ Status: ' Ready ' }, colorField)).toBe('#cfdffe')
+    expect(resolveListRowColor({ Status: 'Unknown' }, colorField)).toBeUndefined()
+    expect(resolveListColorField(fields, { color_by_field_id: 'notes' })).toBeUndefined()
+    expect(resolveListColorField(fields.slice(0, 1), { color_by_field_id: 'status' })).toBeUndefined()
   })
 })

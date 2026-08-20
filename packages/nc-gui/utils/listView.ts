@@ -1,5 +1,5 @@
-import { UITypes } from 'nocodb-sdk'
-import type { ColumnType, ListType } from 'nocodb-sdk'
+import { UITypes, parseProp } from 'nocodb-sdk'
+import type { ColumnType, ListType, SelectOptionsType } from 'nocodb-sdk'
 
 type ListPresentationConfig = Partial<ListType> & {
   fk_title_column_id?: string | null
@@ -53,4 +53,24 @@ export const parseListImageAttachment = (value: unknown): Record<string, any> | 
   } catch {
     return undefined
   }
+}
+
+export const resolveListColorField = (fields: ColumnType[], meta: unknown) => {
+  const colorFieldId = parseProp(meta)?.color_by_field_id
+
+  return fields.find((field) => field.id === colorFieldId && field.uidt === UITypes.SingleSelect)
+}
+
+export const resolveListRowColor = (record: Record<string, any>, colorField?: ColumnType): string | undefined => {
+  if (!colorField?.title || colorField.uidt !== UITypes.SingleSelect) return undefined
+
+  const value = record[colorField.title]
+  if (value === null || value === undefined) return undefined
+
+  const normalizedValue = String(value).trim()
+  const option = (colorField.colOptions as SelectOptionsType | undefined)?.options?.find(
+    (candidate) => String(candidate.title).trim() === normalizedValue,
+  )
+
+  return option?.color || undefined
 }
