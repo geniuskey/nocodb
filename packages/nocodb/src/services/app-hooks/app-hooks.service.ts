@@ -21,9 +21,9 @@ import type {
   GalleryViewUpdateEvent,
   GridColumnEvent,
   GridViewUpdateEvent,
-  ListViewUpdateEvent,
   IntegrationUpdateEvent,
   KanbanViewUpdateEvent,
+  ListViewUpdateEvent,
   MetaDiffEvent,
   OrgUserInviteEvent,
   PluginEvent,
@@ -47,6 +47,7 @@ import type {
   TableDuplicateEvent,
   TableEvent,
   TableUpdateEvent,
+  TimelineViewUpdateEvent,
   UIAclEvent,
   UserEmailVerificationEvent,
   UserInviteEvent,
@@ -332,6 +333,7 @@ export class AppHooksService {
       | AppEvents.FORM_CREATE
       | AppEvents.GRID_CREATE
       | AppEvents.LIST_CREATE
+      | AppEvents.TIMELINE_CREATE
       | AppEvents.CALENDAR_CREATE
       | AppEvents.GALLERY_CREATE
       | AppEvents.KANBAN_CREATE
@@ -343,6 +345,7 @@ export class AppHooksService {
       | AppEvents.FORM_DELETE
       | AppEvents.GRID_DELETE
       | AppEvents.LIST_DELETE
+      | AppEvents.TIMELINE_DELETE
       | AppEvents.CALENDAR_DELETE
       | AppEvents.GALLERY_DELETE
       | AppEvents.KANBAN_DELETE
@@ -353,6 +356,7 @@ export class AppHooksService {
     event:
       | AppEvents.GRID_UPDATE
       | AppEvents.LIST_UPDATE
+      | AppEvents.TIMELINE_UPDATE
       | AppEvents.CALENDAR_UPDATE
       | AppEvents.GALLERY_UPDATE
       | AppEvents.KANBAN_UPDATE
@@ -361,6 +365,7 @@ export class AppHooksService {
       | ViewUpdateEvent
       | GridViewUpdateEvent
       | ListViewUpdateEvent
+      | TimelineViewUpdateEvent
       | GalleryViewUpdateEvent
       | KanbanViewUpdateEvent
       | CalendarViewUpdateEvent
@@ -407,6 +412,7 @@ export class AppHooksService {
       | AppEvents.FORM_UPDATE
       | AppEvents.GRID_UPDATE
       | AppEvents.LIST_UPDATE
+      | AppEvents.TIMELINE_UPDATE
       | AppEvents.CALENDAR_UPDATE
       | AppEvents.GALLERY_UPDATE
       | AppEvents.KANBAN_UPDATE
@@ -415,6 +421,7 @@ export class AppHooksService {
       | ViewUpdateEvent
       | GridViewUpdateEvent
       | ListViewUpdateEvent
+      | TimelineViewUpdateEvent
       | GalleryViewUpdateEvent
       | KanbanViewUpdateEvent
       | CalendarViewUpdateEvent

@@ -1,0 +1,165 @@
+{
+  "paths": {
+    "/api/v1/db/meta/tables/{tableId}/timelines": {
+      "parameters": [
+        {
+          "name": "tableId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Table ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Create Timeline View",
+        "operationId": "db-view-timeline-create",
+        "description": "Create a timeline view in a table",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ViewCreateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/timelines/{viewId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "Read Timeline View",
+        "operationId": "db-view-timeline-read",
+        "description": "Read timeline presentation settings",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Timeline" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Timeline View",
+        "operationId": "db-view-timeline-update",
+        "description": "Update timeline presentation settings",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TimelineUpdateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Timeline": {
+        "title": "Timeline View Model",
+        "description": "Date mapping and presentation settings for a timeline view",
+        "type": "object",
+        "properties": {
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_title_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_start_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_end_column_id": { "$ref": "#/components/schemas/Id" },
+          "zoom": {
+            "type": "string",
+            "enum": ["day", "week", "month", "quarter"],
+            "default": "week"
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" },
+          "columns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TimelineColumn" }
+          }
+        }
+      },
+      "TimelineColumn": {
+        "title": "Timeline View Column Model",
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_column_id": { "$ref": "#/components/schemas/Id" },
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      },
+      "TimelineUpdateReq": {
+        "title": "Timeline View Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fk_title_column_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "fk_start_column_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "fk_end_column_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "zoom": {
+            "type": "string",
+            "enum": ["day", "week", "month", "quarter"]
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "TimelineColumnReq": {
+        "title": "Timeline View Column Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      }
+    }
+  }
+}

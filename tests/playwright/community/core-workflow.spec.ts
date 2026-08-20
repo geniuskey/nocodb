@@ -1,5 +1,5 @@
 import { expect, type Request, test } from '@playwright/test';
-import { ViewTypes } from 'nocodb-sdk';
+import { UITypes, ViewTypes } from 'nocodb-sdk';
 import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
@@ -95,7 +95,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       response.url().includes(`/meta/tables/${createdTableBody.id}/columns`) && response.request().method() === 'POST'
   );
   await columnForm.getByRole('button', { name: 'Save Field', exact: true }).click();
-  expect((await statusColumnResponse).ok()).toBeTruthy();
+  const createdStatusColumnResponse = await statusColumnResponse;
+  expect(createdStatusColumnResponse.ok()).toBeTruthy();
+  const statusColumnModel = await createdStatusColumnResponse.json();
+  const createdStatusColumn = statusColumnModel.columns.find((column: { title?: string }) => column.title === 'Status');
+  expect(createdStatusColumn?.id).toEqual(expect.any(String));
   await expect(columnForm).toBeHidden();
   await expect(grid.locator('[data-title="Status"]')).toBeVisible();
 
@@ -128,6 +132,97 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(Boolean(updatedList.view.show_field_labels)).toBe(false);
 
+  const createTimelineColumn = async (title: string, uidt: UITypes) => {
+    const response = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/columns`, {
+      headers: sessionHeaders,
+      data: { title, column_name: title, uidt },
+    });
+    const model = await response.json();
+    expect(response.ok(), JSON.stringify(model)).toBeTruthy();
+    const column = model.columns.find((candidate: { title?: string }) => candidate.title === title);
+    expect(column.id).toEqual(expect.any(String));
+    return column;
+  };
+  const timelineStartColumn = await createTimelineColumn('Timeline start', UITypes.Date);
+  const timelineEndColumn = await createTimelineColumn('Timeline end', UITypes.DateTime);
+
+  const timelineCreateResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/timelines`, {
+    headers: sessionHeaders,
+    data: { title: 'Task Timeline', type: ViewTypes.TIMELINE },
+  });
+  const createdTimeline = await timelineCreateResponse.json();
+  expect(timelineCreateResponse.ok(), JSON.stringify(createdTimeline)).toBeTruthy();
+  expect(createdTimeline).toEqual(
+    expect.objectContaining({
+      title: 'Task Timeline',
+      type: ViewTypes.TIMELINE,
+      view: expect.objectContaining({ zoom: 'week' }),
+    })
+  );
+
+  const invalidTimelineUpdate = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
+    headers: sessionHeaders,
+    data: { fk_start_column_id: createdStatusColumn.id },
+  });
+  expect(invalidTimelineUpdate.status()).toBe(400);
+
+  const timelineUpdateResponse = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
+    headers: sessionHeaders,
+    data: {
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      zoom: 'month',
+    },
+  });
+  const updatedTimeline = await timelineUpdateResponse.json();
+  expect(timelineUpdateResponse.ok(), JSON.stringify(updatedTimeline)).toBeTruthy();
+  expect(updatedTimeline.view).toEqual(
+    expect.objectContaining({
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      zoom: 'month',
+    })
+  );
+
+  const timelineReadResponse = await page.request.get(`/api/v2/meta/timelines/${createdTimeline.id}`, {
+    headers: sessionHeaders,
+  });
+  const readTimeline = await timelineReadResponse.json();
+  expect(timelineReadResponse.ok(), JSON.stringify(readTimeline)).toBeTruthy();
+  expect(readTimeline).toEqual(
+    expect.objectContaining({
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      zoom: 'month',
+    })
+  );
+
+  const timelineColumnsResponse = await page.request.get(`/api/v2/meta/views/${createdTimeline.id}/columns/`, {
+    headers: sessionHeaders,
+  });
+  const timelineColumns = await timelineColumnsResponse.json();
+  expect(timelineColumnsResponse.ok(), JSON.stringify(timelineColumns)).toBeTruthy();
+  const timelineStartViewColumn = timelineColumns.list.find(
+    (column: { fk_column_id?: string }) => column.fk_column_id === timelineStartColumn.id
+  );
+  expect(timelineStartViewColumn?.id).toEqual(expect.any(String));
+  const timelineColumnUpdateResponse = await page.request.patch(
+    `/api/v2/meta/views/${createdTimeline.id}/columns/${timelineStartViewColumn.id}`,
+    {
+      headers: sessionHeaders,
+      data: { show: false },
+    }
+  );
+  expect(timelineColumnUpdateResponse.ok()).toBeTruthy();
+
+  const clearTimelineEndResponse = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
+    headers: sessionHeaders,
+    data: { fk_end_column_id: null },
+  });
+  const timelineWithPointEvents = await clearTimelineEndResponse.json();
+  expect(clearTimelineEndResponse.ok(), JSON.stringify(timelineWithPointEvents)).toBeTruthy();
+  expect(timelineWithPointEvents.view.fk_end_column_id).toBeNull();
+
   const viewsResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}/views`, {
     headers: sessionHeaders,
   });
@@ -139,6 +234,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
         id: createdList.id,
         title: 'Task List',
         type: ViewTypes.LIST,
+      }),
+      expect.objectContaining({
+        id: createdTimeline.id,
+        title: 'Task Timeline',
+        type: ViewTypes.TIMELINE,
       }),
     ])
   );

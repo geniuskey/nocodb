@@ -9,6 +9,7 @@ import {
 import { Logger } from '@nestjs/common';
 import GridViewColumn from '../models/GridViewColumn';
 import ListViewColumn from '../models/ListViewColumn';
+import TimelineViewColumn from '../models/TimelineViewColumn';
 import GalleryViewColumn from '../models/GalleryViewColumn';
 import KanbanViewColumn from '../models/KanbanViewColumn';
 import MapViewColumn from '../models/MapViewColumn';
@@ -19,6 +20,7 @@ import type {
   GalleryColumnReqType,
   GridColumnReqType,
   KanbanColumnReqType,
+  TimelineColumnReqType,
   ViewColumnReqType,
   ViewColumnUpdateReqType,
 } from 'nocodb-sdk';
@@ -316,6 +318,34 @@ export class ViewColumnsService {
                   context,
                   {
                     ...(column as object),
+                    fk_view_id: viewId,
+                    fk_column_id: columnId,
+                  },
+                  ncMeta,
+                ),
+              );
+            }
+            break;
+          case ViewTypes.TIMELINE:
+            validatePayload(
+              'swagger.json#/components/schemas/TimelineColumnReq',
+              column,
+            );
+            if (existingCol) {
+              updateOrInsertOptions.push(
+                TimelineViewColumn.update(
+                  context,
+                  existingCol.id,
+                  column,
+                  ncMeta,
+                ),
+              );
+            } else {
+              updateOrInsertOptions.push(
+                TimelineViewColumn.insert(
+                  context,
+                  {
+                    ...(column as TimelineColumnReqType),
                     fk_view_id: viewId,
                     fk_column_id: columnId,
                   },

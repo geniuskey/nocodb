@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { ViewTypes } from 'nocodb-sdk';
+import { getAuthToken } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
@@ -18,6 +20,60 @@ test('Community image preserves login, schema, and records across restart', asyn
   await page.locator('button:has-text("SIGN IN")').click();
   expect((await signinResponse).ok()).toBeTruthy();
   await expect(page).toHaveURL(/#\/nc\//, { timeout: 30_000 });
+
+  const sessionHeaders = { 'xc-auth': await getAuthToken(page) };
+  const basesResponse = await page.request.get('/api/v2/meta/bases/', { headers: sessionHeaders });
+  const bases = await basesResponse.json();
+  expect(basesResponse.ok(), JSON.stringify(bases)).toBeTruthy();
+  const acceptanceBaseMeta = bases.list.find((base: { title?: string }) => base.title === 'Community Acceptance');
+  expect(acceptanceBaseMeta?.id).toEqual(expect.any(String));
+
+  const tablesResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/tables`, {
+    headers: sessionHeaders,
+  });
+  const tables = await tablesResponse.json();
+  expect(tablesResponse.ok(), JSON.stringify(tables)).toBeTruthy();
+  const tasksTableMeta = tables.list.find((table: { title?: string }) => table.title === 'Tasks');
+  expect(tasksTableMeta?.id).toEqual(expect.any(String));
+
+  const viewsResponse = await page.request.get(`/api/v2/meta/tables/${tasksTableMeta.id}/views`, {
+    headers: sessionHeaders,
+  });
+  const views = await viewsResponse.json();
+  expect(viewsResponse.ok(), JSON.stringify(views)).toBeTruthy();
+  const timeline = views.list.find(
+    (view: { title?: string; type?: number }) => view.title === 'Task Timeline' && view.type === ViewTypes.TIMELINE
+  );
+  expect(timeline?.id).toEqual(expect.any(String));
+
+  const timelineResponse = await page.request.get(`/api/v2/meta/timelines/${timeline.id}`, {
+    headers: sessionHeaders,
+  });
+  const timelineMeta = await timelineResponse.json();
+  expect(timelineResponse.ok(), JSON.stringify(timelineMeta)).toBeTruthy();
+  expect(timelineMeta).toEqual(
+    expect.objectContaining({
+      fk_start_column_id: expect.any(String),
+      fk_end_column_id: null,
+      zoom: 'month',
+    })
+  );
+
+  const timelineColumnsResponse = await page.request.get(`/api/v2/meta/views/${timeline.id}/columns/`, {
+    headers: sessionHeaders,
+  });
+  const timelineColumns = await timelineColumnsResponse.json();
+  expect(timelineColumnsResponse.ok(), JSON.stringify(timelineColumns)).toBeTruthy();
+  const persistedStartViewColumn = timelineColumns.list.find(
+    (column: { fk_column_id?: string }) => column.fk_column_id === timelineMeta.fk_start_column_id
+  );
+  expect(persistedStartViewColumn?.id).toEqual(expect.any(String));
+  expect(Boolean(persistedStartViewColumn.show)).toBe(false);
+
+  const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(timelineDeleteResponse.ok()).toBeTruthy();
 
   const baseList = page.locator('.nc-treeview-container-base-list');
   for (let attempt = 0; attempt < 3 && !(await baseList.isVisible()); attempt += 1) {

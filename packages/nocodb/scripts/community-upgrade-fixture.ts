@@ -28,6 +28,7 @@ const expectedMigrations = [
   'nc_004_workflows',
   'nc_005_add_user_specific_and_meta_column_in_sync_configs',
   'nc_006_list_view',
+  'nc_007_timeline_view',
 ];
 
 class HistoricalV0MigrationSource {
@@ -176,6 +177,8 @@ async function verify(connection: Knex, sourceTag: string) {
     MetaTable.DEPENDENCY_TRACKER,
     MetaTable.LIST_VIEW,
     MetaTable.LIST_VIEW_COLUMNS,
+    MetaTable.TIMELINE_VIEW,
+    MetaTable.TIMELINE_VIEW_COLUMNS,
   ]) {
     if (!(await connection.schema.hasTable(table))) {
       fail(`expected migrated table ${table} is absent.`);

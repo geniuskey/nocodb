@@ -3,12 +3,14 @@ import * as swaggerV3ValidationPatch from './swagger-v3-validation-patch.json';
 import * as swaggerV3 from './swagger-v3.json';
 import * as swagger from './swagger.json';
 import * as listView from './list-view.json';
+import * as timelineView from './timeline-view.json';
 
 const communitySwagger: any = {
   ...swagger,
   paths: {
     ...swagger.paths,
     ...listView.paths,
+    ...timelineView.paths,
   },
   components: {
     ...swagger.components,
@@ -16,6 +18,7 @@ const communitySwagger: any = {
       ...swagger.components.schemas,
       ...swaggerV3.components.schemas,
       ...listView.components.schemas,
+      ...timelineView.components.schemas,
     },
   },
 };

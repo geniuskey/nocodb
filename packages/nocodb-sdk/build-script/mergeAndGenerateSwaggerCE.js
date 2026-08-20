@@ -25,11 +25,15 @@ const swaggerCE = JSON.parse(
 const listView = JSON.parse(
   readFileSync('../nocodb/src/schema/list-view.json', 'utf8')
 );
+const timelineView = JSON.parse(
+  readFileSync('../nocodb/src/schema/timeline-view.json', 'utf8')
+);
 const swagger = {
   ...swaggerCE,
   paths: {
     ...swaggerCE.paths,
     ...listView.paths,
+    ...timelineView.paths,
   },
   components: {
     ...swaggerCE.components,
@@ -37,6 +41,7 @@ const swagger = {
       ...swaggerV3.components.schemas,
       ...swaggerCE.components.schemas,
       ...listView.components.schemas,
+      ...timelineView.components.schemas,
     },
     responses: {
       ...swaggerCE.components.responses,
@@ -46,6 +51,9 @@ const swagger = {
 
 swagger.components.schemas.View.properties.view.anyOf.push({
   $ref: '#/components/schemas/List',
+});
+swagger.components.schemas.View.properties.view.anyOf.push({
+  $ref: '#/components/schemas/Timeline',
 });
 
 writeFileSync('nc_swagger.json', JSON.stringify(swagger));
