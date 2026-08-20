@@ -165,13 +165,17 @@ test('Community image preserves login, schema, and records across restart', asyn
   await expect(timelineCanvas).toHaveAttribute('data-total-items', '38');
   await expect(timelineCanvas).toHaveAttribute('data-total-groups', '2');
   expect(Number(await timelineCanvas.getAttribute('data-rendered-items'))).toBeLessThan(38);
-  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+  const pinnedTimelineItem = timelineView.getByTestId('nc-timeline-item').first();
+  await expect(pinnedTimelineItem).toBeVisible();
+  const pinnedTimelineTitle = await pinnedTimelineItem.locator('span').first().innerText();
+  await pinnedTimelineItem.focus();
 
   await timelineView.getByTestId('nc-timeline-scroll-region').evaluate(element => {
     element.scrollTop = element.scrollHeight;
     element.scrollLeft = element.scrollWidth;
     element.dispatchEvent(new Event('scroll'));
   });
+  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: pinnedTimelineTitle })).toBeVisible();
   await expect(
     timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
   ).toBeVisible();
