@@ -129,6 +129,7 @@ const defaultScriptChecks = [
       "bootstrap",
       "bootstrap:ce",
       "build:community",
+      "check:service-boundaries",
       "docker:build:community",
       "integrations:build:core",
       "test:community:image",

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "establishedAt": "d344a5d15236568d5fbec0b7caa060fca8b1b8f4",
+  "exceptions": {
+    "transportToPersistence": [
+      {
+        "path": "packages/nocodb/src/controllers/api-docs/api-docs.controller.ts",
+        "specifier": "~/Noco",
+        "bindings": ["default"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/attachments-secure.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Column", "PresignedUrl"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/attachments.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Column", "PresignedUrl"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/bases.controller.ts",
+        "specifier": "~/Noco",
+        "bindings": ["default"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/bases.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Filter"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/integrations.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Integration"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/org-users.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["User"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/public-datas.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Column"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/utils.controller.ts",
+        "specifier": "~/Noco",
+        "bindings": ["default"]
+      },
+      {
+        "path": "packages/nocodb/src/controllers/utils.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Integration"]
+      },
+      {
+        "path": "packages/nocodb/src/mcp/mcp.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["MCPToken", "User"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/at-import/at-import.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["SyncSource"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/data-export/data-export.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["View"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/data-export/public-data-export.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["View"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/export-import/duplicate.controller.ts",
+        "specifier": "~/Noco",
+        "bindings": ["default"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/export-import/duplicate.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Base", "Column", "Model", "Source"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/jobs/jobs/export-import/migrate.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["Base"]
+      },
+      {
+        "path": "packages/nocodb/src/modules/oauth/controllers/oauth.controller.ts",
+        "specifier": "~/models",
+        "bindings": ["OAuthClient"]
+      }
+    ],
+    "dataEngineToApplication": [
+      {
+        "path": "packages/nocodb/src/db/BaseModelSqlv2.ts",
+        "specifier": "~/services/hook-handler.service",
+        "bindings": ["HANDLE_WEBHOOK"]
+      },
+      {
+        "path": "packages/nocodb/src/db/formulav2/formulaQueryBuilderv2.ts",
+        "specifier": "~/services/telemetry-handler.service",
+        "bindings": ["TelemetryHandlerService"]
+      },
+      {
+        "path": "packages/nocodb/src/db/update-webhook-handler.ts",
+        "specifier": "~/services/hook-handler.service",
+        "bindings": ["HANDLE_WEBHOOK"]
+      }
+    ],
+    "domainToApplication": [],
+    "lowerLayerToTransport": []
+  }
+}

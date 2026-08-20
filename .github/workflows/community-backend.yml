@@ -17,6 +17,7 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-service-boundaries.mjs"
       - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
       - "scripts/test-community-upgrade.mjs"
@@ -25,6 +26,8 @@ on:
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/SERVICE_BOUNDARIES.md"
+      - "docs/SERVICE_BOUNDARY_EXCEPTIONS.json"
       - "docs/UPGRADE_FIXTURES.json"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -45,6 +48,7 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/check-service-boundaries.mjs"
       - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
       - "scripts/test-community-upgrade.mjs"
@@ -53,6 +57,8 @@ on:
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/SERVICE_BOUNDARIES.md"
+      - "docs/SERVICE_BOUNDARY_EXCEPTIONS.json"
       - "docs/UPGRADE_FIXTURES.json"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -79,6 +85,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check Community boundaries
         run: pnpm run check:community-boundaries
+      - name: Check backend service boundaries
+        run: pnpm run check:service-boundaries
       - name: Check vendored runtime assets
         run: pnpm run check:vendored-assets
       - name: Check migration integrity
