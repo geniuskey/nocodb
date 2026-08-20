@@ -1,0 +1,873 @@
+{
+  "schemaVersion": 1,
+  "establishedAtCommit": "90ad78c5b1f37a6d3a7b8549005a975a7b8906b5",
+  "hashNormalization": "UTF-8 text with CRLF normalized to LF",
+  "tracks": {
+    "v0": {
+      "source": "packages/nocodb/src/meta/migrations/XcMigrationSourcev0.ts",
+      "migrations": [
+        {
+          "name": "nc_001_init",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_001_init.ts"
+        },
+        {
+          "name": "nc_002_teams",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_002_teams.ts"
+        },
+        {
+          "name": "nc_003_alter_row_color_condition_nc_order_col",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_003_alter_row_color_condition_nc_order_col.ts"
+        },
+        {
+          "name": "nc_004_workflows",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_004_workflows.ts"
+        },
+        {
+          "name": "nc_005_add_user_specific_and_meta_column_in_sync_configs",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_005_add_user_specific_and_meta_column_in_sync_configs.ts"
+        }
+      ]
+    },
+    "v1": {
+      "source": "packages/nocodb/src/meta/migrations/XcMigrationSource.ts",
+      "migrations": [
+        {
+          "name": "project",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts"
+        },
+        {
+          "name": "m2m",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_002_add_m2m.ts"
+        },
+        {
+          "name": "fkn",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_003_add_fkn_column.ts"
+        },
+        {
+          "name": "viewType",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_004_add_view_type_column.ts"
+        },
+        {
+          "name": "viewName",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_005_add_view_name_column.ts"
+        },
+        {
+          "name": "nc_006_alter_nc_shared_views",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_006_alter_nc_shared_views.ts"
+        },
+        {
+          "name": "nc_007_alter_nc_shared_views_1",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_007_alter_nc_shared_views_1.ts"
+        },
+        {
+          "name": "nc_008_add_nc_shared_bases",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_008_add_nc_shared_bases.ts"
+        },
+        {
+          "name": "nc_009_add_model_order",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_009_add_model_order.ts"
+        },
+        {
+          "name": "nc_010_add_parent_title_column",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_010_add_parent_title_column.ts"
+        },
+        {
+          "name": "nc_011_remove_old_ses_plugin",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_011_remove_old_ses_plugin.ts"
+        },
+        {
+          "name": "nc_012_cloud_cleanup",
+          "path": "packages/nocodb/src/meta/migrations/v1/nc_012_cloud_cleanup.ts"
+        }
+      ]
+    },
+    "v2": {
+      "source": "packages/nocodb/src/meta/migrations/XcMigrationSourcev2.ts",
+      "migrations": [
+        {
+          "name": "nc_011",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_011.ts"
+        },
+        {
+          "name": "nc_012_alter_column_data_types",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_012_alter_column_data_types.ts"
+        },
+        {
+          "name": "nc_013_sync_source",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_013_sync_source.ts"
+        },
+        {
+          "name": "nc_014_alter_column_data_types",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_014_alter_column_data_types.ts"
+        },
+        {
+          "name": "nc_015_add_meta_col_in_column_table",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_015_add_meta_col_in_column_table.ts"
+        },
+        {
+          "name": "nc_016_alter_hooklog_payload_types",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_016_alter_hooklog_payload_types.ts"
+        },
+        {
+          "name": "nc_017_add_user_token_version_column",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_017_add_user_token_version_column.ts"
+        },
+        {
+          "name": "nc_018_add_meta_in_view",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_018_add_meta_in_view.ts"
+        },
+        {
+          "name": "nc_019_add_meta_in_meta_tables",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_019_add_meta_in_meta_tables.ts"
+        },
+        {
+          "name": "nc_020_kanban_view",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_020_kanban_view.ts"
+        },
+        {
+          "name": "nc_021_add_fields_in_token",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_021_add_fields_in_token.ts"
+        },
+        {
+          "name": "nc_022_qr_code_column_type",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_022_qr_code_column_type.ts"
+        },
+        {
+          "name": "nc_023_multiple_source",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_023_multiple_source.ts"
+        },
+        {
+          "name": "nc_024_barcode_column_type",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_024_barcode_column_type.ts"
+        },
+        {
+          "name": "nc_025_add_row_height",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_025_add_row_height.ts"
+        },
+        {
+          "name": "nc_026_map_view",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_026_map_view.ts"
+        },
+        {
+          "name": "nc_027_add_comparison_sub_op",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_027_add_comparison_sub_op.ts"
+        },
+        {
+          "name": "nc_028_add_enable_scanner_in_form_columns_meta_table",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_028_add_enable_scanner_in_form_columns_meta_table.ts"
+        },
+        {
+          "name": "nc_029_webhook",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_029_webhook.ts"
+        },
+        {
+          "name": "nc_030_add_description_field",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_030_add_description_field.ts"
+        },
+        {
+          "name": "nc_031_remove_fk_and_add_idx",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_031_remove_fk_and_add_idx.ts"
+        },
+        {
+          "name": "nc_033_add_group_by",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_033_add_group_by.ts"
+        },
+        {
+          "name": "nc_034_erd_filter_and_notification",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_034_erd_filter_and_notification.ts"
+        },
+        {
+          "name": "nc_035_add_username_to_users",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_035_add_username_to_users.ts"
+        },
+        {
+          "name": "nc_036_base_deleted",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_036_base_deleted.ts"
+        },
+        {
+          "name": "nc_037_rename_project_and_base",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_037_rename_project_and_base.ts"
+        },
+        {
+          "name": "nc_038_formula_parsed_tree_column",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_038_formula_parsed_tree_column.ts"
+        },
+        {
+          "name": "nc_039_sqlite_alter_column_types",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_039_sqlite_alter_column_types.ts"
+        },
+        {
+          "name": "nc_040_form_view_alter_column_types",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_040_form_view_alter_column_types.ts"
+        },
+        {
+          "name": "nc_041_calendar_view",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_041_calendar_view.ts"
+        },
+        {
+          "name": "nc_042_user_block",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_042_user_block.ts"
+        },
+        {
+          "name": "nc_043_user_refresh_token",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_043_user_refresh_token.ts"
+        },
+        {
+          "name": "nc_044_view_column_index",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_044_view_column_index.ts"
+        },
+        {
+          "name": "nc_045_extensions",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_045_extensions.ts"
+        },
+        {
+          "name": "nc_046_comment_mentions",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_046_comment_mentions.ts"
+        },
+        {
+          "name": "nc_047_comment_migration",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_047_comment_migration.ts"
+        },
+        {
+          "name": "nc_048_view_links",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_048_view_links.ts"
+        },
+        {
+          "name": "nc_049_clear_notifications",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_049_clear_notifications.ts"
+        },
+        {
+          "name": "nc_050_tenant_isolation",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_050_tenant_isolation.ts"
+        },
+        {
+          "name": "nc_051_source_readonly_columns",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_051_source_readonly_columns.ts"
+        },
+        {
+          "name": "nc_052_field_aggregation",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_052_field_aggregation.ts"
+        },
+        {
+          "name": "nc_053_jobs",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_053_jobs.ts"
+        },
+        {
+          "name": "nc_054_id_length",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_054_id_length.ts"
+        },
+        {
+          "name": "nc_055_junction_pk",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_055_junction_pk.ts"
+        },
+        {
+          "name": "nc_056_integration",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_056_integration.ts"
+        },
+        {
+          "name": "nc_057_file_references",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_057_file_references.ts"
+        },
+        {
+          "name": "nc_058_button_colum",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_058_button_colum.ts"
+        },
+        {
+          "name": "nc_059_invited_by",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_059_invited_by.ts"
+        },
+        {
+          "name": "nc_060_descriptions",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_060_descriptions.ts"
+        },
+        {
+          "name": "nc_061_integration_is_default",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_061_integration_is_default.ts"
+        },
+        {
+          "name": "nc_062_integration_store",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_062_integration_store.ts"
+        },
+        {
+          "name": "nc_063_form_field_filter",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_063_form_field_filter.ts"
+        },
+        {
+          "name": "nc_064_pg_minimal_dbs",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_064_pg_minimal_dbs.ts"
+        },
+        {
+          "name": "nc_065_encrypt_flag",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_065_encrypt_flag.ts"
+        },
+        {
+          "name": "nc_066_ai_button",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_066_ai_button.ts"
+        },
+        {
+          "name": "nc_067_personal_view",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_067_personal_view.ts"
+        },
+        {
+          "name": "nc_068_user_delete",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_068_user_delete.ts"
+        },
+        {
+          "name": "nc_069_ai_prompt",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_069_ai_prompt.ts"
+        },
+        {
+          "name": "nc_070_data_reflection",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_070_data_reflection.ts"
+        },
+        {
+          "name": "nc_071_add_meta_in_users",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_071_add_meta_in_users.ts"
+        },
+        {
+          "name": "nc_072_col_button_pk",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_072_col_button_pk.ts"
+        },
+        {
+          "name": "nc_073_file_reference_indexes",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_073_file_reference_indexes.ts"
+        },
+        {
+          "name": "nc_074_missing_context_indexes",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_074_missing_context_indexes.ts"
+        },
+        {
+          "name": "nc_075_audit_refactor",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_075_audit_refactor.ts"
+        },
+        {
+          "name": "nc_076_sync_configs",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_076_sync_configs.ts"
+        },
+        {
+          "name": "nc_077_column_index_name",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_077_column_index_name.ts"
+        },
+        {
+          "name": "nc_078_mcp_tokens",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_078_mcp_tokens.ts"
+        },
+        {
+          "name": "nc_079_cross_base_link",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_079_cross_base_link.ts"
+        },
+        {
+          "name": "nc_080_sync_mappings",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_080_sync_mappings.ts"
+        },
+        {
+          "name": "nc_081_audit",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_081_audit.ts"
+        },
+        {
+          "name": "nc_082_row_color_conditions",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_082_row_color_conditions.ts"
+        },
+        {
+          "name": "nc_083_permissions",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_083_permissions.ts"
+        },
+        {
+          "name": "nc_084_hook_trigger_fields",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_084_hook_trigger_fields.ts"
+        },
+        {
+          "name": "nc_085_base_default_role",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_085_base_default_role.ts"
+        },
+        {
+          "name": "nc_086_dashboards_widgets",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_086_dashboards_widgets.ts"
+        },
+        {
+          "name": "nc_087_widget_error",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_087_widget_error.ts"
+        },
+        {
+          "name": "nc_088_add_sso_client_to_api_tokens",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_088_add_sso_client_to_api_tokens.ts"
+        },
+        {
+          "name": "nc_089_dashboard_sharing",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_089_dashboard_sharing.ts"
+        },
+        {
+          "name": "nc_090_add_is_new_user_to_users",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_090_add_is_new_user_to_users.ts"
+        },
+        {
+          "name": "nc_091_unify_model",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_091_unify_model.ts"
+        },
+        {
+          "name": "nc_092_composite_pk",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_092_composite_pk.ts"
+        },
+        {
+          "name": "nc_093_oauth_server",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_093_oauth_server.ts"
+        },
+        {
+          "name": "nc_094_add_meta_to_filter_exp_v2",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_094_add_meta_to_filter_exp_v2.ts"
+        },
+        {
+          "name": "nc_096_deprecate_unused",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_096_deprecate_unused.ts"
+        },
+        {
+          "name": "nc_097_unify_schema",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_097_unify_schema.ts"
+        },
+        {
+          "name": "nc_098_default_workspace",
+          "path": "packages/nocodb/src/meta/migrations/v2/nc_098_default_workspace.ts"
+        }
+      ]
+    },
+    "audit": {
+      "source": "packages/nocodb/src/meta/migrations/XcMigrationSourceAudit.ts",
+      "migrations": [
+        {
+          "name": "nc_001_init",
+          "path": "packages/nocodb/src/meta/migrations/audit/nc_001_init.ts"
+        }
+      ]
+    }
+  },
+  "files": [
+    {
+      "path": "packages/nocodb/src/meta/migrations/audit/nc_001_init.ts",
+      "sha256": "48a470e2d2da9a24063ca491a103498ed41dade5eb0093b1309df20a739c16a0"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/oauthTokenIndexes.ts",
+      "sha256": "d9eb4c487b410491707bcd8d10bfa517770a2a3063a0655adedd74d793456f3e"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_001_init.ts",
+      "sha256": "8388a1bb84e3158a83acde32c0b830124dc7920bc96399f86398b0ff93ac5df6"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_002_teams.ts",
+      "sha256": "d7612809343527526f145f9f7250a9e989a45d0f2a4451aa229ce02fab3d09de"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_003_alter_row_color_condition_nc_order_col.ts",
+      "sha256": "b61410f0a4e53e80ce7d48fae32dd51998522e56744dcb4693d6b11fb7f04a10"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_004_workflows.ts",
+      "sha256": "4e21f06c313b8f2b81469add1adb564d79dcf9a32500b2e9aeb028e7393c6ed6"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_005_add_user_specific_and_meta_column_in_sync_configs.ts",
+      "sha256": "a7e14cb5e491433e2ad7b525e554898392a6c2b481aa593166084acafbff5a85"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",
+      "sha256": "749b7efe1b866511e1aabfd33b09a8da91c535c1ce636ebc26d3bc69e3ec6ab3"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_002_add_m2m.ts",
+      "sha256": "b305b4bde2435c245129785ecd5d9168723944c52de6ecb54dcf53ddd401be9e"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_003_add_fkn_column.ts",
+      "sha256": "583c16edef0aaa6f3989c0ad528747fe7dbc8c95dc410e717aac4dc48db72610"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_004_add_view_type_column.ts",
+      "sha256": "0818ab0749e99e48c5ee007bf4872c130cc086f6d5cb764117e27ef1f8b018e2"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_005_add_view_name_column.ts",
+      "sha256": "740545900fbbe4354fb5bb9470f53ac934b2da3e920f8fb9b5009549cc855faa"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_006_alter_nc_shared_views.ts",
+      "sha256": "3b987ee68cf83da3c24d82b0f05b8ceb0fd33daf170dc4fcdbb94b0f2d0736fa"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_007_alter_nc_shared_views_1.ts",
+      "sha256": "09a42c746d0b9dc041104566e231c8e72a666acaf0a59a121ef68e79387c4338"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_008_add_nc_shared_bases.ts",
+      "sha256": "2bf28da4eb94d583804deba0a0dcc67fb3e6b09234a95044a7f2084acf37477a"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_009_add_model_order.ts",
+      "sha256": "75f392ea9f1038c3614173bedbde332373f2654fb7572ab09803075ccb6b51b7"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_010_add_parent_title_column.ts",
+      "sha256": "3798e098a9e74ada76eacc6fc44530de6c757e66b52bc8c046df7d7c4bbce942"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_011_remove_old_ses_plugin.ts",
+      "sha256": "330fdf4b9e484c9f45cf3fbaa9b242ea246c9df731158233fc8f1dbcc8d6d926"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v1/nc_012_cloud_cleanup.ts",
+      "sha256": "fe9a3c17ad37fec4ad92510eba682b2845d6ce170f1e8fa6b6b9a510efd25dea"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_011.ts",
+      "sha256": "d746f87226f3752ffabede4cfc5c57bf60cca1cf42876a89cf30117d64f2cc35"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_012_alter_column_data_types.ts",
+      "sha256": "d32e6d20ba02ae9ed14c1d2e3873f111b2ca39e2e38d36abcea250772e180bee"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_013_sync_source.ts",
+      "sha256": "fb967842a6d718d651b9239a5cfbb535fba21c11ae90dfd4d87ebe6ea3cc165a"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_014_alter_column_data_types.ts",
+      "sha256": "0c35a52568d5b153a1335082eeef44747344f83a3b3f4ff87b96384218c3aa04"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_015_add_meta_col_in_column_table.ts",
+      "sha256": "6b4446aa0d3fdc509f82802aabe184fe84f53aed880039e2f4cf56c579c13747"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_016_alter_hooklog_payload_types.ts",
+      "sha256": "c419c1893e136873338ab2cf4bfc5ebeb2f62165d6a1d33e0527f13519a821a4"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_017_add_user_token_version_column.ts",
+      "sha256": "5f23e638cee093e308a0bff1dfa0179dddda0dd96808e77ea29e35d3a9c9168b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_018_add_meta_in_view.ts",
+      "sha256": "f572af76e1dd41e20a7fe81352e6fb26ff2758c3f8af91bf50a41e9bfddfab9a"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_019_add_meta_in_meta_tables.ts",
+      "sha256": "b74f46fba0a284aaa5b71c725181a6229e82f327f62c05789e2903a876908df2"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_020_kanban_view.ts",
+      "sha256": "729ac9bda77d06484f60e95fe2ba12536f8b3c3187955408604084c55357a2d5"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_021_add_fields_in_token.ts",
+      "sha256": "c366f684653a6a557bc90d9bc8b3756af1d9d8eecdf8e89a948acc4dcb43e09b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_022_qr_code_column_type.ts",
+      "sha256": "75746ff24347be9f7e65e175218438634fdd1757d97fff1036488785fda97306"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_023_multiple_source.ts",
+      "sha256": "e03443b7d368a91a230d013407b63663df5a370cd97a7b9675703c757c3ce3fb"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_024_barcode_column_type.ts",
+      "sha256": "d7bd7bada940e2564981d0273ead7b2410be40557409f0e4d2f2dd9c86374935"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_025_add_row_height.ts",
+      "sha256": "84f2665c6697c9ced98befb2758dde4ba0d741fec9cd05823b3cbc94eaf3d4c4"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_026_map_view.ts",
+      "sha256": "c234da169034a5510ab20f48d2b8b411f6bd7fc17668bf743be731f679e185ac"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_027_add_comparison_sub_op.ts",
+      "sha256": "f4a0f2c75f75ab5868fbd945c9058b30dadb73a1c4ee5b9be0eefcdb7b2261c4"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_028_add_enable_scanner_in_form_columns_meta_table.ts",
+      "sha256": "b0711f2a72f9dba7820e19f8a673d3807f77b35c46622d680f1589ce44cc265f"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_029_webhook.ts",
+      "sha256": "a61a21f924f0ea6776f647fb739f6b1eaef6839d8b98efa0e07d56de4b937585"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_030_add_description_field.ts",
+      "sha256": "f685aa139d8bc22bd5fcb68811b6c0f589f7c0a81e883e779af1a10ede4c0e8d"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_031_remove_fk_and_add_idx.ts",
+      "sha256": "1c38676e91141e97fd274d98dc897ac810f7b5ca27849e18b0fb3a8f49d9d759"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_032_cleanup.ts",
+      "sha256": "c65d8bdcd08d6d05babdd975df7612856f9ca4bb9dd62ebcf8d0600a1b911f89"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_033_add_group_by.ts",
+      "sha256": "afd95cef1d9f5a441ba5df638d57287dc1ba2d6ea94b0d678373c21116830d59"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_034_erd_filter_and_notification.ts",
+      "sha256": "ee3f139253a0128c20972fb105cc91c03ecf874405dab914b0f928e596daa963"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_035_add_username_to_users.ts",
+      "sha256": "0dd93e262032595ef1fa72f25d6d825978b2bf078db00c970ed978e9c43d5535"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_036_base_deleted.ts",
+      "sha256": "81faff280bfefe980de33fca665b1e01f6048abf24473269f0d294ad3d544423"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_037_rename_project_and_base.ts",
+      "sha256": "9e6aed4d924aef9ef0325a8ba6af5558e8c6bea59606e7482d672a0745407e61"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_038_formula_parsed_tree_column.ts",
+      "sha256": "82ea30e3df01a8ae76f255f296c524956f3b34cac9c1c3e02d5baeb198477c94"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_039_sqlite_alter_column_types.ts",
+      "sha256": "f938d475133c72293a0b79ce8c3679b7e8d70ea51bbd7192351b87798be5f882"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_040_form_view_alter_column_types.ts",
+      "sha256": "7c48a2b42e64d042a88b45dd4b225b2d4d3197f5a4083a3a649bf54d36168520"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_041_calendar_view.ts",
+      "sha256": "29b9a5a6e0762515780650d20c0bfdce9087154a871ffc65b5af96b5be35e908"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_042_integrations.ts",
+      "sha256": "2744db34e85fc5e5af40a85ac3887cd41b9c2e42ca929132e456d1ee763911d5"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_042_user_block.ts",
+      "sha256": "2813d9e38388757012cae4109788f482c584587d5a833d856a014a3c170a6ac4"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_043_user_refresh_token.ts",
+      "sha256": "53947172146dcbe77b4b32d7cf0d1e773e31d99143eb47d08ef820c56d3317ca"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_044_view_column_index.ts",
+      "sha256": "291bd2c5a3752d3757c9d55d78fb6d9cd82a6bc37521e1affba53bbd89ab0d0e"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_045_extensions.ts",
+      "sha256": "3cf4b4644b1eb4d1590d27c83c73a24b98ab9423fcb9adf4f6a360f6b947e37c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_046_comment_mentions.ts",
+      "sha256": "92fa85e77f0c32a7a4e17a77fc7c5f5406c65bda945baa225aed8ef46dfd93a5"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_047_comment_migration.ts",
+      "sha256": "ce9cb42b0b27e91f5c7a7a98e76060bf0315f0284b3cbf711fc2b9fc9d3da16b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_048_view_links.ts",
+      "sha256": "6bf9d339f3de9e2c8bf3bd3012d6d7a7b4fc44219196e24cdfd415808ea51d70"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_049_clear_notifications.ts",
+      "sha256": "aaae270d6a99e299be8accf40bfd192bd871ae5805bfc8484923094da4113c71"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_050_tenant_isolation.ts",
+      "sha256": "25724862336ea7be6110e57d31f7d21bcaa78ebf271a880e647e850b80319bea"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_051_source_readonly_columns.ts",
+      "sha256": "58271b4fd1b06804cf06fc1cda4fae71bdfffb24e855dc2ec5931aaa3453596c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_052_field_aggregation.ts",
+      "sha256": "5dcecf6610f0f2ed4836cb807c1835044f2526a1ee93f0b5cb31667a40e48a19"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_053_jobs.ts",
+      "sha256": "f456b65c6752b93a3ab1d2fd703080ba4346dac4c24af1621043ea9a13e98b6d"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_054_id_length.ts",
+      "sha256": "4c51f35d32046995913dffab1f8094700ffef99a5ba99562cf002d1cb6e3a161"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_055_junction_pk.ts",
+      "sha256": "7c50871f0c68a1a9e753e7a0ff22fef98ab2cb317e229bcf838393c0c8aaf328"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_056_integration.ts",
+      "sha256": "08a8454d5dc11a97c77daddd659e7c3585da29d6f3f13c1081c5a288c90d31a8"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_057_file_references.ts",
+      "sha256": "ea83d9054f87200259d254ba543914a49ff08613c798ad075566077d8bb9884b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_058_button_colum.ts",
+      "sha256": "06da69d9af003e7a6009cab4c315805f4479b2de4ce7a861bbb94c91cf9c76a0"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_059_invited_by.ts",
+      "sha256": "6fbf00096060d31aaa74836f3bcd43d4604a016dd09c987d6a7f42a85e9319b2"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_060_descriptions.ts",
+      "sha256": "bc4de7c2e3d57d7af618128e455219119eed6668f8dfad79c6b4e52869c52826"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_061_integration_is_default.ts",
+      "sha256": "22168d009e1ea78f5cda91839e7166dc321b51342b6ea4b94647cf309358de6c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_062_integration_store.ts",
+      "sha256": "23a375e3f298d2b315eb6326754a98f3d01607fe1fa9a71d27f2da0aaedbc5f8"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_063_form_field_filter.ts",
+      "sha256": "66f27fef6f0c999cfc9880bb5e1b113663cb674b6b97d72e30e191488653f530"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_064_pg_minimal_dbs.ts",
+      "sha256": "bf8704e297586db901b73137de0687c353dd64971ed5b23670b991877dd0890d"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_065_encrypt_flag.ts",
+      "sha256": "9243b7898eb77cad9e9cb3820621ab64b7b88cbaeb37f23f9003b1b1de6fe640"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_066_ai_button.ts",
+      "sha256": "2d7307cb1381e4050783ed92c7c58b25cfdf63ffb04eb45cef19c737eef81a58"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_067_personal_view.ts",
+      "sha256": "7c6d8dcbbdecc8404876b49a6a2a2b990081fc8cc76cd8540d207b4eefcf4c0c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_068_user_delete.ts",
+      "sha256": "399a6797d2901bc38b6cf14a51a5ae206af5c12170164a548d937a614b5ede12"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_069_ai_prompt.ts",
+      "sha256": "8686620dfd4d5d418c76aae3ecbf85d573945c7ac3af3e1742559700f925cdce"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_070_data_reflection.ts",
+      "sha256": "f14dfd6f484f1dd777671f168dc623e5dd551b9baa5f904fe4b8a398190efc36"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_071_add_meta_in_users.ts",
+      "sha256": "b9056ba3e29896471e504dec15a05ee15221cd2c94e5693c299733f7a6bcf82e"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_072_col_button_pk.ts",
+      "sha256": "58bc7572698f82d2eaa6c4fc30497c94ca5e4fc5fb76e5b4de6ccab6533ed6f8"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_073_file_reference_indexes.ts",
+      "sha256": "c0392c7deaf1c74fd9ee4b6b6ecc19a0bafc99a23de45df924a467c28a610b76"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_074_missing_context_indexes.ts",
+      "sha256": "ac81b77f1bc3a11861fc736dde27646e17bfa50d898d6aa16cc4f3fd4fd0801f"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_075_audit_refactor.ts",
+      "sha256": "65c02f46be83d3f262abb144cd754a5d7da4ed7848639a0789bfb00833a4a5b3"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_076_sync_configs.ts",
+      "sha256": "13013ed903d1a6c3343790bd918b4ad61475cc9a1c1fd874e4d79c4b2defceea"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_077_column_index_name.ts",
+      "sha256": "49249e67f1eff8cdb8e4009a02441ef7b3cfc61f80a0a26f9ede51c244478d0c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_078_mcp_tokens.ts",
+      "sha256": "6e7dc38f1ce45bf181b9736b4c3f4323b5bedcf5a2c5ce38d4c3a41245549827"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_079_cross_base_link.ts",
+      "sha256": "1de3747ebb5eee647f939017e890550b32ac1b764108b13cec0cde0f21cbb25e"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_080_sync_mappings.ts",
+      "sha256": "92749bed8ea10effe3ecce90591b96db62e53a9b2cf969e11f2a4dc3ea6fd2f9"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_081_audit.ts",
+      "sha256": "040258a149f1201061851df9a4a49f7635c81389b2266291aab8a8ac77289044"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_082_row_color_conditions.ts",
+      "sha256": "fc2ba78bf1d0de9403244724472d03daf0c6ffa81462b8444e189d4996c20d0f"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_083_permissions.ts",
+      "sha256": "21edca36d08abbb38d223d0addce5300d03cf2d2a452c7ecec33f6dbc7b17b73"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_084_hook_trigger_fields.ts",
+      "sha256": "fb57bb8c67ea1e4d51fcabaa776b7b53fea4f51b1e5df54921542f66f70cc494"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_085_base_default_role.ts",
+      "sha256": "58bac1f083aeab84647d638e84ec59bdf7eba735d91ed0416480d80d8b699b01"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_086_dashboards_widgets.ts",
+      "sha256": "498d777f6df1342a6ce8c04c385148bd35fb12a82a5a09b37f7b6c374d7f3878"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_087_widget_error.ts",
+      "sha256": "343695ac0e43afe0827f6e7f9843b19b7ce29db53108983157018e2626f07a49"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_088_add_sso_client_to_api_tokens.ts",
+      "sha256": "1546ff7ef4cefc353d369c7b4b3d55c6a2af5c20e8fdddf216a4fe5e693f3f07"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_089_dashboard_sharing.ts",
+      "sha256": "852e680b64e15913b85b31cebcbc66da0bdc22ccf94473d68e3af08c5d3c73cb"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_090_add_is_new_user_to_users.ts",
+      "sha256": "aba253a46d4010742540cc797d08d34c205f07ebf3c9808d2f1fbfca54433983"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_091_unify_model.ts",
+      "sha256": "0442395f61f69ee5bde33df55778c03621741cc9213f01e01a4309a38c6c5589"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_092_composite_pk.ts",
+      "sha256": "e802a0efaf62a93f618b96d7f20ea52c4fe9427dcee3e2a5d928aee7b7ae6780"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_093_oauth_server.ts",
+      "sha256": "18837c04755d0bc5b0780c6f4f65f7ebf85448c34392b723d88833d47e9e8f3c"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_094_add_meta_to_filter_exp_v2.ts",
+      "sha256": "8ef9639fb6b1fbc2df9c8b64e2baa38314b671e72e4a16d43073f1aea240ca23"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_096_deprecate_unused.ts",
+      "sha256": "7d043c38083251f7c0b8979cad94e82ca0a19985bca2a7da92a820f1a0b1d655"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_097_unify_schema.ts",
+      "sha256": "2b715be6087baaa180edf971df9d28fd04430efb7eb278de292eea3ad24459bb"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v2/nc_098_default_workspace.ts",
+      "sha256": "83e27ecba44d8b7aeed2b512d2152c5360725b4d9bd1f61130437701c8b8e16d"
+    }
+  ]
+}
