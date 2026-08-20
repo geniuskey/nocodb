@@ -19,7 +19,7 @@ echo "Info: Building and staging the Community application" | tee -a "${LOG_FILE
 pnpm run build:community >>"${LOG_FILE}" 2>&1
 
 echo "Info: Building the frozen-lockfile Docker image" | tee -a "${LOG_FILE}"
-docker build . -f packages/nocodb/Dockerfile.local -t nocodb-local >>"${LOG_FILE}" 2>&1
+docker build . -f packages/nocodb/Dockerfile -t nocodb-local >>"${LOG_FILE}" 2>&1
 
 echo 'Docker image "nocodb-local" built successfully.' | tee -a "${LOG_FILE}"
 echo 'Run it with: docker run -d -p 3333:8080 --name nocodb-local nocodb-local' | tee -a "${LOG_FILE}"

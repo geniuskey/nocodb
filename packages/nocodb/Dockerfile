@@ -1,64 +1,96 @@
-###########
-# Litestream Builder
-###########
-FROM golang:bullseye AS lt-builder
+# syntax=docker/dockerfile:1
 
-WORKDIR /usr/src/
+ARG NODE_IMAGE=node:22.12.0-alpine@sha256:51eff88af6dff26f59316b6e356188ffa2c422bd3c3b76f2556a2e7e89d080bd
 
-RUN apt-get update && apt-get install -y \
-    git \
-    make \
-    gcc \
-    libc-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+######################
+# Litestream downloader
+######################
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS litestream-fetcher
 
-# build litestream
-RUN git clone https://github.com/benbjohnson/litestream.git litestream
-RUN cd litestream && go install ./cmd/litestream
-RUN cp $GOPATH/bin/litestream /usr/src/lt
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG LITESTREAM_VERSION=v0.3.13
+ARG LITESTREAM_COMMIT=977d4a5ee45ae546537324a3cfbf926de3bebc97
 
-###########
-# Builder
-###########
-FROM node:22-slim AS builder
-WORKDIR /usr/src/app
+RUN apk add --no-cache ca-certificates curl \
+    && set -eu; \
+    case "${TARGETARCH}/${TARGETVARIANT}" in \
+      amd64/) asset_arch=amd64; checksum=eb75a3de5cab03875cdae9f5f539e6aedadd66607003d9b1e7a9077948818ba0 ;; \
+      arm64/) asset_arch=arm64; checksum=9585f5a508516bd66af2b2376bab4de256a5ef8e2b73ec760559e679628f2d59 ;; \
+      arm/v6) asset_arch=arm6; checksum=f3efe0b6927cdad1831e679db5cd430bc86afff0a69e8fa3cd1e93a4c6d2f474 ;; \
+      arm/v7) asset_arch=arm7; checksum=225f2d0ec431dd32d38ee47e3941eb72fe0316aaffd941185ba30f7c6de21866 ;; \
+      *) echo "Unsupported Litestream target: ${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;; \
+    esac; \
+    archive="litestream-${LITESTREAM_VERSION}-linux-${asset_arch}.tar.gz"; \
+    curl --fail --location --silent --show-error \
+      "https://github.com/benbjohnson/litestream/releases/download/${LITESTREAM_VERSION}/${archive}" \
+      --output "/tmp/${archive}"; \
+    echo "${checksum}  /tmp/${archive}" | sha256sum -c -; \
+    mkdir -p /out; \
+    tar -xzf "/tmp/${archive}" -C /out; \
+    chmod +x /out/litestream; \
+    curl --fail --location --silent --show-error \
+      "https://raw.githubusercontent.com/benbjohnson/litestream/${LITESTREAM_COMMIT}/LICENSE" \
+      --output /out/LICENSE; \
+    echo "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd  /out/LICENSE" \
+      | sha256sum -c -
 
-# Install dependencies required for node-gyp and other build tools
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-distutils \
-    python-is-python3 \
-    make \
-    g++ \
-    libssl-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# This optional target lets CI execute the selected target-architecture binary
+# without rebuilding the application dependency closure.
+FROM ${NODE_IMAGE} AS litestream-validator
+ARG LITESTREAM_VERSION=v0.3.13
+COPY --link --from=litestream-fetcher /out/litestream /usr/local/bin/litestream
+RUN test "$(litestream version)" = "${LITESTREAM_VERSION}"
 
-RUN python3 --version && python --version
+################
+# NocoDB builder
+################
+FROM ${NODE_IMAGE} AS builder
+WORKDIR /workspace
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+ENV npm_config_nodedir=/usr/local
 
-# Copy application dependency manifests to the container image.
-COPY --link ./package.json ./package.json
-COPY --link ./docker/main.js ./docker/main.js
-COPY --link ./docker/start-litestream.sh /usr/src/appEntry/start.sh
-COPY --link src/public/ ./docker/public/
-COPY --link ./docker/nc-gui/ ./docker/nc-gui/
+RUN apk add --no-cache \
+      g++ \
+      make \
+      py3-setuptools \
+      python3 \
+    && npm install --global pnpm@9.15.5
 
-# Configure pnpm to use hoisted node_modules for modclean compatibility
-RUN echo "node-linker=hoisted" > .npmrc
+# The repository root is the build context. Copy the frozen workspace graph and
+# only the source required by the backend's local production dependencies.
+COPY --link .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --link packages/nocodb/package.json ./packages/nocodb/package.json
+COPY --link packages/nocodb-sdk/package.json ./packages/nocodb-sdk/package.json
+COPY --link packages/nocodb-sdk/build/ ./packages/nocodb-sdk/build/
+COPY --link packages/nc-knex-dialects/ ./packages/nc-knex-dialects/
+COPY --link packages/nc-gui/.patches/ ./packages/nc-gui/.patches/
 
-# Install production dependencies, reduce node_modules size with modclean,
-# remove sqlite deps, and add execute permission to start.sh
-RUN pnpm install --prod --shamefully-hoist \
-    && pnpm dlx modclean --patterns="default:*" --ignore="dayjs/**,express-status-monitor/**,@azure/msal-node/dist/**,@react-email/**,@linear/**,jsdom/**" --run \
-    && rm -rf ./node_modules/sqlite3/deps \
+# Deploy a portable production dependency tree from the frozen lockfile. The
+# root lifecycle hooks only prepare a developer worktree, so they are removed
+# from the copied manifest without suppressing dependency lifecycle scripts.
+RUN npm pkg delete scripts.preinstall scripts.prepare \
+    && pnpm --filter nocodb deploy --prod --frozen-lockfile /workspace/deploy/nocodb \
+    && test -f /workspace/deploy/nocodb/node_modules/nocodb-sdk/build/main/index.js \
+    && test -f /workspace/deploy/nocodb/node_modules/knex-snowflake/src/index.js \
+    && test -f /workspace/deploy/nocodb/node_modules/knex-databricks/src/index.js \
+    && cd /workspace/deploy/nocodb \
+    && node -e "require('sqlite3'); require('sharp')" \
+    && rm -rf /workspace/deploy/nocodb/node_modules/sqlite3/deps
+
+COPY --link packages/nocodb/docker/main.js /workspace/deploy/nocodb/docker/index.js
+COPY --link packages/nocodb/docker/start-litestream.sh /usr/src/appEntry/start.sh
+COPY --link packages/nocodb/src/public/ /workspace/deploy/nocodb/docker/public/
+COPY --link packages/nocodb/docker/nc-gui/ /workspace/deploy/nocodb/docker/nc-gui/
+
+# Git may materialize shell scripts with CRLF on Windows build hosts.
+RUN sed -i 's/\r$//' /usr/src/appEntry/start.sh \
     && chmod +x /usr/src/appEntry/start.sh
 
-##########
+########
 # Runner
-##########
-FROM node:22-slim
+########
+FROM ${NODE_IMAGE}
 WORKDIR /usr/src/app
 
 ENV LITESTREAM_S3_SKIP_VERIFY=false \
@@ -71,25 +103,13 @@ ENV LITESTREAM_S3_SKIP_VERIFY=false \
     NODE_ENV=production \
     PORT=8080
 
-# Install additional runtime dependencies
-RUN apt-get update && apt-get install -y \
-    dumb-init \
-    curl \
-    wget \
-    && curl -L "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_$(dpkg --print-architecture)" -o /usr/local/bin/dasel \
-    && chmod +x /usr/local/bin/dasel \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl dumb-init
 
-# Copy litestream binary and config file
-COPY --link --from=lt-builder /usr/src/lt /usr/local/bin/litestream
-COPY --link ./docker/litestream.yml /etc/litestream.yml
-
-# Copy production code & main entry file
-COPY --link --from=builder /usr/src/app/ /usr/src/app/
+COPY --link --from=litestream-fetcher /out/litestream /usr/local/bin/litestream
+COPY --link --from=litestream-fetcher /out/LICENSE /usr/share/licenses/litestream/LICENSE
+COPY --link --from=builder /workspace/deploy/nocodb/ /usr/src/app/
 COPY --link --from=builder /usr/src/appEntry/ /usr/src/appEntry/
 
 EXPOSE 8080
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
-# Start Nocodb
 CMD ["/usr/src/appEntry/start.sh"]

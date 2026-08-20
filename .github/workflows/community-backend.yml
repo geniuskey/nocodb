@@ -70,7 +70,13 @@ jobs:
       - name: Build assembled Community application
         run: pnpm run build:community
       - name: Build reproducible Community image
-        run: docker build -f packages/nocodb/Dockerfile.local -t nocodb-community:test .
+        run: docker build -f packages/nocodb/Dockerfile -t nocodb-community:test .
+      - name: Verify bundled Litestream
+        run: |
+          docker run --rm --entrypoint litestream nocodb-community:test version | grep 'v0.3.13'
+          docker run --rm --entrypoint /bin/sh nocodb-community:test -n /usr/src/appEntry/start.sh
+      - name: Verify ARM64 Litestream artifact
+        run: docker buildx build --platform linux/arm64 --target litestream-fetcher -f packages/nocodb/Dockerfile .
       - name: Smoke-test Community image
         shell: bash
         run: |

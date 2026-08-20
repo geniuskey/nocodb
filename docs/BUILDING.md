@@ -174,7 +174,7 @@ The equivalent two commands are:
 
 ```sh
 pnpm run build:community
-docker build -f packages/nocodb/Dockerfile.local -t nocodb-agpl-baseline:dev .
+docker build -f packages/nocodb/Dockerfile -t nocodb-agpl-baseline:dev .
 ```
 
 The final `.` is required: the repository root is the Docker context because
@@ -192,6 +192,23 @@ workspace dependencies and copied into that runtime instead of becoming
 host-relative links. Native dependencies are built against the Node headers in
 the pinned base image; the build fails if SQLite, Sharp, or any of those three
 workspace packages is missing.
+
+The same canonical Dockerfile includes the Apache-2.0 Litestream v0.3.13
+release. Its amd64, arm64, arm/v6, and arm/v7 archives are selected explicitly
+and verified by SHA-256 before extraction. Its license is fetched from the
+release tag's exact commit, checksum-verified, and installed at
+`/usr/share/licenses/litestream/LICENSE`. To produce a multi-architecture
+release with Buildx, replace the example registry name before running:
+
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f packages/nocodb/Dockerfile \
+  -t ghcr.io/OWNER/PROJECT:TAG --push .
+```
+
+The former `Dockerfile.local` and `Dockerfile.timely` duplicated the dependency
+installation and did not consume the workspace lockfile. They are intentionally
+replaced by this single local/release image definition.
 
 Run the image:
 
@@ -263,6 +280,8 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Nix dependency fixed-output derivation and complete flake build: passed from a Windows-hosted Linux Nix builder.
 - Nix runtime: health endpoint, dashboard, generated GUI CSS, and server-owned Swagger bundle returned HTTP 200.
 - Frozen-lockfile Docker image build and native-module load checks: passed; the final image was approximately 290 MB.
+- Canonical release image: passed with Litestream v0.3.13 and its checksum-verified Apache-2.0 license present; the final image was approximately 299 MB.
+- ARM64 Litestream archive checksum and emulated `litestream version` execution: passed.
 - Docker container signup, base creation, table creation, and record create/read/update/delete against SQLite: passed.
 - Docker-staged dashboard and generated GUI CSS returned HTTP 200.
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
@@ -292,11 +311,13 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | Backend Mocha unit suite                       | The baseline failed during module loading: `Cannot access 'isEE' before initialization`                         | Move edition constants to a dependency-free module. The command now initializes SQLite and exits 0, but emits no test-count summary, so it is not yet treated as a verified full-suite pass. |
 | GUI Vitest                                     | No matching test files; exits 1                                                                                 | Recorded.                                                                                                                                                                                    |
 | Initial Docker image build                     | Docker Desktop Linux engine pipe not present                                                                    | Started the installed local engine and reran the same build.                                                                                                                                 |
-| Initial Docker container start on Windows      | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF                      | Normalize the copied shell script inside `Dockerfile.local`; no application code changed.                                                                                                    |
+| Initial Docker container start on Windows      | `/usr/src/appEntry/start.sh: No such file or directory` because its shebang contained CRLF                      | Normalize the copied shell script inside the canonical Dockerfile; no application code changed.                                                                                              |
 | Second Docker container start                  | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM`               | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5.                                                                                                          |
 | First pinned-Node Docker rebuild               | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key                                      | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions.                                                                                               |
 | Third Docker container start                   | The unpinned `pnpm dlx modclean` step deleted a runtime `lru-cache` module file                                 | Remove the optional size-cleaning step and preserve production dependency contents.                                                                                                          |
 | Package-only Docker dependency install         | No lockfile was present and the SDK/Snowflake/Databricks workspace links pointed outside the build context      | Build from the repository root and deploy the `nocodb` production closure from the frozen workspace lockfile.                                                                                |
+| Legacy standard Dockerfile build               | Build context failed immediately because it copied the absent `docker/litestream.yml`                           | Consolidate local and release builds on the canonical root-context Dockerfile; the start script uses explicit CLI arguments and requires no config file.                                      |
+| Legacy Litestream image path                   | Dockerfiles cloned mutable Litestream HEAD, used unpinned `pnpm dlx`, and installed the binary at a path different from the start script | Pin Litestream v0.3.13 archives by architecture and SHA-256, remove `modclean`, and invoke the binary through its installed `PATH` location.                                       |
 | First workspace deploy audit                   | `link:` dialect dependencies were omitted from the portable deploy tree                                         | Declare both local dialects with the pnpm `workspace:*` protocol; resolved versions remain unchanged.                                                                                        |
 | First portable image runtime check             | `--ignore-scripts` left the SQLite native binding absent                                                        | Remove only developer-worktree hooks from the copied manifest, run dependency lifecycle scripts in the Linux builder, and require-load SQLite and Sharp during the image build.              |
 | First native LZ4 build                         | `node-gyp` downloaded Node headers during the image build                                                       | Point `npm_config_nodedir` at the headers already present in the pinned Node base image.                                                                                                     |

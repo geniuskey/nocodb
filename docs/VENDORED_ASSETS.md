@@ -20,7 +20,7 @@ All JavaScript and CSS files under the backend public asset roots, and any JavaS
 
 The ReDoc and Swagger UI bundles contain comments requiring adjacent webpack-generated `*.LICENSE.txt` files. Those exact notice files are included beside the bundles. Primary component license texts are retained under `packages/nocodb/src/public/licenses/`.
 
-The bare backend bundle does not copy this directory beside itself. `Dockerfile.local` performs the production assembly by copying `src/public/` to `docker/public/`; container smoke verification confirms that retained bundles and notices are served from that layout.
+The bare backend bundle does not copy this directory beside itself. The canonical `packages/nocodb/Dockerfile` performs the production assembly by copying `src/public/` to `docker/public/`; container smoke verification confirms that retained bundles and notices are served from that layout.
 
 ## Removed assets
 
