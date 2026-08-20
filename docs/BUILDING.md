@@ -192,6 +192,25 @@ pnpm run test:community:image -- postgres
 pnpm run test:community:image -- mysql
 ```
 
+Exercise the historical metadata upgrade boundary against the same image and
+database matrix:
+
+```sh
+pnpm run test:community:upgrade -- sqlite
+pnpm run test:community:upgrade -- postgres
+pnpm run test:community:upgrade -- mysql
+```
+
+The upgrade fixture is pinned in `docs/UPGRADE_FIXTURES.json`. It creates only
+the v2025.10.0 fresh-install v0 state (`nc_001_init`) using the retained,
+hash-verified AGPL migration, inserts a persistence marker, and then lets the
+current image apply `nc_002` through `nc_005`. Verification requires the exact
+ordered migration ledger, the new teams/workflow tables, the sync-config
+columns, the row-order type change, marker preservation, and an idempotent
+application restart on every database. No historical full application image or
+excluded implementation tree is used. Set `COMMUNITY_UPGRADE_PORT` if host port
+`18081` is unavailable.
+
 The orchestrator creates uniquely named disposable containers and a private
 network, waits for the database and application, runs the fresh browser
 workflow, restarts the application container, and runs a persistence workflow

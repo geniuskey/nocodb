@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "id": "v2025.10.0-fresh-metadata",
+      "sourceTag": "v2025.10.0",
+      "sourceCommit": "aeb48f480ffb51f306216096f0b65c49bd22a48c",
+      "sourceCommitDate": "2025-10-30",
+      "migrationTrack": "v0",
+      "migrations": ["nc_001_init"],
+      "sourceFiles": [
+        {
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_001_init.ts",
+          "sha256": "8388a1bb84e3158a83acde32c0b830124dc7920bc96399f86398b0ff93ac5df6"
+        }
+      ],
+      "notes": "The v2025.10.0 fresh-install v0 source registered only nc_001_init. That migration is identical in v2025.10.0 and the frozen v2025.11.0 AGPL baseline."
+    }
+  ]
+}

@@ -19,11 +19,13 @@ on:
       - "scripts/check-community-boundaries.mjs"
       - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
+      - "scripts/test-community-upgrade.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/UPGRADE_FIXTURES.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -45,11 +47,13 @@ on:
       - "scripts/check-community-boundaries.mjs"
       - "scripts/check-migration-integrity.mjs"
       - "scripts/test-community-image.mjs"
+      - "scripts/test-community-upgrade.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
       - "docs/VENDORED_ASSETS.json"
       - "docs/MIGRATION_MANIFEST.json"
+      - "docs/UPGRADE_FIXTURES.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/community-backend.yml"
@@ -95,6 +99,12 @@ jobs:
         run: docker buildx build --platform linux/arm64 --target litestream-fetcher -f packages/nocodb/Dockerfile .
       - name: Install Chromium for Community acceptance
         run: pnpm --filter playwright exec playwright install --with-deps chromium
+      - name: Upgrade v2025.10.0 metadata on SQLite
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:upgrade -- sqlite
+      - name: Upgrade v2025.10.0 metadata on PostgreSQL
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:upgrade -- postgres
+      - name: Upgrade v2025.10.0 metadata on MySQL
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:upgrade -- mysql
       - name: Browser-test Community image with SQLite
         run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:image -- sqlite
       - name: Browser-test Community image with PostgreSQL

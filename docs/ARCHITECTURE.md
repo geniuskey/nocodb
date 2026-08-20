@@ -51,6 +51,15 @@ requires the working tree to match that ledger. In pull requests it additionally
 compares the ledger with the base commit, so an existing file, registration, or
 ordering cannot be changed or removed; a new migration must be appended.
 
+`docs/UPGRADE_FIXTURES.json` separately pins reproducible historical metadata
+states. The first fixture represents a fresh v2025.10.0 installation: that
+tag's v0 source registered only `nc_001_init`, whose normalized digest is
+identical to the frozen v2025.11.0 AGPL tree. The fixture runner imports that
+retained Community migration directly, rather than building or executing an
+older complete application tree. It then starts the current image and verifies
+the ordered v0 ledger, migrated schema, a pre-upgrade persistence marker, and a
+second restart across SQLite, PostgreSQL, and MySQL.
+
 ## Frontend
 
 `packages/nc-gui` is a client-only Nuxt 3 application (`ssr: false`) using Vue 3, Vite, Pinia, Windi CSS, and the workspace SDK. Its main Community extension surfaces are:
