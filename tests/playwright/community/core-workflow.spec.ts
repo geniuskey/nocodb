@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectPublicApiContract } from './public-api-contract';
+import { expectPublicApiContract, expectPublicApiRuntimeCrud } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
@@ -121,4 +121,6 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
   expect((await persistenceResponse).ok()).toBeTruthy();
   await expect(persistenceCell).toContainText('Persists across restart');
+
+  await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 });
