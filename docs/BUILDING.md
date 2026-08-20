@@ -195,13 +195,17 @@ creates a separate base and table, and requests the authenticated runtime
 OpenAPI documents for public API v1, v2, and v3. The contract test checks each
 document's OpenAPI/version identifiers, `xc-token` and bearer authentication
 schemes, version-specific CRUD path layout, and generated `Tasks` request and
-response schemas. It then creates, reads, updates, reads back, and deletes a
-record through Chromium before leaving a separate persistence marker. After
-restart, a clean browser session signs in again, reopens that base and table,
-reads and updates the marker, creates another record, and deletes the marker.
-The frontend's existing `window.isPlaywright` hook selects its stable DOM Grid
-for deterministic cell interaction; no server flag, Enterprise mode, or
-license mechanism is changed. For a separately managed fresh instance, set
+response schemas. It then creates a disposable base API token and uses its
+`xc-token` header with each public API version after the Chromium workflow has
+created its persistence marker. Each version creates, updates, reads, lists,
+and deletes an isolated record with its own path and payload shape. The token
+and API-created rows are removed before the application restart, while the
+marker remains. After restart, a clean browser session signs in again, reopens
+that base and table, reads and updates the marker, creates another record, and
+deletes the marker. The frontend's existing `window.isPlaywright` hook selects
+its stable DOM Grid for deterministic cell interaction; no server flag,
+Enterprise mode, or license mechanism is changed. For a separately managed
+fresh instance, set
 `PW_BASE_URL` and invoke `pnpm --filter playwright run ci:test:community`
 directly. The separate `ci:test:community:restart` script expects the state
 created by the first workflow.
@@ -332,7 +336,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
 - Community GUI Vitest: 1 file and 10 sorting behavior tests passed.
 - Canonical Docker image Chromium acceptance: the same fresh and post-restart persistence workflows passed independently on SQLite, PostgreSQL, and MySQL.
-- Runtime public API contract: authenticated, base-specific v1/v2/v3 OpenAPI documents exposed the expected security definitions, generated `Tasks` schemas, and version-specific list/create/read/update/delete operations on SQLite, PostgreSQL, and MySQL.
+- Runtime public API contract: authenticated, base-specific v1/v2/v3 OpenAPI documents exposed the expected security definitions, generated `Tasks` schemas, and version-specific list/create/read/update/delete operations on SQLite, PostgreSQL, and MySQL; each operation was also executed through all three API versions with a disposable `xc-token` credential.
 
 The complete login/base/table/CRUD click path is now exercised by Chromium
 against the assembled Docker image in both local verification and the Community

@@ -71,7 +71,10 @@ the current base and table IDs. The fork-owned Community browser workflow
 requests all three authenticated documents for a newly created table and
 verifies their version, authentication schemes, CRUD operations, and request
 and response schemas. This is a semantic compatibility contract rather than a
-snapshot of generated descriptions or ordering.
+snapshot of generated descriptions or ordering. The same workflow then uses
+a disposable base API token and each version's documented payload and path
+conventions to create, update, read, list, and delete an isolated record before
+the application restart.
 
 ## Build pipeline
 
@@ -133,8 +136,9 @@ not fetch a package manager or SDK generator during the sandboxed build.
   persistence, and the assembled production frontend remain the same as the
   shipped image. The package scripts and retained CI workflows no longer set
   Enterprise flags or install Enterprise-only identity-provider fixtures.
-  Before record CRUD, the fresh-instance workflow also validates the generated
-  v1, v2, and v3 public OpenAPI contract for the created base and table.
+  The fresh-instance workflow also validates the generated v1, v2, and v3
+  public OpenAPI contract for the created base and table and executes a complete
+  record lifecycle through each public API version before the restart.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 

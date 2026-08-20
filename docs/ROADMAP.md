@@ -91,9 +91,11 @@ application and verifies new-session login, existing schema/record reads, and
 post-restart CRUD against the preserved state in every database. The fresh
 workflow also authenticates to the runtime-generated public API v1, v2, and v3
 OpenAPI documents and verifies their security definitions, generated table
-schemas, and version-specific CRUD operation layout. This is an acceptance
-foundation for the remaining service-boundary and existing-database
-compatibility work; it does not by itself complete Phase 1.
+schemas, and version-specific CRUD operation layout. It then creates, updates,
+reads, lists, and deletes an isolated record through each API version using a
+disposable `xc-token` credential. This is an acceptance foundation for the
+remaining service-boundary and existing-database compatibility work; it does
+not by itself complete Phase 1.
 
 ## Phase 2 — List View
 
