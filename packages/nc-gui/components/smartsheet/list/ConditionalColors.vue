@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { comparisonOpList, comparisonSubOpList, isComparisonOpAllowed, parseProp } from 'nocodb-sdk'
 import type { ColumnType, UITypes } from 'nocodb-sdk'
-import type { ListColorRule } from '~/utils/listView'
+import type { ListColorCondition, ListColorRule } from '~/utils/listView'
 import { adjustFilterWhenColumnChange, isComparisonSubOpAllowed } from '~/utils/filterUtils'
 import { isListColorRuleColumn } from '~/utils/listView'
 
@@ -19,107 +19,152 @@ const emit = defineEmits<{
 const palette = ['#4F46E5', '#2563EB', '#0891B2', '#059669', '#65A30D', '#D97706', '#DC2626', '#DB2777']
 const draftRules = ref<ListColorRule[]>([])
 
+const cloneRule = (rule: ListColorRule): ListColorRule => ({
+  ...rule,
+  conditions: rule.conditions.map((condition) => ({
+    ...condition,
+    meta: condition.meta ? { ...condition.meta } : undefined,
+  })),
+})
+
 watch(
   () => props.rules,
   (rules) => {
-    draftRules.value = rules.map((rule) => ({ ...rule, meta: rule.meta ? { ...rule.meta } : undefined }))
+    draftRules.value = rules.map(cloneRule)
   },
   { immediate: true, deep: true },
 )
 
 const eligibleFields = computed(() => props.fields.filter(isListColorRuleColumn))
-const fieldFor = (rule: ListColorRule) => eligibleFields.value.find((field) => field.id === rule.fk_column_id)
+const fieldFor = (condition: ListColorCondition) => eligibleFields.value.find((field) => field.id === condition.fk_column_id)
 
-const operatorOptions = (rule: ListColorRule) => {
-  const field = fieldFor(rule)
+const operatorOptions = (condition: ListColorCondition) => {
+  const field = fieldFor(condition)
   if (!field) return []
 
   return comparisonOpList(field.uidt as UITypes, parseProp(field.meta)?.date_format).filter((operator) =>
-    isComparisonOpAllowed(rule as any, operator, field.uidt as UITypes, true),
+    isComparisonOpAllowed(condition as any, operator, field.uidt as UITypes, true),
   )
 }
 
-const subOperatorOptions = (rule: ListColorRule) => {
-  const field = fieldFor(rule)
-  if (!field || !rule.comparison_op) return []
+const subOperatorOptions = (condition: ListColorCondition) => {
+  const field = fieldFor(condition)
+  if (!field || !condition.comparison_op) return []
 
-  return comparisonSubOpList(rule.comparison_op, parseProp(field.meta)?.date_format).filter((operator) =>
-    isComparisonSubOpAllowed(rule as any, operator, field.uidt as UITypes),
+  return comparisonSubOpList(condition.comparison_op, parseProp(field.meta)?.date_format).filter((operator) =>
+    isComparisonSubOpAllowed(condition as any, operator, field.uidt as UITypes),
   )
 }
 
-const ignoresValue = (rule: ListColorRule) => {
-  const subOperator = subOperatorOptions(rule).find((operator) => operator.value === rule.comparison_sub_op)
+const ignoresValue = (condition: ListColorCondition) => {
+  const subOperator = subOperatorOptions(condition).find((operator) => operator.value === condition.comparison_sub_op)
   if (subOperator) return !!subOperator.ignoreVal
 
-  return !!operatorOptions(rule).find((operator) => operator.value === rule.comparison_op)?.ignoreVal
+  return !!operatorOptions(condition).find((operator) => operator.value === condition.comparison_op)?.ignoreVal
 }
 
-const emitSave = () =>
-  emit(
-    'save',
-    draftRules.value.map((rule) => ({ ...rule, meta: rule.meta ? { ...rule.meta } : undefined })),
-  )
+const emitSave = () => emit('save', draftRules.value.map(cloneRule))
 const emitSaveDebounced = useDebounceFn(emitSave, 500)
 
-const updateRule = (ruleId: string, updates: Partial<ListColorRule>, debounce = false) => {
+const updateRule = (ruleId: string, updates: Partial<ListColorRule>) => {
   const index = draftRules.value.findIndex((rule) => rule.id === ruleId)
   if (index < 0) return
 
   draftRules.value[index] = { ...draftRules.value[index], ...updates }
+  emitSave()
+}
+
+const updateLogicalOperator = (ruleId: string, logicalOperator: string) => {
+  if (!['and', 'or'].includes(logicalOperator)) return
+  updateRule(ruleId, { logical_op: logicalOperator as ListColorRule['logical_op'] })
+}
+
+const updateCondition = (ruleId: string, conditionId: string, updates: Partial<ListColorCondition>, debounce = false) => {
+  const ruleIndex = draftRules.value.findIndex((rule) => rule.id === ruleId)
+  if (ruleIndex < 0) return
+
+  const conditionIndex = draftRules.value[ruleIndex].conditions.findIndex((condition) => condition.id === conditionId)
+  if (conditionIndex < 0) return
+
+  const conditions = [...draftRules.value[ruleIndex].conditions]
+  conditions[conditionIndex] = { ...conditions[conditionIndex], ...updates }
+  draftRules.value[ruleIndex] = { ...draftRules.value[ruleIndex], conditions }
   if (debounce) emitSaveDebounced()
   else emitSave()
 }
 
-const updateField = (rule: ListColorRule, fieldId: string) => {
+const updateField = (rule: ListColorRule, condition: ListColorCondition, fieldId: string) => {
   const field = eligibleFields.value.find((candidate) => candidate.id === fieldId)
   if (!field) return
 
-  const nextRule = { ...rule, fk_column_id: fieldId, value: null }
+  const nextCondition = { ...condition, fk_column_id: fieldId, value: null }
   adjustFilterWhenColumnChange({
-    filter: nextRule as any,
+    filter: nextCondition as any,
     column: field,
     showNullAndEmptyInFilter: true,
   })
-  updateRule(rule.id, nextRule)
+  updateCondition(rule.id, condition.id, nextCondition)
 }
 
-const updateOperator = (rule: ListColorRule, comparisonOp: string) => {
-  const field = fieldFor(rule)
+const updateOperator = (rule: ListColorRule, condition: ListColorCondition, comparisonOp: string) => {
+  const field = fieldFor(condition)
   if (!field) return
 
   const subOperators = comparisonSubOpList(comparisonOp, parseProp(field.meta)?.date_format).filter((operator) =>
-    isComparisonSubOpAllowed(rule as any, operator, field.uidt as UITypes),
+    isComparisonSubOpAllowed(condition as any, operator, field.uidt as UITypes),
   )
-  const comparisonSubOp = subOperators.some((operator) => operator.value === rule.comparison_sub_op)
-    ? rule.comparison_sub_op
+  const comparisonSubOp = subOperators.some((operator) => operator.value === condition.comparison_sub_op)
+    ? condition.comparison_sub_op
     : subOperators[0]?.value ?? null
   const ignoreValue =
     subOperators.find((operator) => operator.value === comparisonSubOp)?.ignoreVal ??
-    operatorOptions(rule).find((operator) => operator.value === comparisonOp)?.ignoreVal
+    operatorOptions(condition).find((operator) => operator.value === comparisonOp)?.ignoreVal
 
-  updateRule(rule.id, {
-    comparison_op: comparisonOp as ListColorRule['comparison_op'],
-    comparison_sub_op: comparisonSubOp as ListColorRule['comparison_sub_op'],
+  updateCondition(rule.id, condition.id, {
+    comparison_op: comparisonOp as ListColorCondition['comparison_op'],
+    comparison_sub_op: comparisonSubOp as ListColorCondition['comparison_sub_op'],
     ...(ignoreValue ? { value: null } : {}),
   })
 }
 
-const addRule = () => {
+const createCondition = (): ListColorCondition | undefined => {
   const field = eligibleFields.value[0]
-  if (!field || draftRules.value.length >= 20) return
+  if (!field) return undefined
 
-  const rule: ListColorRule = {
-    id: `list-color-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  const condition: ListColorCondition = {
+    id: `list-color-condition-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     fk_column_id: field.id!,
     comparison_op: 'eq',
     comparison_sub_op: null,
     value: null,
-    color: palette[draftRules.value.length % palette.length],
   }
-  adjustFilterWhenColumnChange({ filter: rule as any, column: field, showNullAndEmptyInFilter: true })
-  draftRules.value.push(rule)
+  adjustFilterWhenColumnChange({ filter: condition as any, column: field, showNullAndEmptyInFilter: true })
+  return condition
+}
+
+const addRule = () => {
+  const condition = createCondition()
+  if (!condition || draftRules.value.length >= 20) return
+
+  draftRules.value.push({
+    id: `list-color-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    color: palette[draftRules.value.length % palette.length],
+    logical_op: 'and',
+    conditions: [condition],
+  })
   emitSave()
+}
+
+const addCondition = (rule: ListColorRule) => {
+  const condition = createCondition()
+  if (!condition || rule.conditions.length >= 10) return
+
+  updateRule(rule.id, { conditions: [...rule.conditions, condition] })
+}
+
+const removeCondition = (rule: ListColorRule, conditionId: string) => {
+  if (rule.conditions.length === 1) return
+  updateRule(rule.id, { conditions: rule.conditions.filter((condition) => condition.id !== conditionId) })
 }
 
 const removeRule = (ruleId: string) => {
@@ -136,6 +181,9 @@ const moveRule = (index: number, direction: -1 | 1) => {
   draftRules.value = next
   emitSave()
 }
+
+const conditionTestId = (name: string, ruleIndex: number, conditionIndex: number) =>
+  conditionIndex === 0 ? `nc-list-color-rule-${name}-${ruleIndex}` : `nc-list-color-rule-${name}-${ruleIndex}-${conditionIndex}`
 </script>
 
 <template>
@@ -164,79 +212,128 @@ const moveRule = (index: number, direction: -1 | 1) => {
     </div>
 
     <div
-      v-for="(rule, index) in draftRules"
+      v-for="(rule, ruleIndex) in draftRules"
       :key="rule.id"
-      :data-testid="`nc-list-color-rule-${index}`"
-      class="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-1 rounded-lg border border-nc-border-gray-medium p-1.5"
+      :data-testid="`nc-list-color-rule-${ruleIndex}`"
+      class="flex flex-col gap-2 rounded-lg border border-nc-border-gray-medium p-2"
     >
-      <NcSelect
-        :value="rule.fk_column_id"
-        :data-testid="`nc-list-color-rule-field-${index}`"
-        :disabled="disabled"
-        class="min-w-0"
-        @change="(value) => updateField(rule, value)"
-      >
-        <a-select-option v-for="field in eligibleFields" :key="field.id" :value="field.id">
-          <div class="flex items-center gap-1.5">
-            <SmartsheetHeaderIcon :column="field" class="!h-3.5 !w-3.5" />
-            <span class="truncate">{{ field.title }}</span>
-          </div>
-        </a-select-option>
-      </NcSelect>
-
-      <NcSelect
-        :value="rule.comparison_op"
-        :data-testid="`nc-list-color-rule-operator-${index}`"
-        :disabled="disabled"
-        class="min-w-0"
-        @change="(value) => updateOperator(rule, value)"
-      >
-        <a-select-option v-for="operator in operatorOptions(rule)" :key="operator.value" :value="operator.value">
-          {{ operator.text }}
-        </a-select-option>
-      </NcSelect>
-
-      <div class="flex min-w-0 items-center gap-1">
+      <div class="flex items-center justify-between gap-2">
         <NcSelect
-          v-if="subOperatorOptions(rule).length"
-          :value="rule.comparison_sub_op"
-          :data-testid="`nc-list-color-rule-sub-operator-${index}`"
-          :disabled="disabled"
-          class="min-w-0 flex-1"
-          @change="(value) => updateRule(rule.id, { comparison_sub_op: value, value: null })"
+          :value="rule.logical_op"
+          :data-testid="`nc-list-color-rule-logical-${ruleIndex}`"
+          :disabled="disabled || rule.conditions.length < 2"
+          class="w-36"
+          @change="(value) => updateLogicalOperator(rule.id, value)"
         >
-          <a-select-option v-for="operator in subOperatorOptions(rule)" :key="operator.value" :value="operator.value">
+          <a-select-option value="and">{{ $t('labels.listMatchAll') }}</a-select-option>
+          <a-select-option value="or">{{ $t('labels.listMatchAny') }}</a-select-option>
+        </NcSelect>
+
+        <div class="flex items-center gap-0.5">
+          <GeneralAdvanceColorPickerDropdown
+            :model-value="rule.color"
+            :disabled="disabled"
+            @update:model-value="(value) => updateRule(rule.id, { color: value })"
+          />
+          <NcButton type="text" size="small" :disabled="disabled || ruleIndex === 0" @click="moveRule(ruleIndex, -1)">
+            <GeneralIcon icon="arrowUp" class="h-3.5 w-3.5" />
+          </NcButton>
+          <NcButton
+            type="text"
+            size="small"
+            :disabled="disabled || ruleIndex === draftRules.length - 1"
+            @click="moveRule(ruleIndex, 1)"
+          >
+            <GeneralIcon icon="arrowDown" class="h-3.5 w-3.5" />
+          </NcButton>
+          <NcButton type="text" size="small" :disabled="disabled" @click="removeRule(rule.id)">
+            <GeneralIcon icon="delete" class="h-3.5 w-3.5" />
+          </NcButton>
+        </div>
+      </div>
+
+      <div
+        v-for="(condition, conditionIndex) in rule.conditions"
+        :key="condition.id"
+        :data-testid="`nc-list-color-rule-condition-${ruleIndex}-${conditionIndex}`"
+        class="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-1"
+      >
+        <NcSelect
+          :value="condition.fk_column_id"
+          :data-testid="conditionTestId('field', ruleIndex, conditionIndex)"
+          :disabled="disabled"
+          class="min-w-0"
+          @change="(value) => updateField(rule, condition, value)"
+        >
+          <a-select-option v-for="field in eligibleFields" :key="field.id" :value="field.id">
+            <div class="flex items-center gap-1.5">
+              <SmartsheetHeaderIcon :column="field" class="!h-3.5 !w-3.5" />
+              <span class="truncate">{{ field.title }}</span>
+            </div>
+          </a-select-option>
+        </NcSelect>
+
+        <NcSelect
+          :value="condition.comparison_op"
+          :data-testid="conditionTestId('operator', ruleIndex, conditionIndex)"
+          :disabled="disabled"
+          class="min-w-0"
+          @change="(value) => updateOperator(rule, condition, value)"
+        >
+          <a-select-option v-for="operator in operatorOptions(condition)" :key="operator.value" :value="operator.value">
             {{ operator.text }}
           </a-select-option>
         </NcSelect>
-        <SmartsheetToolbarFilterInputLite
-          v-if="!ignoresValue(rule)"
-          :data-testid="`nc-list-color-rule-value-${index}`"
-          class="min-w-0 flex-1"
-          :column="fieldFor(rule)"
-          :filter="rule"
-          :disabled="disabled"
-          @update-filter-value="(value) => updateRule(rule.id, { value }, true)"
-        />
-        <span v-else class="px-2 text-xs text-nc-content-gray-muted">—</span>
-      </div>
 
-      <div class="flex items-center gap-0.5">
-        <GeneralAdvanceColorPickerDropdown
-          :model-value="rule.color"
-          :disabled="disabled"
-          @update:model-value="(value) => updateRule(rule.id, { color: value })"
-        />
-        <NcButton type="text" size="small" :disabled="disabled || index === 0" @click="moveRule(index, -1)">
-          <GeneralIcon icon="arrowUp" class="h-3.5 w-3.5" />
-        </NcButton>
-        <NcButton type="text" size="small" :disabled="disabled || index === draftRules.length - 1" @click="moveRule(index, 1)">
-          <GeneralIcon icon="arrowDown" class="h-3.5 w-3.5" />
-        </NcButton>
-        <NcButton type="text" size="small" :disabled="disabled" @click="removeRule(rule.id)">
+        <div class="flex min-w-0 items-center gap-1">
+          <NcSelect
+            v-if="subOperatorOptions(condition).length"
+            :value="condition.comparison_sub_op"
+            :data-testid="conditionTestId('sub-operator', ruleIndex, conditionIndex)"
+            :disabled="disabled"
+            class="min-w-0 flex-1"
+            @change="(value) => updateCondition(rule.id, condition.id, { comparison_sub_op: value, value: null })"
+          >
+            <a-select-option v-for="operator in subOperatorOptions(condition)" :key="operator.value" :value="operator.value">
+              {{ operator.text }}
+            </a-select-option>
+          </NcSelect>
+          <SmartsheetToolbarFilterInputLite
+            v-if="!ignoresValue(condition)"
+            :data-testid="conditionTestId('value', ruleIndex, conditionIndex)"
+            class="min-w-0 flex-1"
+            :column="fieldFor(condition)"
+            :filter="condition"
+            :disabled="disabled"
+            @update-filter-value="(value) => updateCondition(rule.id, condition.id, { value }, true)"
+          />
+          <span v-else class="px-2 text-xs text-nc-content-gray-muted">—</span>
+        </div>
+
+        <NcButton
+          :data-testid="`nc-list-color-rule-remove-condition-${ruleIndex}-${conditionIndex}`"
+          type="text"
+          size="small"
+          :disabled="disabled || rule.conditions.length === 1"
+          @click="removeCondition(rule, condition.id)"
+        >
           <GeneralIcon icon="delete" class="h-3.5 w-3.5" />
         </NcButton>
       </div>
+
+      <NcButton
+        :data-testid="`nc-list-color-rule-add-condition-${ruleIndex}`"
+        class="self-start"
+        type="text"
+        size="small"
+        :disabled="disabled || rule.conditions.length >= 10"
+        @click="addCondition(rule)"
+      >
+        <div class="flex items-center gap-1">
+          <GeneralIcon icon="plus" class="h-3.5 w-3.5" />
+          {{ $t('labels.addCondition') }}
+        </div>
+      </NcButton>
     </div>
   </div>
 </template>

@@ -116,21 +116,28 @@ Missing fields, stale option values, and empty cells render without an accent.
 The renderer evaluates only data already projected into the List response.
 
 `meta.list_color_rules` stores at most 20 ordered rules. Each rule contains a
-stable local identifier, visible field identifier, Community filter comparison,
-optional comparison sub-operation and value, and a hexadecimal color. The
-renderer evaluates rules from top to bottom against the already projected row;
-the first match wins. If no rule matches, the Single Select color setting above
-is used as a fallback. The Appearance editor supports ordinary text, number,
-select, checkbox, date/time, and other scalar fields using the retained
-Community filter vocabulary and cell editors. Attachment, relation, lookup,
-rollup, database-specific, and action fields are excluded. Missing fields,
-malformed colors, incompatible values, and stale rules are ignored so saved
-metadata cannot stop a List from rendering.
+stable local identifier, a hexadecimal color, an `and`/`or` logical operator,
+and between one and ten conditions. Each condition stores its own identifier,
+visible field identifier, Community filter comparison, optional comparison
+sub-operation, and value. The renderer evaluates rules from top to bottom
+against the already projected row; the first matching all/any group wins. If no
+rule matches, the Single Select color setting above is used as a fallback. Flat
+single-condition metadata written by earlier fork releases is read as a
+one-condition `and` group and is migrated when the Appearance editor next saves
+it.
+
+The Appearance editor supports ordinary text, number, select, checkbox,
+date/time, and other scalar fields using the retained Community filter
+vocabulary and cell editors. Attachment, relation, lookup, rollup,
+database-specific, and action fields are excluded. Missing fields, malformed
+colors, incompatible values, stale rules, and groups containing a stale
+condition are ignored so saved metadata cannot stop a List from rendering or
+accidentally broaden a match.
 
 This List-only presentation path is intentionally independent of the existing
 shared row-color subsystem: it does not read or write `row_coloring_mode`, call
 row-color endpoints, alter `useEeConfig`, or change any licensing check. More
-complex grouped conditions remain a separate independent design.
+complex nested groups remain outside this List-only design.
 
 ## API contract
 

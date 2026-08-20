@@ -75,9 +75,15 @@ export const resolveListRowColor = (record: Record<string, any>, colorField?: Co
   return option?.color || undefined
 }
 
-export type ListColorRule = Pick<FilterType, 'fk_column_id' | 'comparison_op' | 'comparison_sub_op' | 'value' | 'meta'> & {
+export type ListColorCondition = Pick<FilterType, 'fk_column_id' | 'comparison_op' | 'comparison_sub_op' | 'value' | 'meta'> & {
+  id: string
+}
+
+export interface ListColorRule {
   id: string
   color: string
+  logical_op: 'and' | 'or'
+  conditions: ListColorCondition[]
 }
 
 const listColorRuleUnsupportedTypes = new Set([
@@ -96,31 +102,61 @@ const listColorRuleUnsupportedTypes = new Set([
 export const isListColorRuleColumn = (column: ColumnType) =>
   !!column.id && !!column.title && !isSystemColumn(column) && !listColorRuleUnsupportedTypes.has(column.uidt as UITypes)
 
+const parseListColorCondition = (condition: any, fallbackId?: string): ListColorCondition | undefined => {
+  if (
+    !condition ||
+    typeof condition !== 'object' ||
+    (!fallbackId && typeof condition.id !== 'string') ||
+    typeof condition.fk_column_id !== 'string' ||
+    typeof condition.comparison_op !== 'string'
+  ) {
+    return undefined
+  }
+
+  return {
+    id: fallbackId ?? condition.id,
+    fk_column_id: condition.fk_column_id,
+    comparison_op: condition.comparison_op,
+    comparison_sub_op: condition.comparison_sub_op ?? null,
+    value: condition.value,
+    ...(condition.meta ? { meta: condition.meta } : {}),
+  }
+}
+
 export const parseListColorRules = (meta: unknown): ListColorRule[] => {
   const rules = parseProp(meta)?.list_color_rules
   if (!Array.isArray(rules)) return []
 
   return rules
-    .filter(
-      (rule): rule is ListColorRule =>
-        !!rule &&
-        typeof rule === 'object' &&
-        typeof rule.id === 'string' &&
-        typeof rule.fk_column_id === 'string' &&
-        typeof rule.comparison_op === 'string' &&
-        typeof rule.color === 'string' &&
-        /^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(rule.color),
-    )
+    .flatMap((rule) => {
+      if (
+        !rule ||
+        typeof rule !== 'object' ||
+        typeof rule.id !== 'string' ||
+        typeof rule.color !== 'string' ||
+        !/^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(rule.color)
+      ) {
+        return []
+      }
+
+      const rawConditions = Array.isArray(rule.conditions) ? rule.conditions : [rule]
+      if (!rawConditions.length || rawConditions.length > 10) return []
+
+      const conditions = rawConditions.map((condition, index) =>
+        parseListColorCondition(condition, Array.isArray(rule.conditions) ? undefined : `${rule.id}-condition-${index + 1}`),
+      )
+      if (conditions.some((condition) => !condition)) return []
+
+      return [
+        {
+          id: rule.id,
+          color: rule.color,
+          logical_op: rule.logical_op === 'or' ? 'or' : 'and',
+          conditions: conditions as ListColorCondition[],
+        },
+      ]
+    })
     .slice(0, 20)
-    .map((rule) => ({
-      id: rule.id,
-      fk_column_id: rule.fk_column_id,
-      comparison_op: rule.comparison_op,
-      comparison_sub_op: rule.comparison_sub_op ?? null,
-      value: rule.value,
-      color: rule.color,
-      ...(rule.meta ? { meta: rule.meta } : {}),
-    }))
 }
 
 export const resolveListConditionalRowColor = (
@@ -137,12 +173,15 @@ export const resolveListConditionalRowColor = (
   const eligibleFieldIds = new Set(fields.filter(isListColorRuleColumn).map((field) => field.id))
 
   for (const rule of rules) {
-    if (!eligibleFieldIds.has(rule.fk_column_id)) continue
+    if (!rule.conditions.length || rule.conditions.some((condition) => !eligibleFieldIds.has(condition.fk_column_id))) continue
 
     try {
       if (
         validateRowFilters({
-          filters: [rule],
+          filters: rule.conditions.map((condition, index) => ({
+            ...condition,
+            logical_op: index === 0 ? 'and' : rule.logical_op,
+          })),
           data: record,
           columns: fields,
           client: context.client,
