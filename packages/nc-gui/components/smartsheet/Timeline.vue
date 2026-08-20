@@ -11,12 +11,17 @@ import {
   buildTimelineStartResizePatch,
   layoutTimelineGroups,
   layoutTimelineItems,
+  timelineBoundsVisible,
   timelineLaneCount,
+  timelineVirtualRange,
 } from '~/utils/timelineView'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const LANE_HEIGHT = 44
 const GROUP_HEADER_HEIGHT = 36
+const TIMELINE_HEADER_HEIGHT = 36
+const HORIZONTAL_OVERSCAN = 160
+const VERTICAL_OVERSCAN = LANE_HEIGHT * 4
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -164,6 +169,29 @@ const layoutInputs = computed(() => {
 })
 
 const collapsedGroups = ref(new Set<string>())
+const scrollRegion = ref<HTMLElement>()
+const scrollLeft = ref(0)
+const scrollTop = ref(0)
+const viewportWidth = ref(0)
+const viewportHeight = ref(0)
+const focusedItemId = ref<string>()
+
+const syncViewport = () => {
+  const element = scrollRegion.value
+  if (!element) return
+  scrollLeft.value = element.scrollLeft
+  scrollTop.value = element.scrollTop
+  viewportWidth.value = element.clientWidth
+  viewportHeight.value = Math.max(0, element.clientHeight - TIMELINE_HEADER_HEIGHT)
+}
+
+const onTimelineScroll = (event: Event) => {
+  const element = event.currentTarget as HTMLElement
+  scrollLeft.value = element.scrollLeft
+  scrollTop.value = element.scrollTop
+}
+
+useResizeObserver(scrollRegion, syncViewport)
 
 const groupBands = computed(() => {
   if (!groupKey.value) return []
@@ -197,6 +225,24 @@ const canvasHeight = computed(() => {
   return Math.max(240, timelineLaneCount(layout.value) * LANE_HEIGHT + 32)
 })
 
+const viewport = computed(() => ({
+  left: scrollLeft.value,
+  top: scrollTop.value,
+  width: viewportWidth.value,
+  height: viewportHeight.value,
+}))
+
+const visibleGroupBands = computed(() =>
+  groupBands.value.filter((group) =>
+    timelineBoundsVisible(
+      { left: 0, top: group.top, width: canvasWidth.value, height: group.height },
+      viewport.value,
+      HORIZONTAL_OVERSCAN,
+      VERTICAL_OVERSCAN,
+    ),
+  ),
+)
+
 type TimelineLayoutRecord = (typeof layout.value)[number]
 
 const dragState = ref<{
@@ -220,18 +266,40 @@ const startResizeState = ref<{
   deltaDays: number
 }>()
 
-const itemStyle = (item: TimelineLayoutRecord) => {
+const itemGeometry = (item: TimelineLayoutRecord) => {
   const previewDays = dragState.value?.itemId === item.id ? dragState.value.deltaDays : 0
   const resizeDays = resizeState.value?.itemId === item.id ? resizeState.value.deltaDays : 0
   const startResizeDays = startResizeState.value?.itemId === item.id ? startResizeState.value.deltaDays : 0
   const baseWidth = ((item.end - item.start) / DAY_MS) * pixelsPerDay.value
+
   return {
-    left: `${
+    left:
       ((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value +
-      (previewDays + startResizeDays) * pixelsPerDay.value
-    }px`,
-    top: `${item.top}px`,
-    width: `${Math.max(14, baseWidth + (resizeDays - startResizeDays) * pixelsPerDay.value)}px`,
+      (previewDays + startResizeDays) * pixelsPerDay.value,
+    top: item.top,
+    width: Math.max(14, baseWidth + (resizeDays - startResizeDays) * pixelsPerDay.value),
+    height: 32,
+  }
+}
+
+const visibleLayout = computed(() =>
+  layout.value.filter((item) => {
+    const pinned =
+      focusedItemId.value === item.id ||
+      dragState.value?.itemId === item.id ||
+      resizeState.value?.itemId === item.id ||
+      startResizeState.value?.itemId === item.id
+
+    return pinned || timelineBoundsVisible(itemGeometry(item), viewport.value, HORIZONTAL_OVERSCAN, VERTICAL_OVERSCAN)
+  }),
+)
+
+const itemStyle = (item: TimelineLayoutRecord) => {
+  const geometry = itemGeometry(item)
+  return {
+    left: `${geometry.left}px`,
+    top: `${geometry.top}px`,
+    width: `${geometry.width}px`,
   }
 }
 
@@ -245,6 +313,26 @@ const headerLabel = (index: number) => {
   if (zoom.value === 'day') return date.format('ddd D')
   if (zoom.value === 'week') return date.day() === 1 ? date.format('MMM D') : ''
   return date.date() === 1 ? date.format(zoom.value === 'quarter' ? 'MMM YYYY' : 'MMM') : ''
+}
+
+const visibleDayIndexes = computed(() => {
+  const { start, end } = timelineVirtualRange(
+    windowDays.value,
+    pixelsPerDay.value,
+    scrollLeft.value,
+    viewportWidth.value,
+    HORIZONTAL_OVERSCAN,
+  )
+  return Array.from({ length: end - start }, (_, offset) => start + offset)
+})
+
+const onItemFocusIn = (item: TimelineLayoutRecord) => {
+  focusedItemId.value = item.id
+}
+
+const onItemFocusOut = (event: FocusEvent, item: TimelineLayoutRecord) => {
+  if ((event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) return
+  if (focusedItemId.value === item.id) focusedItemId.value = undefined
 }
 
 const moveWindow = (direction: -1 | 1) => {
@@ -263,6 +351,7 @@ const toggleGroup = (key: string, label: string) => {
   else next.add(key)
   collapsedGroups.value = next
   announcement.value = `${label} group ${next.has(key) ? 'collapsed' : 'expanded'}.`
+  nextTick(syncViewport)
 }
 
 const canReschedule = computed(
@@ -580,6 +669,8 @@ reloadViewDataHook?.on(reloadListener)
 onMounted(async () => {
   await loadSettings()
   await loadRecords()
+  await nextTick()
+  syncViewport()
 })
 
 onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
@@ -685,18 +776,29 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
       >
     </div>
 
-    <div v-else class="relative flex-1 overflow-auto" data-testid="nc-timeline-scroll-region">
+    <div
+      v-else
+      ref="scrollRegion"
+      class="relative flex-1 overflow-auto"
+      data-testid="nc-timeline-scroll-region"
+      @scroll="onTimelineScroll"
+    >
       <div
-        class="sticky top-0 z-20 flex h-9 border-b border-nc-border-gray-medium bg-white"
+        class="sticky top-0 z-20 h-9 border-b border-nc-border-gray-medium bg-white"
         :style="{ width: `${canvasWidth}px` }"
+        :data-total-days="windowDays"
+        :data-rendered-days="visibleDayIndexes.length"
+        data-testid="nc-timeline-header"
       >
         <div
-          v-for="index in windowDays"
+          v-for="index in visibleDayIndexes"
           :key="index"
-          class="h-full shrink-0 overflow-visible border-r border-nc-border-gray-light px-1 py-2 text-[11px] text-nc-content-gray-muted"
-          :style="{ width: `${pixelsPerDay}px` }"
+          class="absolute top-0 h-full overflow-visible border-r border-nc-border-gray-light px-1 py-2 text-[11px] text-nc-content-gray-muted"
+          :style="{ left: `${index * pixelsPerDay}px`, width: `${pixelsPerDay}px` }"
+          :data-day-index="index"
+          data-testid="nc-timeline-day"
         >
-          <span class="whitespace-nowrap">{{ headerLabel(index - 1) }}</span>
+          <span class="whitespace-nowrap">{{ headerLabel(index) }}</span>
         </div>
       </div>
 
@@ -708,13 +810,18 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           backgroundImage: 'linear-gradient(to right, #e7e7e9 1px, transparent 1px)',
           backgroundSize: `${pixelsPerDay}px 100%`,
         }"
+        :data-total-items="layout.length"
+        :data-rendered-items="visibleLayout.length"
+        :data-total-groups="groupBands.length"
+        :data-rendered-groups="visibleGroupBands.length"
+        data-testid="nc-timeline-canvas"
       >
         <div v-if="loading" class="sticky left-0 flex h-48 w-full items-center justify-center">
           <GeneralLoader size="large" />
         </div>
         <template v-else>
           <div
-            v-for="group in groupBands"
+            v-for="group in visibleGroupBands"
             :key="group.key"
             class="pointer-events-none absolute left-0 border-b border-nc-border-gray-medium bg-nc-bg-gray-extralight/60"
             :style="{ top: `${group.top}px`, width: `${canvasWidth}px`, height: `${group.height}px` }"
@@ -737,7 +844,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
             </button>
           </div>
           <div
-            v-for="item in layout"
+            v-for="item in visibleLayout"
             :key="item.id"
             class="group absolute z-10 h-8 touch-none overflow-hidden rounded-md border border-blue-300 bg-blue-100 px-2 py-1 text-xs text-blue-900 shadow-sm"
             :class="{
@@ -766,6 +873,8 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
             @pointerup="finishDrag($event, item)"
             @pointercancel="cancelDrag"
             @keydown="handleItemKeydown($event, item)"
+            @focusin="onItemFocusIn(item)"
+            @focusout="onItemFocusOut($event, item)"
           >
             <span class="block truncate font-medium">{{ itemTitle(item.record) }}</span>
             <span v-if="dragState?.itemId === item.id && dragState.deltaDays" class="sr-only">

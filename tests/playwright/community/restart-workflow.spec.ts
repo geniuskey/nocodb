@@ -131,11 +131,6 @@ test('Community image preserves login, schema, and records across restart', asyn
     expect.objectContaining({ Title: 'Persists across restart', Status: 'Ready', 'Timeline start': '2025-01-12' }),
   ]);
 
-  const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
-    headers: sessionHeaders,
-  });
-  expect(timelineDeleteResponse.ok()).toBeTruthy();
-
   const baseList = page.locator('.nc-treeview-container-base-list');
   for (let attempt = 0; attempt < 3 && !(await baseList.isVisible()); attempt += 1) {
     await page.getByTestId('nc-sidebar-project-btn').click();
@@ -161,8 +156,25 @@ test('Community image preserves login, schema, and records across restart', asyn
   await expect(timelineView).toBeVisible({ timeout: 30_000 });
   await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
   await expect(timelineView.getByTestId('nc-timeline-grouping-label')).toHaveText('Grouped by Status');
-  await expect(timelineView.getByTestId('nc-timeline-group')).toHaveCount(2);
-  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+  const timelineCanvas = timelineView.getByTestId('nc-timeline-canvas');
+  await expect(timelineCanvas).toHaveAttribute('data-total-items', '38');
+  await expect(timelineCanvas).toHaveAttribute('data-total-groups', '2');
+  expect(Number(await timelineCanvas.getAttribute('data-rendered-items'))).toBeLessThan(38);
+
+  await timelineView.getByTestId('nc-timeline-scroll-region').evaluate(element => {
+    element.scrollTop = element.scrollHeight;
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(async () => Number(await timelineCanvas.getAttribute('data-rendered-items'))).toBeGreaterThan(0);
+  await expect(
+    timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
+  ).toBeVisible();
+
+  const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(timelineDeleteResponse.ok()).toBeTruthy();
 
   await tasksTable.click();
   await expect(grid).toBeVisible({ timeout: 30_000 });
@@ -177,7 +189,7 @@ test('Community image preserves login, schema, and records across restart', asyn
   await expect(persistenceCell).toContainText('Persisted after restart');
 
   await grid.locator('.nc-grid-add-new-cell').click();
-  const newCell = grid.getByTestId('cell-Title-1');
+  const newCell = grid.locator('[data-testid^="cell-Title-"]').last();
   await expect(newCell).toBeVisible();
   await newCell.dblclick();
   await newCell.locator('input').fill('Created after restart');
@@ -188,6 +200,13 @@ test('Community image preserves login, schema, and records across restart', asyn
   expect((await createResponse).ok()).toBeTruthy();
   await expect(newCell).toContainText('Created after restart');
 
+  await grid.locator('.nc-grid-wrapper').evaluateAll(elements => {
+    for (const element of elements) {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event('scroll'));
+    }
+  });
+  await expect(persistenceCell).toBeVisible();
   await persistenceCell.click({ button: 'right' });
   const deleteResponse = page.waitForResponse(
     response => isDataRequest(response.url()) && response.request().method() === 'DELETE'
@@ -195,5 +214,5 @@ test('Community image preserves login, schema, and records across restart', asyn
   await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Delete record' }).click();
   expect((await deleteResponse).ok()).toBeTruthy();
   await expect(grid.getByText('Persisted after restart', { exact: true })).toHaveCount(0);
-  await expect(grid.getByTestId('cell-Title-0')).toContainText('Created after restart');
+  await expect(grid.getByText('Created after restart', { exact: true })).toBeVisible();
 });
