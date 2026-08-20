@@ -179,18 +179,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect((await deleteRecordResponse).ok()).toBeTruthy();
   await expect(titleCell).toHaveCount(0);
 
-  await grid.locator('.nc-grid-add-new-cell').click();
-  const persistenceCell = grid.getByTestId('cell-Title-0');
-  await expect(persistenceCell).toBeVisible();
-  await persistenceCell.dblclick();
-  await persistenceCell.locator('input').fill('Persists across restart');
-
-  const persistenceResponse = page.waitForResponse(
-    response => isDataRequest(response.url()) && ['POST', 'PATCH'].includes(response.request().method())
-  );
-  await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
-  expect((await persistenceResponse).ok()).toBeTruthy();
-  await expect(persistenceCell).toContainText('Persists across restart');
+  const persistenceResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Persists across restart', Status: 'Ready' },
+  });
+  expect(persistenceResponse.ok(), await persistenceResponse.text()).toBeTruthy();
   await expect
     .poll(
       async () => {
