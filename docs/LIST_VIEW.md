@@ -30,13 +30,13 @@ The frontend provides:
 - attachment thumbnails with a stable empty-image fallback;
 - optional row accents derived from visible Single Select option colors;
 - variable-height, overscanned row virtualization;
-- page-scoped row selection and permission-aware bulk deletion;
+- cross-page explicit selection and all-matching, permission-aware bulk deletion;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Condition-based row coloring, cross-page selection, bulk update, and
-server-range loading beyond the existing pagination contract remain follow-up
-slices. The UI does not advertise controls for those capabilities yet.
+Condition-based row coloring, bulk update, and server-range loading beyond the
+existing pagination contract remain follow-up slices. The UI does not advertise
+controls for those capabilities yet.
 
 ## Interaction contract
 
@@ -51,10 +51,19 @@ tab order at a time. The keyboard contract is:
 - `Ctrl+A` or `Cmd+A` selects every row on the loaded page; and
 - `Escape` clears the selection.
 
-Selection is deliberately page-scoped. Changing the loaded page resets the
-focus anchor, and no control claims that unloaded records are selected. The
-bulk-delete action is displayed only when the current user has record-delete
-permission and delegates to the existing Community data mutation path.
+Explicit selections are keyed by the table primary key and survive pagination.
+After selecting a complete loaded page, a separate action promotes the state to
+all records matching the current view and search filters. Unchecking records in
+that mode records primary-key exclusions, including on later pages. A view or
+data reload clears the selection so a changed query cannot silently inherit a
+bulk-operation target.
+
+The bulk-delete action is displayed only when the current user has record-delete
+permission. Explicit selections use the existing Community bulk-record delete
+endpoint. All-matching selection uses the existing server-side bulk-delete-all
+endpoint with the active view, search expression, and excluded primary keys; it
+does not load every matching row into the browser. Both paths require the shared
+destructive-action confirmation dialog.
 
 The renderer virtualizes the loaded page with a fixed height calculated for the
 current viewport, density, and number of visible detail rows. A small overscan
@@ -120,9 +129,10 @@ On the frontend, `useSmartsheetStore` identifies List as a normal data view,
 renderer consumes the existing view-column injection and `useViewData`
 query/pagination path. Opening or creating a record delegates to the existing
 expanded-form implementation, so List does not introduce a parallel mutation
-engine. `useViewRowSelection` contains presentation-independent page selection
-and keyboard behavior, while the List renderer owns virtualization, focus, and
-accessibility markup.
+engine. `useViewRowSelection` contains presentation-independent persistent
+selection, all-matching exclusions, and keyboard behavior, while the List
+renderer owns virtualization, focus, accessibility markup, and the confirmed
+mutation flow.
 
 ## Verification
 
@@ -131,9 +141,11 @@ confirms the general table-view listing returns the List, creates a second List
 through the rendered UI, and verifies a persisted record appears in that List.
 It also saves Appearance settings, applies Single Select option colors, verifies
 the resulting layout, creates enough records to prove the DOM window is
-bounded, exercises keyboard range selection, page selection, clearing, virtual
-focus movement, and bulk deletion, then removes temporary records. The same
-workflow runs against SQLite, PostgreSQL, and MySQL; each database is also
+bounded, exercises keyboard range selection, explicit deletion, all-matching
+selection, cross-page exclusions, virtual focus movement, and server-side bulk
+deletion. The same workflow runs against SQLite, PostgreSQL, and MySQL; each
+database is also
 restarted before persistence is checked. Unit tests cover presentation-field
-resolution, attachment parsing, select-color resolution, selection state, and
-keyboard boundary behavior independently of the renderer.
+resolution, attachment parsing, select-color resolution, page transitions,
+all-matching exclusions, and keyboard boundary behavior independently of the
+renderer.

@@ -6,6 +6,9 @@ export interface ViewRowSelectionOptions<T> {
   isSelected: (row: T) => boolean
   setSelected: (row: T, selected: boolean) => void
   focusRow?: (index: number) => void | Promise<void>
+  getRowKey?: (row: T) => string | null | undefined
+  getSelectionValue?: (row: T) => unknown
+  totalRows?: Ref<number | undefined> | ComputedRef<number | undefined>
 }
 
 export interface ViewRowKeyboardOptions<T> {
@@ -13,32 +16,88 @@ export interface ViewRowKeyboardOptions<T> {
 }
 
 /**
- * Page-scoped, presentation-agnostic row selection for record views.
+ * Presentation-agnostic row selection for record views.
  *
- * Selection is stored by the caller so existing data operations can consume it.
- * This composable owns only focus, range-selection, and keyboard semantics.
+ * Without a row key, selection remains page-scoped and is stored by the caller.
+ * A row key enables persistent explicit selection and an all-matching mode whose
+ * exclusions can be passed to server-side bulk operations.
  */
 export function useViewRowSelection<T>(options: ViewRowSelectionOptions<T>) {
   const activeIndex = ref<number | null>(null)
   const anchorIndex = ref<number | null>(null)
+  const selectedValuesByKey = ref(new Map<string, unknown>())
+  const excludedValuesByKey = ref(new Map<string, unknown>())
+  const isAllMatchingSelected = ref(false)
 
   const selectedRows = computed(() => options.rows.value.filter(options.isSelected))
-  const selectedCount = computed(() => selectedRows.value.length)
+  const canSelectAllMatching = computed(
+    () => !!options.getRowKey && options.rows.value.length > 0 && options.rows.value.every((row) => !!options.getRowKey?.(row)),
+  )
+  const selectedCount = computed(() => {
+    if (!options.getRowKey) return selectedRows.value.length
+
+    if (isAllMatchingSelected.value) {
+      return Math.max(0, (options.totalRows?.value ?? 0) - excludedValuesByKey.value.size)
+    }
+
+    const selectedRowsWithoutKey = selectedRows.value.filter((row) => !options.getRowKey?.(row)).length
+    return selectedValuesByKey.value.size + selectedRowsWithoutKey
+  })
   const hasSelection = computed(() => selectedCount.value > 0)
+
+  const updateMap = (map: Ref<Map<string, unknown>>, key: string, value?: unknown) => {
+    const next = new Map(map.value)
+
+    if (value === undefined) next.delete(key)
+    else next.set(key, value)
+
+    map.value = next
+  }
+
+  const selectionValue = (row: T) => options.getSelectionValue?.(row) ?? row
+
+  const setRowSelected = (row: T, selected: boolean) => {
+    options.setSelected(row, selected)
+
+    const key = options.getRowKey?.(row)
+    if (!key) return
+
+    if (isAllMatchingSelected.value) {
+      updateMap(excludedValuesByKey, key, selected ? undefined : selectionValue(row))
+    } else {
+      updateMap(selectedValuesByKey, key, selected ? selectionValue(row) : undefined)
+    }
+  }
+
   const allSelected = computed({
-    get: () => options.rows.value.length > 0 && selectedCount.value === options.rows.value.length,
+    get: () => options.rows.value.length > 0 && selectedRows.value.length === options.rows.value.length,
     set: (selected: boolean) => {
-      for (const row of options.rows.value) options.setSelected(row, selected)
+      for (const row of options.rows.value) setRowSelected(row, selected)
       if (!selected) anchorIndex.value = null
     },
   })
-  const isIndeterminate = computed(() => hasSelection.value && !allSelected.value)
+  const isIndeterminate = computed(() => selectedRows.value.length > 0 && !allSelected.value)
+  const selectedValues = computed(() => Array.from(selectedValuesByKey.value.values()))
+  const excludedValues = computed(() => Array.from(excludedValuesByKey.value.values()))
+  const excludedKeys = computed(() => Array.from(excludedValuesByKey.value.keys()))
 
   const isValidIndex = (index: number) => index >= 0 && index < options.rows.value.length
 
   const clearSelection = () => {
     for (const row of options.rows.value) options.setSelected(row, false)
+    selectedValuesByKey.value = new Map()
+    excludedValuesByKey.value = new Map()
+    isAllMatchingSelected.value = false
     anchorIndex.value = null
+  }
+
+  const selectAllMatching = () => {
+    if (!canSelectAllMatching.value || !options.totalRows?.value) return
+
+    selectedValuesByKey.value = new Map()
+    excludedValuesByKey.value = new Map()
+    isAllMatchingSelected.value = true
+    for (const row of options.rows.value) options.setSelected(row, true)
   }
 
   const selectRange = (from: number, to: number) => {
@@ -48,7 +107,7 @@ export function useViewRowSelection<T>(options: ViewRowSelectionOptions<T>) {
     const end = Math.max(from, to)
 
     for (const [index, row] of options.rows.value.entries()) {
-      options.setSelected(row, index >= start && index <= end)
+      setRowSelected(row, index >= start && index <= end)
     }
   }
 
@@ -63,7 +122,7 @@ export function useViewRowSelection<T>(options: ViewRowSelectionOptions<T>) {
     }
 
     const row = options.rows.value[index]
-    options.setSelected(row, !options.isSelected(row))
+    setRowSelected(row, !options.isSelected(row))
     anchorIndex.value = index
   }
 
@@ -141,6 +200,16 @@ export function useViewRowSelection<T>(options: ViewRowSelectionOptions<T>) {
     () => {
       activeIndex.value = null
       anchorIndex.value = null
+
+      if (!options.getRowKey) return
+
+      for (const row of options.rows.value) {
+        const key = options.getRowKey(row)
+        options.setSelected(
+          row,
+          !!key && (isAllMatchingSelected.value ? !excludedValuesByKey.value.has(key) : selectedValuesByKey.value.has(key)),
+        )
+      }
     },
     { flush: 'sync' },
   )
@@ -152,7 +221,13 @@ export function useViewRowSelection<T>(options: ViewRowSelectionOptions<T>) {
     hasSelection,
     allSelected,
     isIndeterminate,
+    isAllMatchingSelected,
+    canSelectAllMatching,
+    selectedValues,
+    excludedValues,
+    excludedKeys,
     clearSelection,
+    selectAllMatching,
     selectRange,
     toggleRow,
     onRowFocus,

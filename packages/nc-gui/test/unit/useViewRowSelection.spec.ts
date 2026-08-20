@@ -27,6 +27,26 @@ const createSelection = () => {
   return { rows, focusRow, selection }
 }
 
+const createPersistentSelection = () => {
+  const rows = ref<TestRow[]>([
+    { id: 1, selected: false },
+    { id: 2, selected: false },
+  ])
+  const totalRows = ref(4)
+  const selection = useViewRowSelection({
+    rows,
+    totalRows,
+    getRowKey: (row) => String(row.id),
+    getSelectionValue: (row) => ({ id: row.id }),
+    isSelected: (row) => row.selected,
+    setSelected: (row, selected) => {
+      row.selected = selected
+    },
+  })
+
+  return { rows, totalRows, selection }
+}
+
 const keyboardEvent = (key: string, init: KeyboardEventInit = {}) => new KeyboardEvent('keydown', { key, ...init })
 
 describe('useViewRowSelection', () => {
@@ -91,5 +111,73 @@ describe('useViewRowSelection', () => {
     rows.value = [{ id: 6, selected: false }]
 
     expect(selection.activeIndex.value).toBeNull()
+  })
+
+  it('preserves explicit selections when the loaded page changes', () => {
+    const { rows, selection } = createPersistentSelection()
+
+    selection.toggleRow(0)
+    rows.value = [
+      { id: 3, selected: false },
+      { id: 4, selected: false },
+    ]
+    selection.toggleRow(1)
+
+    expect(selection.selectedCount.value).toBe(2)
+    expect(selection.selectedValues.value).toEqual([{ id: 1 }, { id: 4 }])
+    expect(rows.value.map((row) => row.selected)).toEqual([false, true])
+
+    rows.value = [
+      { id: 1, selected: false },
+      { id: 2, selected: false },
+    ]
+    expect(rows.value.map((row) => row.selected)).toEqual([true, false])
+  })
+
+  it('selects every matching record and tracks exclusions by key', () => {
+    const { rows, totalRows, selection } = createPersistentSelection()
+
+    selection.selectAllMatching()
+    expect(selection.isAllMatchingSelected.value).toBe(true)
+    expect(selection.selectedCount.value).toBe(4)
+    expect(rows.value.every((row) => row.selected)).toBe(true)
+
+    rows.value = [
+      { id: 3, selected: false },
+      { id: 4, selected: false },
+    ]
+    expect(rows.value.every((row) => row.selected)).toBe(true)
+
+    selection.toggleRow(0)
+    expect(selection.selectedCount.value).toBe(3)
+    expect(selection.excludedValues.value).toEqual([{ id: 3 }])
+
+    totalRows.value = 3
+    expect(selection.selectedCount.value).toBe(2)
+
+    selection.clearSelection()
+    expect(selection.isAllMatchingSelected.value).toBe(false)
+    expect(selection.selectedCount.value).toBe(0)
+    expect(rows.value.every((row) => !row.selected)).toBe(true)
+  })
+
+  it('keeps selection page-scoped when rows have no persistent key', () => {
+    const rows = ref<TestRow[]>([{ id: 1, selected: false }])
+    const selection = useViewRowSelection({
+      rows,
+      totalRows: ref(3),
+      getRowKey: () => undefined,
+      isSelected: (row) => row.selected,
+      setSelected: (row, selected) => {
+        row.selected = selected
+      },
+    })
+
+    selection.toggleRow(0)
+    expect(selection.selectedCount.value).toBe(1)
+    expect(selection.canSelectAllMatching.value).toBe(false)
+
+    selection.selectAllMatching()
+    expect(selection.isAllMatchingSelected.value).toBe(false)
   })
 })
