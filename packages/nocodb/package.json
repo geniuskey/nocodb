@@ -142,8 +142,8 @@
     "jsonfile": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
     "knex": "3.1.0",
-    "knex-databricks": "link:../nc-knex-dialects/knex-databricks",
-    "knex-snowflake": "link:../nc-knex-dialects/knex-snowflake",
+    "knex-databricks": "workspace:*",
+    "knex-snowflake": "workspace:*",
     "list-github-dir-content": "^3.0.0",
     "lodash": "^4.17.21",
     "mailersend": "^1.5.0",
@@ -253,21 +253,5 @@
     "ts-jest": "29.1.2",
     "typescript": "^5.7.3",
     "webpack-obfuscator": "^3.5.1"
-  },
-  "pnpm": {
-    "supportedArchitectures": {
-      "os": [
-        "linux",
-        "current"
-      ],
-      "cpu": [
-        "x64",
-        "arm64"
-      ],
-      "libc": [
-        "musl",
-        "glibc"
-      ]
-    }
   }
 }

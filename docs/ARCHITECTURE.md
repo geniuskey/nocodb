@@ -72,8 +72,10 @@ The fork physically removes `packages/nc-gui/ee` and all baseline `extensions/*-
 4. Rspack bundles the backend into `packages/nocodb/docker/main.js`.
 5. The fork-owned staging command replaces `packages/nocodb/docker/nc-gui`
    with that generated tree.
-6. A local container image combines the backend bundle, staged Community GUI,
-   server-owned public assets, and production dependencies.
+6. pnpm deploys the backend's production dependency closure from the frozen
+   workspace lockfile, injecting the local SDK and database dialect packages.
+7. A local container image combines that portable closure, the backend bundle,
+   staged Community GUI, and server-owned public assets.
 
 The root `pnpm run build:community` command performs these steps in order. The
 backend now serves the staged tree directly and no longer installs or executes
@@ -82,6 +84,12 @@ creates `.output/public`; the baseline also exposes this as the `dist` junction.
 `scripts/stage-community-gui.mjs` validates the generated entry point, removes
 only the fixed ignored staging directory, and copies the tree with Node.js APIs
 so packaging behaves the same on Windows, macOS, and Linux.
+
+`Dockerfile.local` uses the repository root as its context, but the root
+`.dockerignore` admits only the frozen manifests, required workspace package
+contents, and assembled runtime assets. The Node base image and pnpm release
+are pinned; local workspace dependencies use the `workspace:` protocol so they
+cannot silently become broken host-relative links in the image.
 
 The Nix flake follows the same pipeline. Its fixed-output dependency derivation
 uses the frozen lockfile with an exact, wrapped pnpm `9.15.5`; the final package
