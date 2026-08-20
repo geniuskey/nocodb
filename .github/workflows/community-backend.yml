@@ -7,6 +7,9 @@ on:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
       - "packages/nc-gui/**"
+      - "tests/playwright/community/**"
+      - "tests/playwright/playwright.community.config.ts"
+      - "tests/playwright/package.json"
       - ".dockerignore"
       - "build-local-docker-image.sh"
       - "packages/noco-integrations/core/**"
@@ -27,6 +30,9 @@ on:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
       - "packages/nc-gui/**"
+      - "tests/playwright/community/**"
+      - "tests/playwright/playwright.community.config.ts"
+      - "tests/playwright/package.json"
       - ".dockerignore"
       - "build-local-docker-image.sh"
       - "packages/noco-integrations/core/**"
@@ -79,20 +85,32 @@ jobs:
           docker run --rm --entrypoint /bin/sh nocodb-community:test -n /usr/src/appEntry/start.sh
       - name: Verify ARM64 Litestream artifact
         run: docker buildx build --platform linux/arm64 --target litestream-fetcher -f packages/nocodb/Dockerfile .
-      - name: Smoke-test Community image
+      - name: Install Chromium for Community acceptance
+        run: pnpm --filter playwright exec playwright install --with-deps chromium
+      - name: Browser-test Community image
         shell: bash
         run: |
           docker run --detach --name nocodb-community-smoke --publish 18080:8080 nocodb-community:test
-          trap 'docker rm --force nocodb-community-smoke >/dev/null 2>&1 || true' EXIT
+          cleanup() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              docker logs nocodb-community-smoke
+            fi
+            docker rm --force nocodb-community-smoke >/dev/null 2>&1 || true
+            exit "$status"
+          }
+          trap cleanup EXIT
           for attempt in {1..40}; do
             if curl --fail --silent http://127.0.0.1:18080/api/v1/health >/dev/null; then
               curl --fail --silent http://127.0.0.1:18080/dashboard/ >/dev/null
-              exit 0
+              break
+            fi
+            if [ "$attempt" -eq 40 ]; then
+              exit 1
             fi
             sleep 1
           done
-          docker logs nocodb-community-smoke
-          exit 1
+          pnpm --filter playwright run ci:test:community
       - name: Build Community integration interfaces
         run: pnpm run integrations:build:core
       - name: Test Community integration contracts

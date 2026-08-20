@@ -162,7 +162,13 @@ const defaultScriptChecks = [
   },
   {
     path: "tests/playwright/package.json",
-    scripts: ["test", "ci:test", "ci:test:mysql", "ci:test:pg"],
+    scripts: [
+      "test",
+      "ci:test",
+      "ci:test:community",
+      "ci:test:mysql",
+      "ci:test:pg",
+    ],
   },
   {
     path: "packages/noco-integrations/package.json",
@@ -184,6 +190,7 @@ const sourceRoots = [
   "packages/nocodb-sdk/src",
   "packages/nc-gui",
   "packages/noco-integrations/core/src",
+  "tests/playwright/community",
   "tests/playwright/tests",
 ];
 const excludedDirectories = new Set(
