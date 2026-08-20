@@ -5,6 +5,7 @@ import {
   TIMELINE_PIXELS_PER_DAY,
   TIMELINE_WINDOW_DAYS,
   type TimelineZoom,
+  buildTimelineReschedulePatch,
   layoutTimelineItems,
   timelineLaneCount,
 } from '~/utils/timelineView'
@@ -17,9 +18,11 @@ const view = inject(ActiveViewInj, ref())
 const reloadViewDataHook = inject(ReloadViewDataHookInj)
 
 const { $api } = useNuxtApp()
-const { xWhere, isLocked } = useSmartsheetStoreOrThrow()
+const { xWhere, isLocked, isSqlView, isSyncedTable } = useSmartsheetStoreOrThrow()
 const { isUIAllowed } = useRoles()
 const { updateViewMeta } = useViewsStore()
+const { addUndo, defineViewScope } = useUndoRedo()
+const { t } = useI18n()
 
 const settings = ref<TimelineType>()
 const records = ref<Record<string, any>[]>([])
@@ -28,6 +31,8 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const settingsOpen = ref(false)
+const savingRecordId = ref<string>()
+const announcement = ref('')
 
 const zoom = computed<TimelineZoom>(() => settings.value?.zoom || 'week')
 const windowDays = computed(() => TIMELINE_WINDOW_DAYS[zoom.value])
@@ -50,6 +55,8 @@ const columnKey = (id?: string | null) => columnById(id)?.title
 const startKey = computed(() => columnKey(settings.value?.fk_start_column_id))
 const endKey = computed(() => columnKey(settings.value?.fk_end_column_id))
 const titleKey = computed(() => columnKey(settings.value?.fk_title_column_id))
+const startColumn = computed(() => columnById(settings.value?.fk_start_column_id))
+const endColumn = computed(() => columnById(settings.value?.fk_end_column_id))
 
 const draft = reactive<{
   fk_title_column_id: string | null
@@ -144,11 +151,23 @@ const layout = computed(() => {
 
 const canvasHeight = computed(() => Math.max(240, timelineLaneCount(layout.value) * LANE_HEIGHT + 32))
 
-const itemStyle = (item: (typeof layout.value)[number]) => ({
-  left: `${((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value}px`,
-  top: `${item.lane * LANE_HEIGHT + 16}px`,
-  width: `${Math.max(14, ((item.end - item.start) / DAY_MS) * pixelsPerDay.value)}px`,
-})
+type TimelineLayoutRecord = (typeof layout.value)[number]
+
+const dragState = ref<{
+  itemId: string
+  pointerId: number
+  startX: number
+  deltaDays: number
+}>()
+
+const itemStyle = (item: TimelineLayoutRecord) => {
+  const previewDays = dragState.value?.itemId === item.id ? dragState.value.deltaDays : 0
+  return {
+    left: `${((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value + previewDays * pixelsPerDay.value}px`,
+    top: `${item.lane * LANE_HEIGHT + 16}px`,
+    width: `${Math.max(14, ((item.end - item.start) / DAY_MS) * pixelsPerDay.value)}px`,
+  }
+}
 
 const itemTitle = (record: Record<string, any>) => {
   const value = titleKey.value ? record[titleKey.value] : undefined
@@ -170,6 +189,113 @@ const goToday = () => {
   rangeStart.value = dayjs()
     .startOf('day')
     .subtract(Math.floor(windowDays.value / 2), 'day')
+}
+
+const canReschedule = computed(
+  () =>
+    isUIAllowed('dataEdit') &&
+    !isLocked.value &&
+    !isSqlView.value &&
+    !isSyncedTable.value &&
+    !!startColumn.value &&
+    !startColumn.value.readonly &&
+    (!endColumn.value || !endColumn.value.readonly),
+)
+
+const patchRecordByPk = async (primaryKey: string, values: Record<string, unknown>) => {
+  if (!meta.value?.base_id || !meta.value?.id || !view.value?.id) throw new Error('Timeline row context is unavailable.')
+
+  const updated = await $api.dbViewRow.update(
+    NOCO,
+    meta.value.base_id,
+    meta.value.id,
+    view.value.id,
+    encodeURIComponent(primaryKey),
+    values,
+  )
+
+  const target = records.value.find((record) => extractPkFromRow(record, columns.value as ColumnType[]) === primaryKey)
+  if (target) Object.assign(target, updated)
+  return updated
+}
+
+const applyHistoryPatch = async (primaryKey: string, values: Record<string, unknown>) => {
+  await patchRecordByPk(primaryKey, values)
+  await loadRecords()
+}
+
+const rescheduleByDays = async (item: TimelineLayoutRecord, deltaDays: number) => {
+  if (!canReschedule.value || savingRecordId.value || !startColumn.value) return
+
+  const patch = buildTimelineReschedulePatch(item.record, startColumn.value, endColumn.value, deltaDays)
+  const primaryKey = extractPkFromRow(item.record, columns.value as ColumnType[])
+  if (!patch || primaryKey === null || primaryKey === undefined) return
+
+  const recordId = String(primaryKey)
+  savingRecordId.value = recordId
+  announcement.value = ''
+  Object.assign(item.record, patch.next)
+
+  try {
+    await patchRecordByPk(recordId, patch.next)
+    addUndo({
+      redo: {
+        fn: applyHistoryPatch,
+        args: [recordId, { ...patch.next }],
+      },
+      undo: {
+        fn: applyHistoryPatch,
+        args: [recordId, { ...patch.previous }],
+      },
+      scope: defineViewScope({ view: view.value }),
+    })
+    await loadRecords()
+    announcement.value = `${itemTitle(item.record)} moved ${Math.abs(deltaDays)} day${Math.abs(deltaDays) === 1 ? '' : 's'} ${
+      deltaDays > 0 ? 'later' : 'earlier'
+    }.`
+  } catch (e: any) {
+    Object.assign(item.record, patch.previous)
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Timeline move failed: ${messageText}`
+    message.error(`${t('msg.error.rowUpdateFailed')}: ${messageText}`)
+  } finally {
+    savingRecordId.value = undefined
+  }
+}
+
+const beginDrag = (event: PointerEvent, item: TimelineLayoutRecord) => {
+  if (!canReschedule.value || savingRecordId.value || event.button !== 0) return
+  event.preventDefault()
+  dragState.value = {
+    itemId: item.id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    deltaDays: 0,
+  }
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture(event.pointerId)
+}
+
+const moveDrag = (event: PointerEvent) => {
+  if (!dragState.value || dragState.value.pointerId !== event.pointerId) return
+  dragState.value.deltaDays = Math.round((event.clientX - dragState.value.startX) / pixelsPerDay.value)
+}
+
+const finishDrag = async (event: PointerEvent, item: TimelineLayoutRecord) => {
+  if (!dragState.value || dragState.value.pointerId !== event.pointerId) return
+  const deltaDays = dragState.value.deltaDays
+  dragState.value = undefined
+  if (deltaDays) await rescheduleByDays(item, deltaDays)
+}
+
+const cancelDrag = (event: PointerEvent) => {
+  if (dragState.value?.pointerId === event.pointerId) dragState.value = undefined
+}
+
+const handleItemKeydown = async (event: KeyboardEvent, item: TimelineLayoutRecord) => {
+  if (!canReschedule.value || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+  event.preventDefault()
+  await rescheduleByDays(item, event.key === 'ArrowLeft' ? -1 : 1)
 }
 
 const saveSettings = async () => {
@@ -208,6 +334,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
 
 <template>
   <div class="nc-timeline flex h-full min-w-0 flex-col bg-nc-bg-default" data-testid="nc-timeline-wrapper">
+    <span class="sr-only" aria-live="polite" data-testid="nc-timeline-announcement">{{ announcement }}</span>
     <div class="flex min-h-12 items-center justify-between gap-3 border-b border-nc-border-gray-medium bg-white px-3 py-2">
       <div class="flex items-center gap-2">
         <NcButton size="small" type="secondary" data-testid="nc-timeline-previous" @click="moveWindow(-1)">
@@ -321,12 +448,30 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           <div
             v-for="item in layout"
             :key="item.id"
-            class="absolute h-8 overflow-hidden rounded-md border border-blue-300 bg-blue-100 px-2 py-1 text-xs text-blue-900 shadow-sm"
+            class="absolute h-8 touch-none overflow-hidden rounded-md border border-blue-300 bg-blue-100 px-2 py-1 text-xs text-blue-900 shadow-sm"
+            :class="{
+              'cursor-grab select-none hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500':
+                canReschedule,
+              'cursor-grabbing opacity-80': dragState?.itemId === item.id,
+              'animate-pulse': savingRecordId === item.id,
+            }"
             :style="itemStyle(item)"
-            :title="itemTitle(item.record)"
+            :title="`${itemTitle(item.record)}${canReschedule ? ' — drag or use arrow keys to move by whole days' : ''}`"
+            :tabindex="canReschedule ? 0 : undefined"
+            :role="canReschedule ? 'button' : undefined"
+            :aria-label="canReschedule ? `Move ${itemTitle(item.record)}; use left or right arrow keys` : undefined"
             data-testid="nc-timeline-item"
+            @pointerdown="beginDrag($event, item)"
+            @pointermove="moveDrag"
+            @pointerup="finishDrag($event, item)"
+            @pointercancel="cancelDrag"
+            @keydown="handleItemKeydown($event, item)"
           >
             <span class="block truncate font-medium">{{ itemTitle(item.record) }}</span>
+            <span v-if="dragState?.itemId === item.id && dragState.deltaDays" class="sr-only">
+              {{ Math.abs(dragState.deltaDays) }} day{{ Math.abs(dragState.deltaDays) === 1 ? '' : 's' }}
+              {{ dragState.deltaDays > 0 ? 'later' : 'earlier' }}
+            </span>
           </div>
           <div
             v-if="!layout.length"

@@ -790,5 +790,31 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(timelineZoomUpdate.ok()).toBeTruthy();
   expect((await timelineZoomUpdate.json()).view).toEqual(expect.objectContaining({ zoom: 'day' }));
   await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
-  await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
+  const rescheduledTimelineItem = timelineView
+    .getByTestId('nc-timeline-item')
+    .filter({ hasText: 'Current Timeline item' });
+  await expect(rescheduledTimelineItem).toBeVisible();
+
+  const timelineItemBox = await rescheduledTimelineItem.boundingBox();
+  expect(timelineItemBox).not.toBeNull();
+  const rescheduleResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await page.mouse.move(timelineItemBox!.x + 16, timelineItemBox!.y + timelineItemBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(timelineItemBox!.x + 136, timelineItemBox!.y + timelineItemBox!.height / 2, { steps: 5 });
+  await page.mouse.up();
+
+  const rescheduleResponse = await rescheduleResponsePromise;
+  expect(rescheduleResponse.ok(), await rescheduleResponse.text()).toBeTruthy();
+  expect(rescheduleResponse.request().postDataJSON()).toEqual({
+    'Timeline start': new Date(Date.parse(`${currentTimelineDate}T00:00:00Z`) + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+    'Timeline end': new Date(
+      Math.floor(Date.parse(currentTimelineEnd) / 1000) * 1000 + 24 * 60 * 60 * 1000
+    ).toISOString(),
+  });
+  await expect(page.getByTestId('nc-timeline-announcement')).toContainText('moved 1 day later');
+  await expect(rescheduledTimelineItem).toBeVisible();
 });
