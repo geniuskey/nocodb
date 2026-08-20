@@ -152,8 +152,11 @@ failed writes, and participate in view-scoped undo/redo. Resize-based duration
 changes now use a permission-aware right-edge handle and keyboard controls,
 with a one-field PATCH, minimum-bound validation, rollback, and undo/redo.
 The symmetric left-edge handle now updates only the mapped start with the same
-permission, boundary, rollback, and history guarantees. Grouping and
-virtualization remain follow-up slices.
+permission, boundary, rollback, and history guarantees. One-field visual
+grouping now persists in the Timeline presentation metadata, validates and
+projects the mapped field through the shared query AST, lays out overlaps per
+group, and provides accessible local collapse controls. Virtualization remains
+a follow-up slice.
 
 ## Phase 4 — Gantt
 

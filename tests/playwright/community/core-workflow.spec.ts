@@ -172,12 +172,19 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(invalidTimelineUpdate.status()).toBe(400);
 
+  const invalidTimelineGroupUpdate = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
+    headers: sessionHeaders,
+    data: { meta: { group_by_column_id: 42 } },
+  });
+  expect(invalidTimelineGroupUpdate.status()).toBe(400);
+
   const timelineUpdateResponse = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
     headers: sessionHeaders,
     data: {
       fk_start_column_id: timelineStartColumn.id,
       fk_end_column_id: timelineEndColumn.id,
       zoom: 'month',
+      meta: { group_by_column_id: createdStatusColumn.id },
     },
   });
   const updatedTimeline = await timelineUpdateResponse.json();
@@ -187,6 +194,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       fk_start_column_id: timelineStartColumn.id,
       fk_end_column_id: timelineEndColumn.id,
       zoom: 'month',
+      meta: expect.objectContaining({ group_by_column_id: createdStatusColumn.id }),
     })
   );
 
@@ -200,6 +208,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       fk_start_column_id: timelineStartColumn.id,
       fk_end_column_id: timelineEndColumn.id,
       zoom: 'month',
+      meta: expect.objectContaining({ group_by_column_id: createdStatusColumn.id }),
     })
   );
 
@@ -213,11 +222,13 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       },
       {
         Title: 'Timeline spanning range',
+        Status: 'Ready',
         'Timeline start': '2025-01-05',
         'Timeline end': '2025-01-20T12:00:00Z',
       },
       {
         Title: 'Timeline point in range',
+        Status: 'Blocked',
         'Timeline start': '2025-01-12',
         'Timeline end': null,
       },
@@ -710,12 +721,20 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const currentTimelineEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
   const uiTimelineRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
-    data: {
-      Title: 'Current Timeline item',
-      Status: 'Ready',
-      'Timeline start': currentTimelineDate,
-      'Timeline end': currentTimelineEnd,
-    },
+    data: [
+      {
+        Title: 'Current Timeline item',
+        Status: 'Ready',
+        'Timeline start': currentTimelineDate,
+        'Timeline end': currentTimelineEnd,
+      },
+      {
+        Title: 'Ungrouped Timeline item',
+        Status: null,
+        'Timeline start': currentTimelineDate,
+        'Timeline end': currentTimelineEnd,
+      },
+    ],
   });
   expect(uiTimelineRecordResponse.ok(), await uiTimelineRecordResponse.text()).toBeTruthy();
 
@@ -774,6 +793,8 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
 
   await page.getByTestId('nc-timeline-settings-toggle').click();
+  await page.getByTestId('nc-timeline-settings-group').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Status', { exact: true }).click();
   await page.getByTestId('nc-timeline-settings-zoom').click();
   await page
     .locator('.ant-select-dropdown:visible')
@@ -788,11 +809,30 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await page.getByTestId('nc-timeline-settings-save').click();
   const timelineZoomUpdate = await timelineZoomUpdateResponse;
   expect(timelineZoomUpdate.ok()).toBeTruthy();
-  expect((await timelineZoomUpdate.json()).view).toEqual(expect.objectContaining({ zoom: 'day' }));
+  expect((await timelineZoomUpdate.json()).view).toEqual(
+    expect.objectContaining({
+      zoom: 'day',
+      meta: expect.objectContaining({ group_by_column_id: createdStatusColumn.id }),
+    })
+  );
   await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
+  await expect(timelineView.getByTestId('nc-timeline-grouping-label')).toHaveText('Grouped by Status');
+  await expect(timelineView.getByTestId('nc-timeline-group')).toHaveCount(2);
+  await expect(timelineView.locator('[data-group-label="Ready"]')).toBeVisible();
+  await expect(timelineView.locator('[data-group-label="Uncategorized"]')).toBeVisible();
   const rescheduledTimelineItem = timelineView
     .getByTestId('nc-timeline-item')
     .filter({ hasText: 'Current Timeline item' });
+  await expect(rescheduledTimelineItem).toBeVisible();
+
+  const readyGroupToggle = timelineView.locator('[data-group-label="Ready"]').getByTestId('nc-timeline-group-toggle');
+  await expect(readyGroupToggle).toHaveAttribute('aria-expanded', 'true');
+  await readyGroupToggle.click();
+  await expect(readyGroupToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(rescheduledTimelineItem).toHaveCount(0);
+  await readyGroupToggle.focus();
+  await readyGroupToggle.press('Enter');
+  await expect(readyGroupToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(rescheduledTimelineItem).toBeVisible();
 
   const timelineItemBox = await rescheduledTimelineItem.boundingBox();

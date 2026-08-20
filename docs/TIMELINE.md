@@ -91,6 +91,23 @@ The sixth slice completes whole-day duration editing with a left/start handle:
 The same permission, optimistic preview, rollback, bounded reload, and
 view-scoped undo/redo contract applies. Blank ends remain non-resizable.
 
+The seventh slice adds one-field visual grouping inside the already bounded
+Timeline window:
+
+- `meta.group_by_column_id` stores an optional same-table field mapping without
+  changing the stable Timeline table schema;
+- the shared query AST always projects the mapped group field, including when
+  ordinary view visibility or a caller's `fields` selection would omit it;
+- each exact scalar or compound cell value owns one group, blank values appear
+  in a final `Uncategorized` group, and named groups use deterministic ordering;
+- overlap lanes are calculated independently inside each group; and
+- accessible group headers expose record counts and local expand/collapse
+  controls without changing records or persisted filters.
+
+Compound values remain one exact group value. This slice deliberately does not
+duplicate a multi-valued record across bands, and grouping never widens the
+server-enforced date window or 1,000-record page bound.
+
 ## Metadata contract
 
 `nc_timeline_view_v2` is keyed by `base_id` and `fk_view_id` and stores:
@@ -99,7 +116,8 @@ view-scoped undo/redo contract applies. Blank ends remain non-resizable.
 - `fk_start_column_id`: optional Date or DateTime field;
 - `fk_end_column_id`: optional Date or DateTime field; absent means a point event;
 - `zoom`: `day`, `week`, `month`, or `quarter`, defaulting to `week`; and
-- `meta`: reserved for backwards-compatible presentation additions.
+- `meta`: backwards-compatible presentation additions, currently including
+  optional `group_by_column_id`.
 
 An unconfigured Timeline is valid. This allows view creation before a user
 chooses date fields and avoids guessing a table's intended schedule semantics.
@@ -148,10 +166,11 @@ which makes an item ending on `from` visible on that calendar day.
 
 The range predicate is a server-owned condition combined with the existing view
 and request filters using AND. Existing view sorts, field projection, row access,
-and request throttling remain in force. Timeline title/start/end mapping fields
-are always projected even if their ordinary view columns are hidden or a caller
-requests a smaller field list; a renderer cannot position a record without
-them. No public/shared Timeline endpoint is introduced in this slice.
+and request throttling remain in force. Timeline title/start/end/group mapping
+fields are always projected even if their ordinary view columns are hidden or a
+caller requests a smaller field list; a renderer cannot position or group a
+record without them. No public/shared Timeline endpoint is introduced in this
+slice.
 
 ## Architecture boundary
 
@@ -185,12 +204,20 @@ so pointer and keyboard input cannot diverge on minimum-duration behavior.
 Left-edge resizing uses the symmetric one-field start patch, with ordering
 defined by the mapped end type's inclusive-Date or exact-DateTime semantics.
 
+Grouping is a presentation layer over the same bounded response. The server
+validates `meta.group_by_column_id` when it is written and the common AST
+dependency mechanism projects it; `layoutTimelineGroups` then normalizes values,
+orders groups, and invokes the existing interval-partitioning function once per
+group. No grouped record endpoint or Timeline-specific data store is added.
+
 ## Compatibility rules
 
 - The migration is append-only and does not rewrite earlier metadata.
 - Existing view type values `1` through `7` remain unchanged.
 - A missing end field is a supported point event, not corrupt metadata.
 - A missing start field is an unconfigured view, not an implicit field choice.
+- A missing or null `meta.group_by_column_id` is an ungrouped Timeline.
+- A configured group field must belong to the Timeline's table.
 - Unknown future `meta` properties must remain round-trippable.
 - Range responses are bounded by a server-enforced interval and result limit.
 
@@ -227,3 +254,9 @@ The start-resize slice requires the symmetric start-only patch, same-day
 inclusive Date boundary, reversed-interval, and blank-end unit cases. Fresh and
 restart workflows must exercise both pointer and keyboard start resizing and
 prove the resulting start persists on SQLite, PostgreSQL, and MySQL.
+
+The grouping slice requires unit coverage for deterministic order, independent
+lanes, blank values, compound values, and collision-resistant keys. Fresh and
+restart workflows must prove metadata persistence, required group-field
+projection, grouped rendering, record counts, and keyboard-accessible collapse
+state on SQLite, PostgreSQL, and MySQL.

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ViewTypes } from 'nocodb-sdk';
+import { parseProp, ViewTypes } from 'nocodb-sdk';
 import { getAuthToken } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
@@ -63,6 +63,7 @@ test('Community image preserves login, schema, and records across restart', asyn
       zoom: 'day',
     })
   );
+  expect(parseProp(uiTimelineMeta.meta)).toEqual(expect.objectContaining({ group_by_column_id: expect.any(String) }));
 
   const restartToday = new Date().toISOString().slice(0, 10);
   const expectedStartDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1000)
@@ -80,13 +81,20 @@ test('Community image preserves login, schema, and records across restart', asyn
   );
   const persistedUiRange = await persistedUiRangeResponse.json();
   expect(persistedUiRangeResponse.ok(), JSON.stringify(persistedUiRange)).toBeTruthy();
-  expect(persistedUiRange.list).toEqual([
-    expect.objectContaining({
-      Title: 'Current Timeline item',
-      'Timeline start': expectedStartDate,
-      'Timeline end': expect.stringContaining(expectedEndDate),
-    }),
-  ]);
+  expect(persistedUiRange.list).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        Title: 'Current Timeline item',
+        Status: 'Ready',
+        'Timeline start': expectedStartDate,
+        'Timeline end': expect.stringContaining(expectedEndDate),
+      }),
+      expect.objectContaining({
+        Title: 'Ungrouped Timeline item',
+        Status: null,
+      }),
+    ])
+  );
 
   const timelineResponse = await page.request.get(`/api/v2/meta/timelines/${timeline.id}`, {
     headers: sessionHeaders,
@@ -100,6 +108,7 @@ test('Community image preserves login, schema, and records across restart', asyn
       zoom: 'month',
     })
   );
+  expect(parseProp(timelineMeta.meta)).toEqual(expect.objectContaining({ group_by_column_id: expect.any(String) }));
 
   const timelineColumnsResponse = await page.request.get(`/api/v2/meta/views/${timeline.id}/columns/`, {
     headers: sessionHeaders,
@@ -119,7 +128,7 @@ test('Community image preserves login, schema, and records across restart', asyn
   const persistedTimelineRange = await persistedTimelineRangeResponse.json();
   expect(persistedTimelineRangeResponse.ok(), JSON.stringify(persistedTimelineRange)).toBeTruthy();
   expect(persistedTimelineRange.list).toEqual([
-    expect.objectContaining({ Title: 'Persists across restart', 'Timeline start': '2025-01-12' }),
+    expect.objectContaining({ Title: 'Persists across restart', Status: 'Ready', 'Timeline start': '2025-01-12' }),
   ]);
 
   const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
@@ -151,6 +160,8 @@ test('Community image preserves login, schema, and records across restart', asyn
   const timelineView = page.getByTestId('nc-timeline-wrapper');
   await expect(timelineView).toBeVisible({ timeout: 30_000 });
   await expect(timelineView.getByText('day', { exact: true })).toBeVisible();
+  await expect(timelineView.getByTestId('nc-timeline-grouping-label')).toHaveText('Grouped by Status');
+  await expect(timelineView.getByTestId('nc-timeline-group')).toHaveCount(2);
   await expect(timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Current Timeline item' })).toBeVisible();
 
   await tasksTable.click();

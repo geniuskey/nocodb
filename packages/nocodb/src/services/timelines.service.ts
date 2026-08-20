@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AppEvents, EventType, UITypes, ViewTypes } from 'nocodb-sdk';
+import {
+  AppEvents,
+  EventType,
+  parseProp,
+  UITypes,
+  ViewTypes,
+} from 'nocodb-sdk';
 import type { TimelineUpdateReqType, ViewCreateReqType } from 'nocodb-sdk';
 import type { NcContext, NcRequest } from '~/interface/config';
 import type { MetaService } from '~/meta/meta.service';
@@ -211,10 +217,24 @@ export class TimelinesService {
     timeline: TimelineUpdateReqType,
     ncMeta?: MetaService,
   ) {
+    const timelineMeta =
+      timeline.meta === undefined ? {} : parseProp(timeline.meta);
+    const groupColumnId = timelineMeta?.group_by_column_id;
+    if (
+      groupColumnId !== undefined &&
+      groupColumnId !== null &&
+      typeof groupColumnId !== 'string'
+    ) {
+      NcError.get(context).badRequest(
+        'Timeline group column must be a column id or null',
+      );
+    }
+
     const mappings = [
       ['title', timeline.fk_title_column_id, false],
       ['start', timeline.fk_start_column_id, true],
       ['end', timeline.fk_end_column_id, true],
+      ['group', groupColumnId, false],
     ] as const;
 
     for (const [name, columnId, temporal] of mappings) {

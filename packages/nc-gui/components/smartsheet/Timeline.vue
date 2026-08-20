@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import { type ColumnType, type PaginatedType, type TimelineType, UITypes, ViewTypes } from 'nocodb-sdk'
+import { type ColumnType, type PaginatedType, type TimelineType, UITypes, ViewTypes, parseProp } from 'nocodb-sdk'
 import {
   TIMELINE_PIXELS_PER_DAY,
   TIMELINE_WINDOW_DAYS,
@@ -9,12 +9,14 @@ import {
   buildTimelineEndResizePatch,
   buildTimelineReschedulePatch,
   buildTimelineStartResizePatch,
+  layoutTimelineGroups,
   layoutTimelineItems,
   timelineLaneCount,
 } from '~/utils/timelineView'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const LANE_HEIGHT = 44
+const GROUP_HEADER_HEIGHT = 36
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -51,6 +53,11 @@ const dateColumns = computed(() =>
 const titleColumns = computed(() =>
   columns.value.filter((column: ColumnType) => ![UITypes.Attachment, UITypes.Barcode, UITypes.QrCode].includes(column.uidt)),
 )
+const groupableColumns = computed(() =>
+  columns.value.filter(
+    (column: ColumnType) => ![UITypes.Attachment, UITypes.Barcode, UITypes.QrCode, UITypes.Button].includes(column.uidt),
+  ),
+)
 
 const columnById = (id?: string | null) => columns.value.find((column: ColumnType) => column.id === id)
 const columnKey = (id?: string | null) => columnById(id)?.title
@@ -58,6 +65,9 @@ const columnKey = (id?: string | null) => columnById(id)?.title
 const startKey = computed(() => columnKey(settings.value?.fk_start_column_id))
 const endKey = computed(() => columnKey(settings.value?.fk_end_column_id))
 const titleKey = computed(() => columnKey(settings.value?.fk_title_column_id))
+const timelineMeta = computed<Record<string, any>>(() => parseProp(settings.value?.meta))
+const groupColumn = computed(() => columnById(timelineMeta.value?.group_by_column_id))
+const groupKey = computed(() => groupColumn.value?.title)
 const startColumn = computed(() => columnById(settings.value?.fk_start_column_id))
 const endColumn = computed(() => columnById(settings.value?.fk_end_column_id))
 
@@ -65,11 +75,13 @@ const draft = reactive<{
   fk_title_column_id: string | null
   fk_start_column_id: string | null
   fk_end_column_id: string | null
+  fk_group_column_id: string | null
   zoom: TimelineZoom
 }>({
   fk_title_column_id: null,
   fk_start_column_id: null,
   fk_end_column_id: null,
+  fk_group_column_id: null,
   zoom: 'week',
 })
 
@@ -77,6 +89,7 @@ const syncDraft = () => {
   draft.fk_title_column_id = settings.value?.fk_title_column_id || null
   draft.fk_start_column_id = settings.value?.fk_start_column_id || null
   draft.fk_end_column_id = settings.value?.fk_end_column_id || null
+  draft.fk_group_column_id = timelineMeta.value?.group_by_column_id || null
   draft.zoom = settings.value?.zoom || 'week'
 }
 
@@ -130,29 +143,59 @@ const parseEnd = (value: unknown, fallback: number) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? parsed.add(1, 'day').valueOf() : parsed.valueOf()
 }
 
-const layout = computed(() => {
+const layoutInputs = computed(() => {
   if (!startKey.value) return []
   const from = rangeStart.value.valueOf()
   const to = rangeEnd.value.valueOf()
 
-  return layoutTimelineItems(
-    records.value.flatMap((record, index) => {
-      const start = parseStart(record[startKey.value!])
-      if (start === undefined) return []
-      const end = Math.max(parseEnd(endKey.value ? record[endKey.value] : undefined, start), start)
-      return [
-        {
-          id: String(extractPkFromRow(record, columns.value as ColumnType[]) ?? index),
-          start: Math.max(start, from),
-          end: Math.min(Math.max(end, start + 1), to),
-          record,
-        },
-      ]
-    }),
-  )
+  return records.value.flatMap((record, index) => {
+    const start = parseStart(record[startKey.value!])
+    if (start === undefined) return []
+    const end = Math.max(parseEnd(endKey.value ? record[endKey.value] : undefined, start), start)
+    return [
+      {
+        id: String(extractPkFromRow(record, columns.value as ColumnType[]) ?? index),
+        start: Math.max(start, from),
+        end: Math.min(Math.max(end, start + 1), to),
+        record,
+      },
+    ]
+  })
 })
 
-const canvasHeight = computed(() => Math.max(240, timelineLaneCount(layout.value) * LANE_HEIGHT + 32))
+const collapsedGroups = ref(new Set<string>())
+
+const groupBands = computed(() => {
+  if (!groupKey.value) return []
+
+  let top = 0
+  return layoutTimelineGroups(layoutInputs.value, (item) => item.record[groupKey.value!]).map((group) => {
+    const collapsed = collapsedGroups.value.has(group.key)
+    const height = collapsed ? GROUP_HEADER_HEIGHT : GROUP_HEADER_HEIGHT + Math.max(1, group.laneCount) * LANE_HEIGHT + 8
+    const band = {
+      ...group,
+      recordCount: group.items.length,
+      collapsed,
+      top,
+      height,
+      items: collapsed
+        ? []
+        : group.items.map((item) => ({ ...item, top: top + GROUP_HEADER_HEIGHT + item.lane * LANE_HEIGHT + 8 })),
+    }
+    top += height
+    return band
+  })
+})
+
+const layout = computed(() => {
+  if (groupKey.value) return groupBands.value.flatMap((group) => group.items)
+  return layoutTimelineItems(layoutInputs.value).map((item) => ({ ...item, top: item.lane * LANE_HEIGHT + 16 }))
+})
+
+const canvasHeight = computed(() => {
+  if (groupKey.value) return Math.max(240, groupBands.value.reduce((height, group) => height + group.height, 0) + 8)
+  return Math.max(240, timelineLaneCount(layout.value) * LANE_HEIGHT + 32)
+})
 
 type TimelineLayoutRecord = (typeof layout.value)[number]
 
@@ -187,7 +230,7 @@ const itemStyle = (item: TimelineLayoutRecord) => {
       ((item.start - rangeStart.value.valueOf()) / DAY_MS) * pixelsPerDay.value +
       (previewDays + startResizeDays) * pixelsPerDay.value
     }px`,
-    top: `${item.lane * LANE_HEIGHT + 16}px`,
+    top: `${item.top}px`,
     width: `${Math.max(14, baseWidth + (resizeDays - startResizeDays) * pixelsPerDay.value)}px`,
   }
 }
@@ -212,6 +255,14 @@ const goToday = () => {
   rangeStart.value = dayjs()
     .startOf('day')
     .subtract(Math.floor(windowDays.value / 2), 'day')
+}
+
+const toggleGroup = (key: string, label: string) => {
+  const next = new Set(collapsedGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedGroups.value = next
+  announcement.value = `${label} group ${next.has(key) ? 'collapsed' : 'expanded'}.`
 }
 
 const canReschedule = computed(
@@ -500,7 +551,14 @@ const saveSettings = async () => {
   const previousZoom = zoom.value
   const previousWindowDays = windowDays.value
   try {
-    await updateViewMeta(view.value.id, ViewTypes.TIMELINE, { ...draft })
+    const { fk_group_column_id, ...timelineDraft } = draft
+    await updateViewMeta(view.value.id, ViewTypes.TIMELINE, {
+      ...timelineDraft,
+      meta: {
+        ...timelineMeta.value,
+        group_by_column_id: fk_group_column_id,
+      },
+    })
     settings.value = await $api.dbView.timelineRead(view.value.id)
     if (previousZoom !== draft.zoom) resetWindow(draft.zoom, previousWindowDays)
     settingsOpen.value = false
@@ -543,6 +601,13 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           {{ rangeStart.format('MMM D, YYYY') }} – {{ rangeEnd.subtract(1, 'day').format('MMM D, YYYY') }}
         </span>
         <span class="rounded bg-nc-bg-gray-light px-2 py-1 text-xs capitalize text-nc-content-gray-muted">{{ zoom }}</span>
+        <span
+          v-if="groupColumn"
+          class="rounded bg-nc-bg-brand px-2 py-1 text-xs text-nc-content-brand"
+          data-testid="nc-timeline-grouping-label"
+        >
+          Grouped by {{ groupColumn.title }}
+        </span>
       </div>
 
       <NcButton
@@ -559,7 +624,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
 
     <div
       v-if="settingsOpen"
-      class="grid grid-cols-4 gap-3 border-b border-nc-border-gray-medium bg-white p-3"
+      class="grid grid-cols-1 gap-3 border-b border-nc-border-gray-medium bg-white p-3 md:grid-cols-5"
       data-testid="nc-timeline-settings"
     >
       <label class="flex flex-col gap-1 text-xs text-nc-content-gray-muted">
@@ -578,6 +643,14 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
         Title field
         <a-select v-model:value="draft.fk_title_column_id" allow-clear size="small" data-testid="nc-timeline-settings-title">
           <a-select-option v-for="column in titleColumns" :key="column.id" :value="column.id">{{ column.title }}</a-select-option>
+        </a-select>
+      </label>
+      <label class="flex flex-col gap-1 text-xs text-nc-content-gray-muted">
+        Group by
+        <a-select v-model:value="draft.fk_group_column_id" allow-clear size="small" data-testid="nc-timeline-settings-group">
+          <a-select-option v-for="column in groupableColumns" :key="column.id" :value="column.id">{{
+            column.title
+          }}</a-select-option>
         </a-select>
       </label>
       <label class="flex flex-col gap-1 text-xs text-nc-content-gray-muted">
@@ -641,9 +714,32 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
         </div>
         <template v-else>
           <div
+            v-for="group in groupBands"
+            :key="group.key"
+            class="pointer-events-none absolute left-0 border-b border-nc-border-gray-medium bg-nc-bg-gray-extralight/60"
+            :style="{ top: `${group.top}px`, width: `${canvasWidth}px`, height: `${group.height}px` }"
+            data-testid="nc-timeline-group"
+            :data-group-label="group.label"
+          >
+            <button
+              type="button"
+              class="pointer-events-auto sticky left-2 z-10 mt-1 flex h-7 max-w-72 items-center gap-1 rounded border border-nc-border-gray-medium bg-white px-2 text-left text-xs font-medium text-nc-content-gray shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-nc-content-brand"
+              :aria-expanded="!group.collapsed"
+              :aria-label="`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label} group, ${group.recordCount} record${
+                group.recordCount === 1 ? '' : 's'
+              }`"
+              data-testid="nc-timeline-group-toggle"
+              @click="toggleGroup(group.key, group.label)"
+            >
+              <GeneralIcon :icon="group.collapsed ? 'chevronRight' : 'chevronDown'" class="shrink-0" />
+              <span class="truncate">{{ group.label }}</span>
+              <span class="shrink-0 text-nc-content-gray-muted">({{ group.recordCount }})</span>
+            </button>
+          </div>
+          <div
             v-for="item in layout"
             :key="item.id"
-            class="group absolute h-8 touch-none overflow-hidden rounded-md border border-blue-300 bg-blue-100 px-2 py-1 text-xs text-blue-900 shadow-sm"
+            class="group absolute z-10 h-8 touch-none overflow-hidden rounded-md border border-blue-300 bg-blue-100 px-2 py-1 text-xs text-blue-900 shadow-sm"
             :class="{
               'cursor-grab select-none hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500':
                 canReschedule,
