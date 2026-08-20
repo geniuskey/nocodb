@@ -11,6 +11,11 @@ const formatData = (list: Record<string, any>[]) =>
     rowMeta: {},
   }))
 
+export interface ViewDataRange {
+  rows: Row[]
+  pageInfo?: PaginatedType
+}
+
 export function useViewData(
   _meta: Ref<TableType | undefined> | ComputedRef<TableType | undefined>,
   viewMeta: Ref<ViewType | undefined> | ComputedRef<(ViewType & { id: string }) | undefined>,
@@ -230,6 +235,56 @@ export function useViewData(
 
   const controller = ref()
 
+  async function requestData(params: Parameters<Api<any>['dbViewRow']['list']>[4] = {}, requestParams: Record<string, any> = {}) {
+    return !isPublic.value
+      ? await api.dbViewRow.list(
+          'noco',
+          base.value.id!,
+          metaId.value!,
+          viewMeta.value!.id!,
+          {
+            ...queryParams.value,
+            ...params,
+            ...(isUIAllowed('sortSync') ? {} : { sortArrJson: stringifyFilterOrSortArr(sorts.value) }),
+            ...(isUIAllowed('filterSync') ? {} : { filterArrJson: stringifyFilterOrSortArr(nestedFilters.value) }),
+            where: where?.value,
+            ...(excludePageInfo.value ? { excludeCount: 'true' } : {}),
+            include_row_color: true,
+          } as any,
+          requestParams,
+        )
+      : await fetchSharedViewData({
+          ...queryParams.value,
+          ...params,
+          sortsArr: sorts.value,
+          filtersArr: nestedFilters.value,
+          where: where?.value,
+        })
+  }
+
+  function applyDataRange(range: ViewDataRange) {
+    formattedData.value = range.rows
+    paginationData.value = range.pageInfo || paginationData.value || {}
+
+    totalRowsWithSearchQuery.value = paginationData.value.totalRows ?? 0
+
+    if (isPublic.value) {
+      sharedPaginationData.value = paginationData.value
+    }
+
+    excludePageInfo.value = !range.pageInfo
+  }
+
+  async function fetchDataRange(params: Parameters<Api<any>['dbViewRow']['list']>[4] = {}): Promise<ViewDataRange | undefined> {
+    if ((!base?.value?.id || !metaId.value || !viewMeta.value?.id) && !isPublic.value) return
+
+    const response = await requestData(params)
+    return {
+      rows: formatData(response.list),
+      pageInfo: response.pageInfo,
+    }
+  }
+
   async function loadData(params: Parameters<Api<any>['dbViewRow']['list']>[4] = {}, shouldShowLoading = true) {
     if ((!base?.value?.id || !metaId.value || !viewMeta.value?.id) && !isPublic.value) return
 
@@ -245,26 +300,9 @@ export function useViewData(
     let response
 
     try {
-      response = !isPublic.value
-        ? await api.dbViewRow.list(
-            'noco',
-            base.value.id!,
-            metaId.value!,
-            viewMeta.value!.id!,
-            {
-              ...queryParams.value,
-              ...params,
-              ...(isUIAllowed('sortSync') ? {} : { sortArrJson: stringifyFilterOrSortArr(sorts.value) }),
-              ...(isUIAllowed('filterSync') ? {} : { filterArrJson: stringifyFilterOrSortArr(nestedFilters.value) }),
-              where: where?.value,
-              ...(excludePageInfo.value ? { excludeCount: 'true' } : {}),
-              include_row_color: true,
-            } as any,
-            {
-              cancelToken: controller.value.token,
-            },
-          )
-        : await fetchSharedViewData({ sortsArr: sorts.value, filtersArr: nestedFilters.value, where: where?.value })
+      response = await requestData(params, {
+        cancelToken: controller.value.token,
+      })
 
       syncViewSearchCount(params)
     } catch (error) {
@@ -285,17 +323,10 @@ export function useViewData(
       console.error(error)
       return message.error(await extractSdkResponseErrorMsg(error))
     }
-    formattedData.value = formatData(response.list)
-    paginationData.value = response.pageInfo || paginationData.value || {}
-
-    totalRowsWithSearchQuery.value = paginationData.value.totalRows ?? 0
-
-    // if public then update sharedPaginationData
-    if (isPublic.value) {
-      sharedPaginationData.value = paginationData.value
-    }
-
-    excludePageInfo.value = !response.pageInfo
+    applyDataRange({
+      rows: formatData(response.list),
+      pageInfo: response.pageInfo,
+    })
     isPaginationLoading.value = false
 
     // to cater the case like when querying with a non-zero offset
@@ -523,6 +554,8 @@ export function useViewData(
     error,
     isLoading,
     loadData,
+    fetchDataRange,
+    applyDataRange,
     paginationData,
     queryParams,
     formattedData,

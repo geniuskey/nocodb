@@ -31,13 +31,16 @@ The frontend provides:
 - optional row accents derived from visible Single Select option colors;
 - ordered, condition-based row color rules stored in List metadata;
 - variable-height, overscanned row virtualization;
+- bounded adjacent-range prefetch over the existing server pagination API;
 - cross-page explicit selection and all-matching, permission-aware bulk deletion;
 - cross-page explicit and all-matching, permission-aware multi-field bulk update;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Server-range loading beyond the existing pagination contract remains a follow-up
-slice. The UI does not advertise controls for that capability yet.
+List keeps the existing explicit page contract while prefetching the immediately
+adjacent server ranges. Page navigation applies a ready range without issuing the
+same request again. The cache retains at most three ranges and uses least-recently-used
+eviction, so browsing a large table does not retain an unbounded record set.
 
 ## Interaction contract
 
@@ -82,8 +85,10 @@ multi-field operation succeeds.
 The renderer virtualizes the loaded page with a fixed height calculated for the
 current viewport, density, and number of visible detail rows. A small overscan
 keeps keyboard navigation smooth while limiting the number of record elements
-mounted in the DOM. Data retrieval remains server-paginated; virtualization
-does not fetch or retain unbounded table data.
+mounted in the DOM. Data retrieval remains server-paginated. The current page
+prefetches only its valid previous and next offset/limit ranges; filter, sort,
+search, page-size, view, reload, and mutation changes invalidate the cache and
+also invalidate in-flight results from the prior generation.
 
 ## Metadata contract
 
@@ -160,7 +165,9 @@ reads and writes remain in the existing data services and database adapters.
 On the frontend, `useSmartsheetStore` identifies List as a normal data view,
 `Smartsheet.vue` selects the fork-owned `smartsheet/List.vue` renderer, and the
 renderer consumes the existing view-column injection and `useViewData`
-query/pagination path. Opening or creating a record delegates to the existing
+query/pagination path. `useViewData` exposes non-mutating range fetch and explicit
+range apply boundaries; `useListRangeCache` owns the List-only bounded LRU and
+does not introduce another query or mutation engine. Opening or creating a record delegates to the existing
 expanded-form implementation, so List does not introduce a parallel mutation
 engine. `useViewRowSelection` contains presentation-independent persistent
 selection, all-matching exclusions, and keyboard behavior, while the List
@@ -178,7 +185,9 @@ to prove the DOM window is bounded, exercises keyboard range selection, explicit
 selection, cross-page exclusions, permission-aware multi-field bulk update,
 virtual focus movement, and server-side bulk deletion. The same workflow runs
 against SQLite, PostgreSQL, and MySQL; each database is also restarted before
-persistence is checked. Unit tests cover presentation-field resolution,
+persistence is checked. It observes the adjacent offset request, verifies that
+page navigation consumes the prefetched response without repeating that range,
+and waits for the opposite adjacent range to become ready. Unit tests cover presentation-field resolution,
 attachment parsing, conditional and select-color resolution, page transitions,
-bulk-update field eligibility, all-matching exclusions, and keyboard boundary
+bounded LRU eviction and stale in-flight range invalidation, bulk-update field eligibility, all-matching exclusions, and keyboard boundary
 behavior independently of the renderer.

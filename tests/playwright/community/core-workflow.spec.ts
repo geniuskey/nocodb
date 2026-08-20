@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Request, test } from '@playwright/test';
 import { ViewTypes } from 'nocodb-sdk';
 import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } from './public-api-contract';
 
@@ -179,18 +179,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect((await deleteRecordResponse).ok()).toBeTruthy();
   await expect(titleCell).toHaveCount(0);
 
-  await grid.locator('.nc-grid-add-new-cell').click();
-  const persistenceCell = grid.getByTestId('cell-Title-0');
-  await expect(persistenceCell).toBeVisible();
-  await persistenceCell.dblclick();
-  await persistenceCell.locator('input').fill('Persists across restart');
-
-  const persistenceResponse = page.waitForResponse(
-    response => isDataRequest(response.url()) && ['POST', 'PATCH'].includes(response.request().method())
-  );
-  await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
-  expect((await persistenceResponse).ok()).toBeTruthy();
-  await expect(persistenceCell).toContainText('Persists across restart');
+  const persistenceResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Persists across restart', Status: 'Ready' },
+  });
+  expect(persistenceResponse.ok(), await persistenceResponse.text()).toBeTruthy();
   await expect
     .poll(
       async () => {
@@ -227,6 +220,14 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     expect.arrayContaining([expect.objectContaining({ Title: 'Persists across restart' })])
   );
 
+  const listRangeRequestUrls: string[] = [];
+  const trackListRangeRequest = (request: Request) => {
+    if (request.method() !== 'GET') return;
+    const requestUrl = new URL(request.url());
+    if (requestUrl.searchParams.get('offset') === '25') listRangeRequestUrls.push(request.url());
+  };
+  page.on('request', trackListRangeRequest);
+
   await page.locator('.nc-create-view-btn').click();
   await page.getByTestId('sidebar-view-create-list').click();
 
@@ -253,6 +254,10 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(listView).toBeVisible({ timeout: 30_000 });
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-add-record')).toBeVisible();
+  await expect(listView).toHaveAttribute('data-prefetched-range-pages', '2');
+  const pageTwoRangePath = `/views/${createdUiList.id}`;
+  const pageTwoRangeRequestCount = () => listRangeRequestUrls.filter(url => url.includes(pageTwoRangePath)).length;
+  expect(pageTwoRangeRequestCount()).toBeGreaterThan(0);
 
   await page.getByTestId('nc-list-settings-button').click();
   const listSettings = page.getByTestId('nc-list-settings');
@@ -421,6 +426,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const secondPageFirstRow = listView.getByTestId('nc-list-row-0');
   await expect(secondPageFirstRow).toBeVisible();
   await expect(secondPageFirstRow).toHaveAttribute('aria-selected', 'true');
+  const prefetchedPageTwoRequestCount = pageTwoRangeRequestCount();
+  await expect(listView).toHaveAttribute('data-prefetched-range-pages', '1,2');
+  expect(pageTwoRangeRequestCount()).toBe(prefetchedPageTwoRequestCount);
   await secondPageFirstRow.getByRole('checkbox').click();
   await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 27 matching records selected');
   await secondPageFirstRow.getByRole('checkbox').click();
@@ -479,6 +487,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-delete-selected')).toHaveCount(0);
+  page.off('request', trackListRangeRequest);
 
   const cleanupListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
     headers: sessionHeaders,

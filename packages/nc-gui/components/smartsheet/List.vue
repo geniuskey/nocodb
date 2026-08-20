@@ -27,7 +27,8 @@ const { metas } = useMetas()
 const { getBaseType } = useBase()
 const { isUIAllowed } = useRoles()
 const { isViewDataLoading } = storeToRefs(useViewsStore())
-const { xWhere, allFilters, validFiltersFromUrlParams, eventBus, isSyncedTable } = useSmartsheetStoreOrThrow()
+const { xWhere, allFilters, validFiltersFromUrlParams, eventBus, isSyncedTable, sorts, nestedFilters } =
+  useSmartsheetStoreOrThrow()
 
 const router = useRouter()
 const route = router.currentRoute
@@ -43,6 +44,8 @@ const {
   formattedData,
   paginationData,
   loadData,
+  fetchDataRange,
+  applyDataRange,
   changePage,
   deleteRowsByPk,
   deleteAllMatchingRows,
@@ -52,6 +55,30 @@ const {
   isFirstRow,
   islastRow,
 } = useViewData(meta, view, xWhere)
+
+const {
+  readyPages: prefetchedRangePages,
+  invalidate: invalidateRangeCache,
+  prefetchAdjacent: prefetchAdjacentRanges,
+  applyPrefetchedPage,
+} = useListRangeCache({
+  fetchRange: fetchDataRange,
+  applyRange: applyDataRange,
+})
+
+const rangeQueryKey = computed(() =>
+  JSON.stringify([
+    view.value?.id,
+    xWhere.value,
+    paginationData.value.pageSize,
+    stringifyFilterOrSortArr(sorts.value),
+    stringifyFilterOrSortArr(nestedFilters.value),
+  ]),
+)
+
+const queueAdjacentRangePrefetch = () => {
+  prefetchAdjacentRanges(paginationData.value).catch(() => undefined)
+}
 
 const listConfig = computed<Partial<ListType>>(() => (view.value?.view as ListType) || {})
 
@@ -136,6 +163,15 @@ const {
   itemHeight: () => listItemHeight.value,
   overscan: 5,
 })
+
+const changeListPage = async (page: number) => {
+  const pageSize = paginationData.value.pageSize ?? 25
+
+  if (!applyPrefetchedPage(page, pageSize)) await changePage(page)
+
+  scrollTo(0)
+  queueAdjacentRangePrefetch()
+}
 
 const rowElements = new Map<number, HTMLElement>()
 
@@ -267,6 +303,8 @@ const bulkUpdateSelection = async ({ updates }: { updates: Array<{ field: Column
 
     if (!updated) return
 
+    invalidateRangeCache()
+    queueAdjacentRangePrefetch()
     clearSelection()
     bulkUpdateVisible.value = false
   } finally {
@@ -294,6 +332,8 @@ const deleteSelection = () => {
 
         if (!deleted) return
 
+        invalidateRangeCache()
+        queueAdjacentRangePrefetch()
         clearSelection()
         closeDialog()
       } finally {
@@ -325,8 +365,10 @@ const openNewRecord = () => {
 const recordKey = (record: RowType, index: number) => rowPrimaryKey(record) ?? `list-row-${index}`
 
 const reloadData = async () => {
+  invalidateRangeCache()
   clearSelection()
   await loadData()
+  queueAdjacentRangePrefetch()
 }
 
 const smartsheetEventHandler = (event: SmartsheetStoreEvents) => {
@@ -336,6 +378,8 @@ const smartsheetEventHandler = (event: SmartsheetStoreEvents) => {
 openNewRecordFormHook.on(openNewRecord)
 reloadViewDataHook.on(reloadData)
 eventBus.on(smartsheetEventHandler)
+
+watch(rangeQueryKey, invalidateRangeCache)
 
 watch(
   () => view.value?.id,
@@ -353,6 +397,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  invalidateRangeCache()
   openNewRecordFormHook.off(openNewRecord)
   reloadViewDataHook.off(reloadData)
   eventBus.off(smartsheetEventHandler)
@@ -360,7 +405,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div data-testid="nc-list-wrapper" class="flex h-full min-h-0 w-full flex-col bg-nc-bg-gray-extralight">
+  <div
+    data-testid="nc-list-wrapper"
+    :data-prefetched-range-pages="prefetchedRangePages.join(',')"
+    class="flex h-full min-h-0 w-full flex-col bg-nc-bg-gray-extralight"
+  >
     <div
       v-if="formattedData.length"
       data-testid="nc-list-selection-toolbar"
@@ -563,7 +612,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <SmartsheetPagination v-model:pagination-data="paginationData" :change-page="changePage" show-size-changer>
+    <SmartsheetPagination v-model:pagination-data="paginationData" :change-page="changeListPage" show-size-changer>
       <template #add-record>
         <PermissionsTooltip
           v-if="isUIAllowed('dataInsert') && !isSyncedTable"
