@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectPublicApiContract } from './public-api-contract';
 
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
@@ -48,7 +49,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await page.getByTestId('docs-create-proj-dlg-create-btn').click();
   const createdBase = await baseResponse;
   expect(createdBase.ok()).toBeTruthy();
-  expect((await createdBase.json()).title).toBe('Community Acceptance');
+  const createdBaseBody = await createdBase.json();
+  expect(createdBaseBody.title).toBe('Community Acceptance');
+  expect(createdBaseBody.id).toEqual(expect.any(String));
 
   await expect(page.getByTestId('proj-view-btn__add-new-table')).toBeVisible();
   await page.getByTestId('proj-view-btn__add-new-table').click();
@@ -65,7 +68,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await page.getByRole('dialog').getByRole('button', { name: 'Create Table', exact: true }).click();
   const createdTable = await tableResponse;
   expect(createdTable.ok()).toBeTruthy();
-  expect((await createdTable.json()).title).toBe('Tasks');
+  const createdTableBody = await createdTable.json();
+  expect(createdTableBody.title).toBe('Tasks');
+  expect(createdTableBody.id).toEqual(expect.any(String));
+
+  await expectPublicApiContract(page, createdBaseBody.id, createdTableBody.id);
 
   const grid = page.getByTestId('nc-grid-wrapper');
   await expect(grid).toBeVisible();
