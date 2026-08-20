@@ -126,8 +126,9 @@ and the production-image browser workflow covers the rendered interactions on
 SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration, density
 and label controls, and attachment-image presentation are implemented. Ordered
 conditional row colors and Single Select fallback colors are implemented as
-List-only metadata without using the shared gated row-color subsystem. Grouped
-color conditions and server-range loading remain.
+List-only metadata without using the shared gated row-color subsystem. Color
+rules support bounded AND/OR condition groups with safe legacy parsing.
+Server-range loading remains.
 
 ## Phase 3 — Timeline
 

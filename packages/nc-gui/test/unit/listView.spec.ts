@@ -107,6 +107,12 @@ describe('List view presentation', () => {
     })
 
     expect(rules).toHaveLength(2)
+    expect(rules[0]).toEqual(
+      expect.objectContaining({
+        logical_op: 'and',
+        conditions: [expect.objectContaining({ fk_column_id: 'status', comparison_op: 'eq', value: 'Blocked' })],
+      }),
+    )
     expect(resolveListConditionalRowColor({ Status: 'Blocked', Notes: 'urgent' }, fields, rules, { client: 'pg' })).toBe(
       '#dc2626',
     )
@@ -114,6 +120,54 @@ describe('List view presentation', () => {
       '#d97706',
     )
     expect(resolveListConditionalRowColor({ Status: 'Ready', Notes: 'routine' }, fields, rules, { client: 'pg' })).toBeUndefined()
+  })
+
+  it('evaluates all/any condition groups without broadening stale rules', () => {
+    const rules = parseListColorRules({
+      list_color_rules: [
+        {
+          id: 'ready-and-urgent',
+          color: '#4f46e5',
+          logical_op: 'and',
+          conditions: [
+            { id: 'ready', fk_column_id: 'status', comparison_op: 'eq', value: 'Ready' },
+            { id: 'urgent', fk_column_id: 'notes', comparison_op: 'like', value: 'urgent' },
+          ],
+        },
+        {
+          id: 'blocked-or-urgent',
+          color: '#dc2626',
+          logical_op: 'or',
+          conditions: [
+            { id: 'blocked', fk_column_id: 'status', comparison_op: 'eq', value: 'Blocked' },
+            { id: 'urgent-2', fk_column_id: 'notes', comparison_op: 'like', value: 'urgent' },
+          ],
+        },
+      ],
+    })
+
+    expect(resolveListConditionalRowColor({ Status: 'Ready', Notes: 'urgent request' }, fields, rules, { client: 'pg' })).toBe(
+      '#4f46e5',
+    )
+    expect(resolveListConditionalRowColor({ Status: 'Ready', Notes: 'routine' }, fields, rules, { client: 'pg' })).toBeUndefined()
+    expect(resolveListConditionalRowColor({ Status: 'Blocked', Notes: 'routine' }, fields, rules, { client: 'pg' })).toBe(
+      '#dc2626',
+    )
+
+    const stale = parseListColorRules({
+      list_color_rules: [
+        {
+          id: 'stale-group',
+          color: '#2563eb',
+          logical_op: 'or',
+          conditions: [
+            { id: 'ready', fk_column_id: 'status', comparison_op: 'eq', value: 'Ready' },
+            { id: 'missing', fk_column_id: 'missing', comparison_op: 'eq', value: 'anything' },
+          ],
+        },
+      ],
+    })
+    expect(resolveListConditionalRowColor({ Status: 'Ready' }, fields, stale, { client: 'pg' })).toBeUndefined()
   })
 
   it('ignores malformed, stale, and unsupported List color rules', () => {
@@ -127,6 +181,17 @@ describe('List view presentation', () => {
 
     expect(rules.map((rule) => rule.id)).toEqual(['stale', 'image'])
     expect(resolveListConditionalRowColor({ Status: 'Ready' }, fields, rules, { client: 'pg' })).toBeUndefined()
+    expect(
+      parseListColorRules({
+        list_color_rules: [
+          {
+            id: 'malformed-group',
+            color: '#2563eb',
+            conditions: [{ id: 'missing-operator', fk_column_id: 'status' }],
+          },
+        ],
+      }),
+    ).toEqual([])
     expect(isListColorRuleColumn(fields[1])).toBe(true)
     expect(isListColorRuleColumn(fields[3])).toBe(false)
   })

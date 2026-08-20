@@ -191,6 +191,20 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
   expect((await persistenceResponse).ok()).toBeTruthy();
   await expect(persistenceCell).toContainText('Persists across restart');
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=10`, {
+          headers: sessionHeaders,
+        });
+        if (!response.ok()) return false;
+
+        const body = (await response.json()) as { list?: Array<{ Title?: string }> };
+        return body.list?.some(record => record.Title === 'Persists across restart') ?? false;
+      },
+      { timeout: 15_000 }
+    )
+    .toBe(true);
 
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 
@@ -298,19 +312,55 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     .locator('.ant-select-dropdown:visible .ant-select-item-option-content')
     .getByText('Ready', { exact: true })
     .click();
-  const colorRuleValueUpdate = await colorRuleValueResponse;
-  expect(colorRuleValueUpdate.ok()).toBeTruthy();
-  const colorRuleUpdateBody = await colorRuleValueUpdate.json();
+  expect((await colorRuleValueResponse).ok()).toBeTruthy();
+
+  const addColorConditionResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-add-condition-0').click();
+  expect((await addColorConditionResponse).ok()).toBeTruthy();
+
+  const colorConditionOperatorResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-operator-0-1').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('is like', { exact: true }).click();
+  expect((await colorConditionOperatorResponse).ok()).toBeTruthy();
+
+  const colorConditionValueResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-value-0-1').locator('input').fill('Virtualized task');
+  expect((await colorConditionValueResponse).ok()).toBeTruthy();
+
+  const colorLogicalOperatorResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/lists/${createdUiList.id}`) && response.request().method() === 'PATCH'
+  );
+  await colorRule.getByTestId('nc-list-color-rule-logical-0').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Match any', { exact: true }).click();
+  const colorLogicalOperatorUpdate = await colorLogicalOperatorResponse;
+  expect(colorLogicalOperatorUpdate.ok()).toBeTruthy();
+  const colorRuleUpdateBody = await colorLogicalOperatorUpdate.json();
   const savedConditionalColorMeta =
     typeof colorRuleUpdateBody.view.meta === 'string'
       ? JSON.parse(colorRuleUpdateBody.view.meta)
       : colorRuleUpdateBody.view.meta;
   expect(savedConditionalColorMeta.list_color_rules).toEqual([
     expect.objectContaining({
-      fk_column_id: expect.any(String),
-      comparison_op: 'eq',
-      value: 'Ready',
       color: '#4F46E5',
+      logical_op: 'or',
+      conditions: [
+        expect.objectContaining({
+          fk_column_id: expect.any(String),
+          comparison_op: 'eq',
+          value: 'Ready',
+        }),
+        expect.objectContaining({
+          fk_column_id: expect.any(String),
+          comparison_op: 'like',
+          value: 'Virtualized task',
+        }),
+      ],
     }),
   ]);
 
