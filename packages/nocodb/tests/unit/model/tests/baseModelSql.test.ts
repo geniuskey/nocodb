@@ -12,7 +12,6 @@ import type Model from '~/models/Model';
 import type LinkToAnotherRecordColumn from '~/models/LinkToAnotherRecordColumn';
 import { BaseModelSqlv2 } from '~/db/BaseModelSqlv2';
 import Filter from '~/models/Filter';
-import Audit from '~/models/Audit';
 import Source from '~/models/Source';
 import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 
@@ -244,6 +243,7 @@ function baseModelSqlTests() {
             value: 5,
           }),
         ],
+        skipPks: '2',
       },
       { Title: 'new-1' },
       { cookie: request },
@@ -252,7 +252,8 @@ function baseModelSqlTests() {
     const updatedRows = await baseModelSql.list();
 
     updatedRows.forEach((row) => {
-      if (row.id < 5) expect(row['Title']).to.equal('new-1');
+      if (row.Id < 5 && row.Id !== 2) expect(row['Title']).to.equal('new-1');
+      if (row.Id === 2) expect(row['Title']).to.equal('test-1');
     });
     /*    const rowBulkUpdateAudit = (await Audit.baseAuditList(base.id, {})).find(
       (audit) => audit.op_sub_type === 'BULK_UPDATE',

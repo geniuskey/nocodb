@@ -3236,6 +3236,7 @@ class BaseModelSqlv2 implements IBaseModelSqlV2 {
       where?: string;
       filterArr?: Filter[];
       viewId?: string;
+      skipPks?: string;
       skipValidationAndHooks?: boolean;
     } = {},
     data,
@@ -3283,6 +3284,14 @@ class BaseModelSqlv2 implements IBaseModelSqlV2 {
           aliasColObjMap,
           true,
         );
+
+        if (args.skipPks) {
+          qb.where((innerQb) => {
+            for (const pk of args.skipPks.split(',')) {
+              innerQb.andWhereNot(_wherePk(this.model.primaryKeys, pk));
+            }
+          });
+        }
 
         const conditionObj = [
           new Filter({

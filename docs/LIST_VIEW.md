@@ -31,12 +31,13 @@ The frontend provides:
 - optional row accents derived from visible Single Select option colors;
 - variable-height, overscanned row virtualization;
 - cross-page explicit selection and all-matching, permission-aware bulk deletion;
+- cross-page explicit and all-matching, permission-aware single-field bulk update;
 - keyboard navigation and range selection; and
 - production-image browser coverage on SQLite, PostgreSQL, and MySQL.
 
-Condition-based row coloring, bulk update, and server-range loading beyond the
-existing pagination contract remain follow-up slices. The UI does not advertise
-controls for those capabilities yet.
+Condition-based row coloring, multi-field bulk update, and server-range loading
+beyond the existing pagination contract remain follow-up slices. The UI does not
+advertise controls for those capabilities yet.
 
 ## Interaction contract
 
@@ -64,6 +65,17 @@ endpoint. All-matching selection uses the existing server-side bulk-delete-all
 endpoint with the active view, search expression, and excluded primary keys; it
 does not load every matching row into the browser. Both paths require the shared
 destructive-action confirmation dialog.
+
+The bulk-update action is displayed only when the current user has data-edit
+permission and at least one field grants `RECORD_FIELD_EDIT`. It applies one
+value to one field per operation. Primary keys, unique, auto-increment,
+read-only, system, virtual, attachment, foreign-key, and database-specific
+fields are intentionally excluded. Explicit selection uses the Community bulk
+record update endpoint. All-matching selection uses the Community conditional
+bulk-update endpoint with the active view, search expression, and excluded
+primary keys. The backend applies those exclusions to the same query used for
+counting, audit, and mutation, and hooks receive the resulting count. Selection
+clears only after a successful response.
 
 The renderer virtualizes the loaded page with a fixed height calculated for the
 current viewport, density, and number of visible detail rows. A small overscan
@@ -142,10 +154,10 @@ through the rendered UI, and verifies a persisted record appears in that List.
 It also saves Appearance settings, applies Single Select option colors, verifies
 the resulting layout, creates enough records to prove the DOM window is
 bounded, exercises keyboard range selection, explicit deletion, all-matching
-selection, cross-page exclusions, virtual focus movement, and server-side bulk
-deletion. The same workflow runs against SQLite, PostgreSQL, and MySQL; each
-database is also
-restarted before persistence is checked. Unit tests cover presentation-field
-resolution, attachment parsing, select-color resolution, page transitions,
-all-matching exclusions, and keyboard boundary behavior independently of the
-renderer.
+selection, cross-page exclusions, permission-aware single-field bulk update,
+virtual focus movement, and server-side bulk deletion. The same workflow runs
+against SQLite, PostgreSQL, and MySQL; each database is also restarted before
+persistence is checked. Unit tests cover presentation-field resolution,
+attachment parsing, select-color resolution, page transitions, bulk-update
+field eligibility, all-matching exclusions, and keyboard boundary behavior
+independently of the renderer.
