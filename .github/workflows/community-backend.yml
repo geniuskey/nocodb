@@ -17,6 +17,7 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/test-community-image.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
@@ -40,6 +41,7 @@ on:
       - "packages/noco-integrations/pnpm-lock.yaml"
       - "packages/noco-integrations/pnpm-workspace.yaml"
       - "scripts/check-community-boundaries.mjs"
+      - "scripts/test-community-image.mjs"
       - "scripts/check-vendored-assets.mjs"
       - "scripts/stage-community-gui.mjs"
       - "scripts/stage-community-gui.test.mjs"
@@ -87,30 +89,12 @@ jobs:
         run: docker buildx build --platform linux/arm64 --target litestream-fetcher -f packages/nocodb/Dockerfile .
       - name: Install Chromium for Community acceptance
         run: pnpm --filter playwright exec playwright install --with-deps chromium
-      - name: Browser-test Community image
-        shell: bash
-        run: |
-          docker run --detach --name nocodb-community-smoke --publish 18080:8080 nocodb-community:test
-          cleanup() {
-            status=$?
-            if [ "$status" -ne 0 ]; then
-              docker logs nocodb-community-smoke
-            fi
-            docker rm --force nocodb-community-smoke >/dev/null 2>&1 || true
-            exit "$status"
-          }
-          trap cleanup EXIT
-          for attempt in {1..40}; do
-            if curl --fail --silent http://127.0.0.1:18080/api/v1/health >/dev/null; then
-              curl --fail --silent http://127.0.0.1:18080/dashboard/ >/dev/null
-              break
-            fi
-            if [ "$attempt" -eq 40 ]; then
-              exit 1
-            fi
-            sleep 1
-          done
-          pnpm --filter playwright run ci:test:community
+      - name: Browser-test Community image with SQLite
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:image -- sqlite
+      - name: Browser-test Community image with PostgreSQL
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:image -- postgres
+      - name: Browser-test Community image with MySQL
+        run: COMMUNITY_IMAGE=nocodb-community:test pnpm run test:community:image -- mysql
       - name: Build Community integration interfaces
         run: pnpm run integrations:build:core
       - name: Test Community integration contracts

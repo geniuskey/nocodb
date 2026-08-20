@@ -131,6 +131,7 @@ const defaultScriptChecks = [
       "build:community",
       "docker:build:community",
       "integrations:build:core",
+      "test:community:image",
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { OnDeleteAction } from 'nocodb-sdk';
 import type { Knex } from 'knex';
 import { BaseVersion, MetaTable } from '~/utils/globals';
+import { createOAuthTokenValueIndexes } from '~/meta/migrations/oauthTokenIndexes';
 
 const up = async (knex: Knex) => {
   // We avoid init for existing instances
@@ -1486,8 +1487,6 @@ const up = async (knex: Knex) => {
     // Indexes for performance
     table.index('fk_client_id', 'nc_oauth_tokens_fk_client_id_index');
     table.index('fk_user_id', 'nc_oauth_tokens_fk_user_id_index');
-    table.index('access_token', 'nc_oauth_tokens_access_token_index');
-    table.index('refresh_token', 'nc_oauth_tokens_refresh_token_index');
     table.index(
       'access_token_expires_at',
       'nc_oauth_tokens_access_token_expires_at_index',
@@ -1501,6 +1500,7 @@ const up = async (knex: Knex) => {
     table.index(['fk_client_id', 'fk_user_id']);
     table.index(['is_revoked', 'access_token_expires_at']);
   });
+  await createOAuthTokenValueIndexes(knex);
 
   await knex.schema.alterTable(MetaTable.PLANS, (table) => {
     table.index('stripe_product_id', 'nc_plans_stripe_product_idx');
