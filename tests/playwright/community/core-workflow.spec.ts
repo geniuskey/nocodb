@@ -191,6 +191,20 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await grid.locator('[data-title="Title"] span[data-test-id="Title"]').click();
   expect((await persistenceResponse).ok()).toBeTruthy();
   await expect(persistenceCell).toContainText('Persists across restart');
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=10`, {
+          headers: sessionHeaders,
+        });
+        if (!response.ok()) return false;
+
+        const body = (await response.json()) as { list?: Array<{ Title?: string }> };
+        return body.list?.some(record => record.Title === 'Persists across restart') ?? false;
+      },
+      { timeout: 15_000 }
+    )
+    .toBe(true);
 
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 
