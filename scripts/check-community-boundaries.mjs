@@ -51,7 +51,40 @@ const configurationChecks = [
   },
   {
     path: "packages/nocodb/package.json",
+    required: [
+      '"knex-databricks": "workspace:*"',
+      '"knex-snowflake": "workspace:*"',
+    ],
     forbidden: ['"nc-lib-gui"'],
+  },
+  {
+    path: "packages/nocodb/Dockerfile.local",
+    required: [
+      "node:22.12.0-alpine@sha256:51eff88af6dff26f59316b6e356188ffa2c422bd3c3b76f2556a2e7e89d080bd",
+      "npm pkg delete scripts.preinstall scripts.prepare",
+      "pnpm --filter nocodb deploy --prod --frozen-lockfile",
+      "node_modules/nocodb-sdk/build/main/index.js",
+      "node_modules/knex-snowflake/src/index.js",
+      "node_modules/knex-databricks/src/index.js",
+    ],
+    forbidden: ["pnpm uninstall nocodb-sdk", "pnpm install --prod"],
+  },
+  {
+    path: ".dockerignore",
+    required: [
+      "!pnpm-lock.yaml",
+      "!packages/nocodb-sdk/build/**",
+      "!packages/nocodb/docker/nc-gui/**",
+    ],
+  },
+  {
+    path: "build-local-docker-image.sh",
+    required: [
+      "pnpm install --frozen-lockfile",
+      "pnpm run build:community",
+      "packages/nocodb/Dockerfile.local",
+    ],
+    forbidden: ["rsync", "packages/nc-lib-gui"],
   },
   {
     path: "packages/nocodb/src/middlewares/gui/gui.middleware.ts",
@@ -85,6 +118,7 @@ const defaultScriptChecks = [
       "bootstrap",
       "bootstrap:ce",
       "build:community",
+      "docker:build:community",
       "integrations:build:core",
     ],
   },

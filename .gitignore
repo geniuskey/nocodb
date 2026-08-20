@@ -10,6 +10,7 @@ Thumbs.db
 .nodemonignore
 .sass-cache/
 node_modules/
+.pnpm-store/
 help/
 a
 public/lib/

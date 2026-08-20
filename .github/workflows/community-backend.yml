@@ -7,6 +7,8 @@ on:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
       - "packages/nc-gui/**"
+      - ".dockerignore"
+      - "build-local-docker-image.sh"
       - "packages/noco-integrations/core/**"
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
@@ -25,6 +27,8 @@ on:
       - "packages/nocodb/**"
       - "packages/nocodb-sdk/**"
       - "packages/nc-gui/**"
+      - ".dockerignore"
+      - "build-local-docker-image.sh"
       - "packages/noco-integrations/core/**"
       - "packages/noco-integrations/package.json"
       - "packages/noco-integrations/pnpm-lock.yaml"
@@ -65,6 +69,22 @@ jobs:
         run: pnpm run test:community-gui-stage
       - name: Build assembled Community application
         run: pnpm run build:community
+      - name: Build reproducible Community image
+        run: docker build -f packages/nocodb/Dockerfile.local -t nocodb-community:test .
+      - name: Smoke-test Community image
+        shell: bash
+        run: |
+          docker run --detach --name nocodb-community-smoke --publish 18080:8080 nocodb-community:test
+          trap 'docker rm --force nocodb-community-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:18080/api/v1/health >/dev/null; then
+              curl --fail --silent http://127.0.0.1:18080/dashboard/ >/dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs nocodb-community-smoke
+          exit 1
       - name: Build Community integration interfaces
         run: pnpm run integrations:build:core
       - name: Test Community integration contracts

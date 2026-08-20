@@ -163,22 +163,35 @@ The full browser suite owns test data and is best run against dedicated services
 
 ## Docker build
 
-Docker packaging needs the backend bundle and static GUI in the backend Docker context.
+Build the complete Community application and local image with the same
+cross-platform command used by CI:
 
-Build and stage the artifacts with the same cross-platform command used by CI:
+```sh
+pnpm run docker:build:community
+```
+
+The equivalent two commands are:
 
 ```sh
 pnpm run build:community
+docker build -f packages/nocodb/Dockerfile.local -t nocodb-agpl-baseline:dev .
 ```
 
-```sh
-docker build -f packages/nocodb/Dockerfile.local -t nocodb-agpl-baseline:dev packages/nocodb
-```
+The final `.` is required: the repository root is the Docker context because
+the image installation is derived from the root workspace lockfile.
 
 No shell-specific copy command is required. The ignored
 `packages/nocodb/docker/nc-gui` directory is replaced from Nuxt output during
 `build:community`; the image never depends on the precompiled `nc-lib-gui` npm
 package.
+
+The Docker builder pins Node.js `22.12.0` by image digest and pnpm `9.15.5`,
+then uses `pnpm deploy --prod --frozen-lockfile` to create a portable runtime.
+The local SDK, Snowflake dialect, and Databricks dialect are declared as
+workspace dependencies and copied into that runtime instead of becoming
+host-relative links. Native dependencies are built against the Node headers in
+the pinned base image; the build fails if SQLite, Sharp, or any of those three
+workspace packages is missing.
 
 Run the image:
 
@@ -186,9 +199,9 @@ Run the image:
 docker run --rm -p 8080:8080 -v nocodb-data:/usr/app/data nocodb-agpl-baseline:dev
 ```
 
-`packages/nocodb/build-local-docker-image.sh` is not the reproducible default because it removes local containers and images. Its packaging command is now Community-only, but the explicit commands above remain safer for routine development.
-
-The baseline `Dockerfile.local` still warns that the Snowflake and Databricks workspace paths are outside its package-only build context. The smoke test above validates the default SQLite path; external database dialect images need a separate, Community-only packaging audit before release.
+`build-local-docker-image.sh` delegates to the same frozen Community pipeline,
+but it first removes a local container and image named `nocodb-local`. The
+explicit commands above remain safer for routine development.
 
 ## Nix build
 
@@ -249,7 +262,8 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Cross-platform Community assembly command: passed; the production bundle served the generated dashboard and its hashed CSS without `nc-lib-gui` installed.
 - Nix dependency fixed-output derivation and complete flake build: passed from a Windows-hosted Linux Nix builder.
 - Nix runtime: health endpoint, dashboard, generated GUI CSS, and server-owned Swagger bundle returned HTTP 200.
-- Local Docker image build and container health check: passed.
+- Frozen-lockfile Docker image build and native-module load checks: passed; the final image was approximately 290 MB.
+- Docker container signup, base creation, table creation, and record create/read/update/delete against SQLite: passed.
 - Docker-staged dashboard and generated GUI CSS returned HTTP 200.
 - Docker-assembled ReDoc/Swagger bundles and their restored notice/license files: returned HTTP 200; the removed Vue 3 duplicate returned HTTP 404.
 
@@ -282,6 +296,10 @@ The unchanged tree was attempted before fixes. These were the observed failures 
 | Second Docker container start                  | Builder used Node 22 while Alpine 3.20 installed Node 20 in the runner, causing `ERR_REQUIRE_ESM`               | Pin both image stages to the repository's Node.js 22.12.0 and align pnpm to 9.15.5.                                                                                                          |
 | First pinned-Node Docker rebuild               | Node 22.12.0's bundled Corepack did not recognize pnpm's newer signing key                                      | Install the pinned pnpm 9.15.5 with the image's npm instead of changing Node or pnpm versions.                                                                                               |
 | Third Docker container start                   | The unpinned `pnpm dlx modclean` step deleted a runtime `lru-cache` module file                                 | Remove the optional size-cleaning step and preserve production dependency contents.                                                                                                          |
+| Package-only Docker dependency install         | No lockfile was present and the SDK/Snowflake/Databricks workspace links pointed outside the build context      | Build from the repository root and deploy the `nocodb` production closure from the frozen workspace lockfile.                                                                                |
+| First workspace deploy audit                   | `link:` dialect dependencies were omitted from the portable deploy tree                                         | Declare both local dialects with the pnpm `workspace:*` protocol; resolved versions remain unchanged.                                                                                        |
+| First portable image runtime check             | `--ignore-scripts` left the SQLite native binding absent                                                        | Remove only developer-worktree hooks from the copied manifest, run dependency lifecycle scripts in the Linux builder, and require-load SQLite and Sharp during the image build.              |
+| First native LZ4 build                         | `node-gyp` downloaded Node headers during the image build                                                       | Point `npm_config_nodedir` at the headers already present in the pinned Node base image.                                                                                                     |
 | Initial Nix dependency build                   | The package-manager launcher could not find Node and would otherwise download pnpm dynamically                  | Package the exact pnpm 9.15.5 tarball and wrap it with the pinned Node.js 22.12.0 runtime.                                                                                                   |
 | First full Nix build from the Windows worktree | Bash parsed carriage returns from `nix/package.nix` as commands                                                 | Normalize the expression and enforce LF for `*.nix` in `.gitattributes`.                                                                                                                     |
 | SDK generation in the Nix sandbox              | `pnpm dlx swagger-typescript-api@10.0.3` attempted a network fetch                                              | Declare the exact generator as an SDK development dependency and invoke it with `pnpm exec`.                                                                                                 |
