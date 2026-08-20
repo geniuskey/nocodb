@@ -167,6 +167,7 @@ const defaultScriptChecks = [
       "test",
       "ci:test",
       "ci:test:community",
+      "ci:test:community:restart",
       "ci:test:mysql",
       "ci:test:pg",
     ],
