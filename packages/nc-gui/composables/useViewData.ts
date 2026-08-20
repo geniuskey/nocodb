@@ -335,6 +335,7 @@ export function useViewData(
     bulkUpdateView,
     selectedAllRecords,
     removeRowIfNew,
+    bulkDeleteRows,
   } = useData({
     meta,
     viewMeta,
@@ -347,6 +348,35 @@ export function useViewData(
       syncPagination,
     },
   })
+
+  async function deleteRowsByPk(rows: Record<string, string>[]) {
+    if (!rows.length) return false
+
+    const deletedRows = await bulkDeleteRows(rows)
+    if (!deletedRows) return false
+
+    await syncCount()
+    await syncPagination()
+    return true
+  }
+
+  async function deleteAllMatchingRows(skipPks: string[] = []) {
+    if (!base.value?.id || !meta.value?.id || !viewMeta.value?.id) return false
+
+    try {
+      await $api.dbTableRow.bulkDeleteAll(NOCO, base.value.id, meta.value.id, {
+        where: where?.value,
+        viewId: viewMeta.value.id,
+        skipPks: skipPks.join(','),
+      })
+      await syncCount()
+      await syncPagination()
+      return true
+    } catch (error: any) {
+      message.error(await extractSdkResponseErrorMsg(error))
+      return false
+    }
+  }
 
   async function loadFormView() {
     if (!viewMeta?.value?.id) return
@@ -468,6 +498,8 @@ export function useViewData(
     deleteRow,
     deleteRowById,
     deleteSelectedRows,
+    deleteRowsByPk,
+    deleteAllMatchingRows,
     deleteRangeOfRows,
     updateOrSaveRow,
     bulkUpdateRows,

@@ -21,6 +21,7 @@ const isPublic = inject(IsPublicInj, ref(false))
 
 const { user } = useGlobal()
 const { isUIAllowed } = useRoles()
+const { isViewDataLoading } = storeToRefs(useViewsStore())
 const { xWhere, allFilters, validFiltersFromUrlParams, eventBus, isSyncedTable } = useSmartsheetStoreOrThrow()
 
 const router = useRouter()
@@ -33,8 +34,17 @@ provide(IsCalendarInj, ref(false))
 provide(RowHeightInj, ref(1 as const))
 provide(ReloadRowDataHookInj, reloadViewDataHook)
 
-const { formattedData, paginationData, loadData, changePage, deleteSelectedRows, navigateToSiblingRow, isFirstRow, islastRow } =
-  useViewData(meta, view, xWhere)
+const {
+  formattedData,
+  paginationData,
+  loadData,
+  changePage,
+  deleteRowsByPk,
+  deleteAllMatchingRows,
+  navigateToSiblingRow,
+  isFirstRow,
+  islastRow,
+} = useViewData(meta, view, xWhere)
 
 const listConfig = computed<Partial<ListType>>(() => (view.value?.view as ListType) || {})
 
@@ -131,14 +141,25 @@ const focusRow = async (index: number) => {
   element?.scrollIntoView({ block: 'nearest' })
 }
 
+const totalRows = computed(() => paginationData.value.totalRows ?? formattedData.value.length)
+
+const rowPrimaryKey = (record: RowType) => {
+  const primaryKey = extractPkFromRow(record.row, meta.value?.columns as ColumnType[])
+  return primaryKey === null || primaryKey === undefined ? undefined : String(primaryKey)
+}
+
 const {
   activeIndex,
-  selectedRows,
   selectedCount,
   hasSelection,
   allSelected,
   isIndeterminate,
+  isAllMatchingSelected,
+  canSelectAllMatching,
+  selectedValues,
+  excludedKeys,
   clearSelection,
+  selectAllMatching,
   toggleRow,
   onRowFocus,
   onRowKeydown,
@@ -148,6 +169,9 @@ const {
   setSelected: (row, selected) => {
     row.rowMeta.selected = selected
   },
+  getRowKey: rowPrimaryKey,
+  getSelectionValue: (row) => rowPkData(row.row, meta.value?.columns as ColumnType[]),
+  totalRows,
   focusRow,
 })
 
@@ -202,15 +226,37 @@ const onRowSelectionChange = (event: Event, index: number) => {
 
 const isDeletingSelection = ref(false)
 
-const deleteSelection = async () => {
-  if (!selectedRows.value.length || isDeletingSelection.value) return
+const deleteSelection = () => {
+  if (!hasSelection.value || isDeletingSelection.value) return
 
-  isDeletingSelection.value = true
-  try {
-    await deleteSelectedRows()
-    clearSelection()
-  } finally {
-    isDeletingSelection.value = false
+  const dialogVisible = ref(true)
+  const { close } = useDialog(resolveComponent('DlgRecordDeleteAll'), {
+    'modelValue': dialogVisible,
+    'rows': selectedCount.value,
+    'isSelectedAll': false,
+    'onUpdate:modelValue': closeDialog,
+    'onDeleteAll': async () => {
+      if (isDeletingSelection.value) return
+
+      isDeletingSelection.value = true
+      try {
+        const deleted = isAllMatchingSelected.value
+          ? await deleteAllMatchingRows(excludedKeys.value)
+          : await deleteRowsByPk(selectedValues.value as Record<string, string>[])
+
+        if (!deleted) return
+
+        clearSelection()
+        closeDialog()
+      } finally {
+        isDeletingSelection.value = false
+      }
+    },
+  })
+
+  function closeDialog() {
+    dialogVisible.value = false
+    close(200)
   }
 }
 
@@ -228,10 +274,10 @@ const openNewRecord = () => {
   })
 }
 
-const recordKey = (record: RowType, index: number) =>
-  extractPkFromRow(record.row, meta.value?.columns as ColumnType[]) || `list-row-${index}`
+const recordKey = (record: RowType, index: number) => rowPrimaryKey(record) ?? `list-row-${index}`
 
 const reloadData = async () => {
+  clearSelection()
   await loadData()
 }
 
@@ -246,7 +292,14 @@ eventBus.on(smartsheetEventHandler)
 watch(
   () => view.value?.id,
   async (viewId) => {
-    if (viewId && view.value?.type === ViewTypes.LIST) await reloadData()
+    if (!viewId || view.value?.type !== ViewTypes.LIST) return
+
+    isViewDataLoading.value = true
+    try {
+      await reloadData()
+    } finally {
+      isViewDataLoading.value = false
+    }
   },
   { immediate: true },
 )
@@ -272,9 +325,22 @@ onBeforeUnmount(() => {
         :aria-label="$t('general.selectAll')"
       />
       <span class="text-xs text-nc-content-gray-muted">
-        <template v-if="hasSelection">{{ selectedCount }} {{ $t('general.selected') }}</template>
+        <template v-if="isAllMatchingSelected">
+          {{ $t('labels.allMatchingRecordsSelected', { count: selectedCount }) }}
+        </template>
+        <template v-else-if="hasSelection">{{ selectedCount }} {{ $t('general.selected') }}</template>
         <template v-else>{{ $t('general.selectAll') }}</template>
       </span>
+
+      <NcButton
+        v-if="canSelectAllMatching && allSelected && !isAllMatchingSelected && totalRows > selectedCount"
+        data-testid="nc-list-select-all-matching"
+        type="text"
+        size="small"
+        @click="selectAllMatching"
+      >
+        {{ $t('labels.selectAllMatchingRecords', { count: totalRows }) }}
+      </NcButton>
 
       <div v-if="hasSelection" class="ml-auto flex items-center gap-1">
         <NcButton data-testid="nc-list-clear-selection" type="text" size="small" @click="clearSelection">

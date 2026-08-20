@@ -1588,6 +1588,8 @@
     "limitOptions": "Limit options",
     "limitOptionsSubtext": "Limit options visible to users by selecting available options",
     "clearSelection": "Clear selection",
+    "selectAllMatchingRecords": "Select all {count} matching records",
+    "allMatchingRecordsSelected": "All {count} matching records selected",
     "listViewRecords": "List view records",
     "selectRecord": "Select record {index}",
     "listViewAppearance": "List view appearance",

@@ -117,14 +117,15 @@ operation primitives for later views.
 Current evidence: List metadata, SDK contracts, Community service endpoints,
 creation menus, responsive rendering, shared query controls, expanded-form
 CRUD, server pagination, variable-height DOM virtualization, accessible
-keyboard navigation, page-scoped range selection, and permission-aware bulk
-deletion are implemented. Unit tests cover the reusable selection primitive,
+keyboard navigation, cross-page explicit selection, all-matching selection
+with primary-key exclusions, and confirmed permission-aware bulk deletion are
+implemented. Unit tests cover the reusable selection primitive,
 and the production-image browser workflow covers the rendered interactions on
 SQLite, PostgreSQL, and MySQL. Saved title/subtitle/image configuration, density
 and label controls, and attachment-image presentation are implemented. Row
 accents derived from Single Select option colors are implemented without using
-the shared gated row-color subsystem. General condition-based coloring and
-cross-page operations remain.
+the shared gated row-color subsystem. General condition-based coloring and bulk
+update remain.
 
 ## Phase 3 — Timeline
 

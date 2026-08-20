@@ -306,6 +306,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       response.request().method() === 'DELETE'
   );
   await page.getByTestId('nc-list-delete-selected').click();
+  await page.getByTestId('nc-record-delete-all').click();
   expect((await bulkDeleteResponse).ok()).toBeTruthy();
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
 
@@ -318,7 +319,32 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   await lastPageListRow.press('Control+a');
   await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('25 selected');
-  await lastPageListRow.press('Escape');
+  await page.getByTestId('nc-list-select-all-matching').click();
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 29 matching records selected');
+
+  await lastPageListRow.press('Home');
+  const persistentListRow = listView.getByTestId('nc-list-row-0');
+  await expect(persistentListRow).toContainText('Persists across restart');
+  await persistentListRow.getByRole('checkbox').click();
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 28 matching records selected');
+
+  await page.locator('.nc-grid-pagination-wrapper .next-page').click();
+  const secondPageFirstRow = listView.getByTestId('nc-list-row-0');
+  await expect(secondPageFirstRow).toBeVisible();
+  await expect(secondPageFirstRow).toHaveAttribute('aria-selected', 'true');
+  await secondPageFirstRow.getByRole('checkbox').click();
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 27 matching records selected');
+  await secondPageFirstRow.getByRole('checkbox').click();
+  await expect(page.getByTestId('nc-list-selection-toolbar')).toContainText('All 28 matching records selected');
+
+  const deleteAllMatchingResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/data/bulk/noco/') && response.request().method() === 'DELETE'
+  );
+  await page.getByTestId('nc-list-delete-selected').click();
+  await page.getByTestId('nc-record-delete-all').click();
+  expect((await deleteAllMatchingResponse).ok()).toBeTruthy();
+
+  await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-delete-selected')).toHaveCount(0);
 
   const cleanupListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
@@ -331,11 +357,5 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const temporaryRecords = cleanupList.list
     .filter(record => record.Title?.startsWith('Virtualized task '))
     .map(record => ({ Id: record.Id }));
-  expect(temporaryRecords.length).toBeGreaterThan(0);
-
-  const cleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
-    headers: sessionHeaders,
-    data: temporaryRecords,
-  });
-  expect(cleanupResponse.ok(), await cleanupResponse.text()).toBeTruthy();
+  expect(temporaryRecords).toEqual([]);
 });
