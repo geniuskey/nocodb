@@ -160,6 +160,12 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     })
   );
 
+  const unconfiguredTimelineRange = await page.request.get(
+    `/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-01&to=2025-02-01`,
+    { headers: sessionHeaders }
+  );
+  expect(unconfiguredTimelineRange.status()).toBe(400);
+
   const invalidTimelineUpdate = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
     headers: sessionHeaders,
     data: { fk_start_column_id: createdStatusColumn.id },
@@ -197,6 +203,76 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     })
   );
 
+  const timelineRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [
+      {
+        Title: 'Timeline before range',
+        'Timeline start': '2025-01-01',
+        'Timeline end': '2025-01-02T12:00:00Z',
+      },
+      {
+        Title: 'Timeline spanning range',
+        'Timeline start': '2025-01-05',
+        'Timeline end': '2025-01-20T12:00:00Z',
+      },
+      {
+        Title: 'Timeline point in range',
+        'Timeline start': '2025-01-12',
+        'Timeline end': null,
+      },
+      {
+        Title: 'Timeline after range',
+        'Timeline start': '2025-02-01',
+        'Timeline end': '2025-02-02T12:00:00Z',
+      },
+    ],
+  });
+  const timelineRecords = await timelineRecordsResponse.json();
+  expect(timelineRecordsResponse.ok(), JSON.stringify(timelineRecords)).toBeTruthy();
+
+  const invalidTimelineRanges = await Promise.all([
+    page.request.get(`/api/v2/timelines/${createdTimeline.id}/records?to=2025-01-15`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/timelines/${createdTimeline.id}/records?from=2025-02-01&to=2025-01-01`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-01&to=2026-01-03`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-01&to=2025-02-01&limit=1001`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/timelines/${createdList.id}/records?from=2025-01-01&to=2025-02-01`, {
+      headers: sessionHeaders,
+    }),
+  ]);
+  expect(invalidTimelineRanges.map(response => response.status())).toEqual([400, 400, 400, 400, 400]);
+
+  const timelineRangeResponse = await page.request.get(
+    `/api/v1/db/timeline-data/${createdTimeline.id}?from=2025-01-10&to=2025-01-15&limit=1`,
+    { headers: sessionHeaders }
+  );
+  const timelineRange = await timelineRangeResponse.json();
+  expect(timelineRangeResponse.ok(), JSON.stringify(timelineRange)).toBeTruthy();
+  expect(timelineRange.pageInfo).toEqual(
+    expect.objectContaining({ totalRows: 2, pageSize: 1, isFirstPage: true, isLastPage: false })
+  );
+  expect(timelineRange.list).toHaveLength(1);
+
+  const filteredTimelineRangeResponse = await page.request.get(
+    `/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-10&to=2025-01-15&where=${encodeURIComponent(
+      '(Title,eq,Timeline point in range)'
+    )}`,
+    { headers: sessionHeaders }
+  );
+  const filteredTimelineRange = await filteredTimelineRangeResponse.json();
+  expect(filteredTimelineRangeResponse.ok(), JSON.stringify(filteredTimelineRange)).toBeTruthy();
+  expect(filteredTimelineRange.list).toEqual([
+    expect.objectContaining({ Title: 'Timeline point in range', 'Timeline start': '2025-01-12' }),
+  ]);
+
   const timelineColumnsResponse = await page.request.get(`/api/v2/meta/views/${createdTimeline.id}/columns/`, {
     headers: sessionHeaders,
   });
@@ -215,6 +291,19 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(timelineColumnUpdateResponse.ok()).toBeTruthy();
 
+  const projectedTimelineRangeResponse = await page.request.get(
+    `/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-10&to=2025-01-15&fields=Title`,
+    { headers: sessionHeaders }
+  );
+  const projectedTimelineRange = await projectedTimelineRangeResponse.json();
+  expect(projectedTimelineRangeResponse.ok(), JSON.stringify(projectedTimelineRange)).toBeTruthy();
+  expect(projectedTimelineRange.list).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ Title: 'Timeline spanning range', 'Timeline start': '2025-01-05' }),
+      expect.objectContaining({ Title: 'Timeline point in range', 'Timeline start': '2025-01-12' }),
+    ])
+  );
+
   const clearTimelineEndResponse = await page.request.patch(`/api/v2/meta/timelines/${createdTimeline.id}`, {
     headers: sessionHeaders,
     data: { fk_end_column_id: null },
@@ -222,6 +311,22 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const timelineWithPointEvents = await clearTimelineEndResponse.json();
   expect(clearTimelineEndResponse.ok(), JSON.stringify(timelineWithPointEvents)).toBeTruthy();
   expect(timelineWithPointEvents.view.fk_end_column_id).toBeNull();
+
+  const pointTimelineRangeResponse = await page.request.get(
+    `/api/v2/timelines/${createdTimeline.id}/records?from=2025-01-10&to=2025-01-15`,
+    { headers: sessionHeaders }
+  );
+  const pointTimelineRange = await pointTimelineRangeResponse.json();
+  expect(pointTimelineRangeResponse.ok(), JSON.stringify(pointTimelineRange)).toBeTruthy();
+  expect(pointTimelineRange.list).toEqual([
+    expect.objectContaining({ Title: 'Timeline point in range', 'Timeline start': '2025-01-12' }),
+  ]);
+
+  const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: timelineRecords,
+  });
+  expect(timelineRecordsDeleteResponse.ok(), await timelineRecordsDeleteResponse.text()).toBeTruthy();
 
   const viewsResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}/views`, {
     headers: sessionHeaders,
@@ -281,7 +386,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   const persistenceResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
-    data: { Title: 'Persists across restart', Status: 'Ready' },
+    data: { Title: 'Persists across restart', Status: 'Ready', 'Timeline start': '2025-01-12' },
   });
   expect(persistenceResponse.ok(), await persistenceResponse.text()).toBeTruthy();
   await expect

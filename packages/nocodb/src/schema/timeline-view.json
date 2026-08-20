@@ -90,6 +90,88 @@
           "400": { "$ref": "#/components/responses/BadRequest" }
         }
       }
+    },
+    "/api/v1/db/timeline-data/{viewId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Timeline View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Timeline Records in a Bounded Range",
+        "operationId": "db-timeline-view-row-list",
+        "description": "List records overlapping a required half-open calendar range. The range and page size are server bounded.",
+        "tags": ["DB Timeline View Row"],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive range start in YYYY-MM-DD format",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive range end in YYYY-MM-DD format",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size; defaults to 500 and cannot exceed 1000",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based record offset",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "description": "Optional comma-separated fields; Timeline mapping fields are always returned",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Optional sort expression applied over the view sort",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "where",
+            "in": "query",
+            "description": "Optional filter expression ANDed with the Timeline range and view filters",
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/xc-auth" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineRangeResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
     }
   },
   "components": {
@@ -158,6 +240,19 @@
         "properties": {
           "show": { "$ref": "#/components/schemas/Bool" },
           "order": { "type": "number" }
+        }
+      },
+      "TimelineRangeResponse": {
+        "title": "Timeline Range Response",
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "description": "Records overlapping the requested Timeline range",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
         }
       }
     }

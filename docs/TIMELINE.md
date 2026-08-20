@@ -24,6 +24,10 @@ slices will add bounded date-range loading, overlap layout and virtualization,
 then editing and drag-to-reschedule behavior. A metadata-only view therefore
 cannot be created accidentally by the current UI.
 
+The second slice adds the bounded record-loading contract without adding a
+renderer. It continues to use the shared data service rather than introducing a
+Timeline-specific CRUD engine.
+
 ## Metadata contract
 
 `nc_timeline_view_v2` is keyed by `base_id` and `fk_view_id` and stores:
@@ -62,6 +66,30 @@ The OpenAPI fragment is
 `packages/nocodb/src/schema/timeline-view.json`; the SDK generator merges it
 with the Community schema.
 
+### Bounded range loading
+
+- `GET /api/v1/db/timeline-data/{viewId}`
+- `GET /api/v2/timelines/{viewId}/records`
+
+Both endpoints require `from` and `to` calendar dates in `YYYY-MM-DD` format.
+The query window is half-open: `from` is inclusive and `to` is exclusive. A
+window must be positive and no longer than 366 days. `limit` defaults to 500,
+is restricted to 1–1000, and applies per page; `offset` defaults to zero.
+Invalid or unbounded requests are rejected instead of silently widened.
+
+For a Timeline without an end mapping, a record is included when its start is
+inside `[from, to)`. With an end mapping, a record is included when its start is
+before `to` and its end is on or after `from`. A blank end is treated as a point
+at the start, so it must also start on or after `from`. End dates are inclusive,
+which makes an item ending on `from` visible on that calendar day.
+
+The range predicate is a server-owned condition combined with the existing view
+and request filters using AND. Existing view sorts, field projection, row access,
+and request throttling remain in force. Timeline title/start/end mapping fields
+are always projected even if their ordinary view columns are hidden or a caller
+requests a smaller field list; a renderer cannot position a record without
+them. No public/shared Timeline endpoint is introduced in this slice.
+
 ## Architecture boundary
 
 `TimelinesController` delegates orchestration and validation to
@@ -69,11 +97,10 @@ with the Community schema.
 persistence and cache entries. General `View` lifecycle code initializes,
 duplicates, lists, and removes the companion metadata.
 
-The future renderer must use `DataTableService`/`DatasService` for record
-projection, filters, sorts, permissions, and mutations. If the existing query
-contract cannot express bounded temporal loading, the next backend slice may
-add a date-range predicate to the shared data engine; it must not create a
-Timeline-only CRUD path.
+The range loader uses `DatasService.getDataList` for record projection, filters,
+sorts, permissions, and pagination. It supplies only the server-owned temporal
+conditions and hard bounds. The future renderer must use the same shared data
+and mutation services; it must not create a Timeline-only CRUD path.
 
 ## Compatibility rules
 
@@ -82,8 +109,7 @@ Timeline-only CRUD path.
 - A missing end field is a supported point event, not corrupt metadata.
 - A missing start field is an unconfigured view, not an implicit field choice.
 - Unknown future `meta` properties must remain round-trippable.
-- Range responses added later must be bounded by a server-enforced interval and
-  result limit.
+- Range responses are bounded by a server-enforced interval and result limit.
 
 ## Verification
 
@@ -92,3 +118,8 @@ Community boundary checker reports no new exception, and the production image
 workflow proves that SQLite, PostgreSQL, and MySQL can migrate, create, read,
 update, list, restart, and delete Timeline metadata without affecting ordinary
 record CRUD.
+
+The range slice additionally requires fresh and post-restart browser workflows
+to prove both v1 and v2 routes, interval and point-event overlap, hard request
+bounds, view/request filter composition, required mapping projection, and
+pagination against SQLite, PostgreSQL, and MySQL.

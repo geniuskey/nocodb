@@ -142,9 +142,10 @@ large tables.
 
 Current evidence: the independently designed metadata contract, numeric view
 type, append-only Timeline and Timeline-column tables, create/read/update API,
-date-field validation, SDK generation, and general view lifecycle integration
-are implemented. The renderer, bounded temporal query, grouping, overlap
-layout, and rescheduling remain intentionally separate follow-up slices.
+date-field validation, SDK generation, general view lifecycle integration, and
+server-bounded temporal query contract are implemented. The renderer,
+grouping, overlap layout, and rescheduling remain intentionally separate
+follow-up slices.
 
 ## Phase 4 — Gantt
 

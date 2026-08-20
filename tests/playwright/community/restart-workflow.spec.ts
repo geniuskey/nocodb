@@ -70,6 +70,16 @@ test('Community image preserves login, schema, and records across restart', asyn
   expect(persistedStartViewColumn?.id).toEqual(expect.any(String));
   expect(Boolean(persistedStartViewColumn.show)).toBe(false);
 
+  const persistedTimelineRangeResponse = await page.request.get(
+    `/api/v2/timelines/${timeline.id}/records?from=2025-01-10&to=2025-01-15&fields=Title`,
+    { headers: sessionHeaders }
+  );
+  const persistedTimelineRange = await persistedTimelineRangeResponse.json();
+  expect(persistedTimelineRangeResponse.ok(), JSON.stringify(persistedTimelineRange)).toBeTruthy();
+  expect(persistedTimelineRange.list).toEqual([
+    expect.objectContaining({ Title: 'Persists across restart', 'Timeline start': '2025-01-12' }),
+  ]);
+
   const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
     headers: sessionHeaders,
   });
