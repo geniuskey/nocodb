@@ -64,6 +64,15 @@ The fork physically removes `packages/nc-gui/ee` and all baseline `extensions/*-
 
 `src/lib/Api.ts` is generated and intentionally excluded from formatting/lint checks. Change public schemas or Community templates, then regenerate; do not hand-maintain the generated client.
 
+The backend also generates base-specific public OpenAPI documents at runtime.
+The v1 and v2 endpoints emit OpenAPI 3.0 documents; v3 emits OpenAPI 3.1.
+Their table and record paths are assembled from the base metadata, including
+the current base and table IDs. The fork-owned Community browser workflow
+requests all three authenticated documents for a newly created table and
+verifies their version, authentication schemes, CRUD operations, and request
+and response schemas. This is a semantic compatibility contract rather than a
+snapshot of generated descriptions or ordering.
+
 ## Build pipeline
 
 1. pnpm installs the frozen workspace graph.
@@ -124,6 +133,8 @@ not fetch a package manager or SDK generator during the sandboxed build.
   persistence, and the assembled production frontend remain the same as the
   shipped image. The package scripts and retained CI workflows no longer set
   Enterprise flags or install Enterprise-only identity-provider fixtures.
+  Before record CRUD, the fresh-instance workflow also validates the generated
+  v1, v2, and v3 public OpenAPI contract for the created base and table.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 

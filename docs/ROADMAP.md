@@ -88,8 +88,11 @@ Current evidence: the canonical Community image now completes the same
 Chromium signup/base/table/record CRUD workflow independently against fresh
 SQLite, PostgreSQL 16.6, and MySQL 8.3.0 metadata stores. It then restarts the
 application and verifies new-session login, existing schema/record reads, and
-post-restart CRUD against the preserved state in every database. This is an
-acceptance foundation for the remaining service-boundary and public-API
+post-restart CRUD against the preserved state in every database. The fresh
+workflow also authenticates to the runtime-generated public API v1, v2, and v3
+OpenAPI documents and verifies their security definitions, generated table
+schemas, and version-specific CRUD operation layout. This is an acceptance
+foundation for the remaining service-boundary and existing-database
 compatibility work; it does not by itself complete Phase 1.
 
 ## Phase 2 — List View
