@@ -171,6 +171,82 @@
         }
       }
     },
+    "/api/v1/db/meta/gantts/{viewId}/schedule/preview": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Preview Gantt Schedule Propagation",
+        "operationId": "db-gantt-schedule-preview",
+        "description": "Compute a deterministic forward-only schedule without changing records",
+        "tags": ["DB Gantt Schedule"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GanttSchedulePreviewReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttSchedulePlan" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/gantts/{viewId}/schedule/apply": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Apply Gantt Schedule Propagation",
+        "operationId": "db-gantt-schedule-apply",
+        "description": "Recompute and atomically apply a previously previewed schedule when its hash is still current",
+        "tags": ["DB Gantt Schedule"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GanttScheduleApplyReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttSchedulePlan" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
     "/api/v1/db/meta/gantts/{viewId}/dependencies/query": {
       "parameters": [
         {
@@ -191,7 +267,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/GanttDependencyQueryReq" }
+              "schema": {
+                "$ref": "#/components/schemas/GanttDependencyQueryReq"
+              }
             }
           }
         },
@@ -228,7 +306,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/GanttDependencyCreateReq" }
+              "schema": {
+                "$ref": "#/components/schemas/GanttDependencyCreateReq"
+              }
             }
           }
         },
@@ -272,7 +352,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/GanttDependencyUpdateReq" }
+              "schema": {
+                "$ref": "#/components/schemas/GanttDependencyUpdateReq"
+              }
             }
           }
         },
@@ -360,8 +442,12 @@
           "fk_title_column_id": { "$ref": "#/components/schemas/StringOrNull" },
           "fk_start_column_id": { "$ref": "#/components/schemas/StringOrNull" },
           "fk_end_column_id": { "$ref": "#/components/schemas/StringOrNull" },
-          "fk_progress_column_id": { "$ref": "#/components/schemas/StringOrNull" },
-          "fk_milestone_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "fk_progress_column_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "fk_milestone_column_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
           "zoom": {
             "type": "string",
             "enum": ["day", "week", "month", "quarter"]
@@ -412,7 +498,12 @@
           "target_record_id": { "type": "string", "maxLength": 2048 },
           "dependency_type": {
             "type": "string",
-            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"]
+            "enum": [
+              "finish_start",
+              "start_start",
+              "finish_finish",
+              "start_finish"
+            ]
           },
           "lag_days": { "type": "integer", "minimum": -3650, "maximum": 3650 },
           "created_at": { "type": "string", "format": "date-time" },
@@ -425,11 +516,24 @@
         "additionalProperties": false,
         "required": ["source_record_id", "target_record_id"],
         "properties": {
-          "source_record_id": { "type": "string", "minLength": 1, "maxLength": 2048 },
-          "target_record_id": { "type": "string", "minLength": 1, "maxLength": 2048 },
+          "source_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "target_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
           "dependency_type": {
             "type": "string",
-            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"],
+            "enum": [
+              "finish_start",
+              "start_start",
+              "finish_finish",
+              "start_finish"
+            ],
             "default": "finish_start"
           },
           "lag_days": {
@@ -448,7 +552,12 @@
         "properties": {
           "dependency_type": {
             "type": "string",
-            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"]
+            "enum": [
+              "finish_start",
+              "start_start",
+              "finish_finish",
+              "start_finish"
+            ]
           },
           "lag_days": { "type": "integer", "minimum": -3650, "maximum": 3650 }
         }
@@ -476,6 +585,87 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/GanttDependency" }
           }
+        }
+      },
+      "GanttSchedulePreviewReq": {
+        "title": "Gantt Schedule Preview Request",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["anchor_record_ids"],
+        "properties": {
+          "anchor_record_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          }
+        }
+      },
+      "GanttScheduleApplyReq": {
+        "title": "Gantt Schedule Apply Request",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["anchor_record_ids", "plan_hash"],
+        "properties": {
+          "anchor_record_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          },
+          "plan_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      },
+      "GanttScheduleChange": {
+        "title": "Gantt Schedule Change",
+        "type": "object",
+        "required": [
+          "record_id",
+          "previous_start",
+          "previous_end",
+          "next_start",
+          "next_end",
+          "delta_days",
+          "driving_dependency_ids"
+        ],
+        "properties": {
+          "record_id": { "type": "string" },
+          "title": { "type": "string" },
+          "previous_start": { "type": "string" },
+          "previous_end": { "$ref": "#/components/schemas/StringOrNull" },
+          "next_start": { "type": "string" },
+          "next_end": { "$ref": "#/components/schemas/StringOrNull" },
+          "delta_days": { "type": "integer", "minimum": 1 },
+          "driving_dependency_ids": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Id" }
+          }
+        }
+      },
+      "GanttSchedulePlan": {
+        "title": "Gantt Schedule Plan",
+        "type": "object",
+        "required": [
+          "plan_hash",
+          "anchor_record_ids",
+          "changes",
+          "unchanged_count",
+          "applied"
+        ],
+        "properties": {
+          "plan_hash": { "type": "string" },
+          "anchor_record_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "changes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GanttScheduleChange" }
+          },
+          "unchanged_count": { "type": "integer", "minimum": 0 },
+          "applied": { "type": "boolean" }
         }
       }
     }

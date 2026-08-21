@@ -3165,6 +3165,7 @@ class BaseModelSqlv2 implements IBaseModelSqlV2 {
         await transaction.commit();
       } catch (ex) {
         await transaction.rollback();
+        throw ex;
       }
 
       if (apiVersion === NcApiVersion.V3) {
