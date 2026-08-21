@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isGanttMilestone, layoutGanttTasks, normalizeGanttProgress } from '../../utils/ganttView'
+import { isGanttMilestone, layoutGanttDependencyLinks, layoutGanttTasks, normalizeGanttProgress } from '../../utils/ganttView'
 
 describe('Gantt task layout', () => {
   it('preserves server order and assigns one stable row per task', () => {
@@ -38,5 +38,47 @@ describe('Gantt milestones', () => {
     expect(isGanttMilestone(false)).toBe(false)
     expect(isGanttMilestone(0)).toBe(false)
     expect(isGanttMilestone('pending')).toBe(false)
+  })
+})
+
+describe('Gantt dependency layout', () => {
+  const tasks = layoutGanttTasks([
+    { id: 'a', start: 0, end: 2, record: {} },
+    { id: 'b', start: 10, end: 12, record: {} },
+  ])
+  const options = { rangeStart: 0, pixelsPerDay: 10, tableWidth: 100, rowHeight: 40, dayMs: 1 }
+
+  it('anchors finish-to-start links to the matching task edges', () => {
+    expect(
+      layoutGanttDependencyLinks(
+        tasks,
+        [
+          {
+            id: 'edge',
+            source_record_id: 'a',
+            target_record_id: 'b',
+            dependency_type: 'finish_start',
+          },
+        ],
+        options,
+      ),
+    ).toEqual([expect.objectContaining({ path: 'M 120 20 H 160 V 60 H 200' })])
+  })
+
+  it('omits edges when either endpoint is outside the mounted task set', () => {
+    expect(
+      layoutGanttDependencyLinks(
+        tasks,
+        [
+          {
+            id: 'edge',
+            source_record_id: 'a',
+            target_record_id: 'missing',
+            dependency_type: 'finish_start',
+          },
+        ],
+        options,
+      ),
+    ).toEqual([])
   })
 })

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import { type ColumnType, type GanttType, type PaginatedType, UITypes, ViewTypes } from 'nocodb-sdk'
-import { isGanttMilestone, layoutGanttTasks, normalizeGanttProgress } from '~/utils/ganttView'
+import { type ColumnType, type GanttDependencyType, type GanttType, type PaginatedType, UITypes, ViewTypes } from 'nocodb-sdk'
+import { isGanttMilestone, layoutGanttDependencyLinks, layoutGanttTasks, normalizeGanttProgress } from '~/utils/ganttView'
 import {
   TIMELINE_PIXELS_PER_DAY,
   TIMELINE_WINDOW_DAYS,
@@ -38,8 +38,29 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const settingsOpen = ref(false)
+const dependenciesOpen = ref(false)
 const savingRecordId = ref<string>()
+const savingDependencyId = ref<string>()
 const announcement = ref('')
+const dependencies = ref<GanttDependencyType[]>([])
+
+const dependencyTypes = [
+  { value: 'finish_start', label: 'Finish → Start' },
+  { value: 'start_start', label: 'Start → Start' },
+  { value: 'finish_finish', label: 'Finish → Finish' },
+  { value: 'start_finish', label: 'Start → Finish' },
+] as const
+const dependencyDraft = reactive<{
+  source_record_id: string
+  target_record_id: string
+  dependency_type: GanttDependencyType['dependency_type']
+  lag_days: number
+}>({
+  source_record_id: '',
+  target_record_id: '',
+  dependency_type: 'finish_start',
+  lag_days: 0,
+})
 
 const zoom = computed<TimelineZoom>(() => settings.value?.zoom || 'week')
 const windowDays = computed(() => TIMELINE_WINDOW_DAYS[zoom.value])
@@ -109,9 +130,30 @@ const loadSettings = async () => {
   resetWindow(settings.value?.zoom || 'week', previousWindowDays)
 }
 
+const loadDependencies = async (recordList: Record<string, any>[]) => {
+  if (!view.value?.id) return
+  const recordIds = [
+    ...new Set(
+      recordList.flatMap((record) => {
+        const recordId = extractPkFromRow(record, columns.value as ColumnType[])
+        return recordId === null || recordId === undefined ? [] : [String(recordId)]
+      }),
+    ),
+  ]
+  if (!recordIds.length) {
+    dependencies.value = []
+    return
+  }
+  const response = await $api.dbGanttDependency.query(view.value.id, {
+    record_ids: recordIds,
+  })
+  dependencies.value = response.list || []
+}
+
 const loadRecords = async () => {
   if (!view.value?.id || !settings.value?.fk_start_column_id || !settings.value?.fk_end_column_id) {
     records.value = []
+    dependencies.value = []
     return
   }
 
@@ -126,8 +168,10 @@ const loadRecords = async () => {
     })
     records.value = response.list || []
     pageInfo.value = response.pageInfo
+    await loadDependencies(records.value)
   } catch (e: any) {
     records.value = []
+    dependencies.value = []
     error.value = await extractSdkResponseErrorMsg(e)
   } finally {
     loading.value = false
@@ -212,6 +256,16 @@ const visibleRows = computed(() => {
   const pinned = tasks.value.find((task) => task.id === pinnedId)
   return pinned ? [...visible, pinned] : visible
 })
+
+const visibleDependencyLinks = computed(() =>
+  layoutGanttDependencyLinks(visibleRows.value, dependencies.value, {
+    rangeStart: rangeStart.value.valueOf(),
+    pixelsPerDay: pixelsPerDay.value,
+    tableWidth: TASK_TABLE_WIDTH,
+    rowHeight: ROW_HEIGHT,
+    dayMs: DAY_MS,
+  }),
+)
 
 const visibleDayIndexes = computed(() => {
   const chartOffset = Math.max(0, scrollLeft.value - TASK_TABLE_WIDTH)
@@ -415,6 +469,85 @@ const saveSettings = async () => {
 }
 
 const canConfigure = computed(() => !isLocked.value && isUIAllowed('viewCreateOrEdit'))
+const canManageDependencies = computed(() => canConfigure.value && !isSqlView.value && !isSyncedTable.value)
+
+const dependencyTaskTitle = (recordId: string) => {
+  const task = tasks.value.find((candidate) => candidate.id === recordId)
+  return task ? taskTitle(task.record) : recordId
+}
+
+const createDependency = async () => {
+  if (
+    !view.value?.id ||
+    !canManageDependencies.value ||
+    !dependencyDraft.source_record_id ||
+    !dependencyDraft.target_record_id ||
+    savingDependencyId.value
+  )
+    return
+  savingDependencyId.value = 'new'
+  try {
+    const created = await $api.dbGanttDependency.create(view.value.id, { ...dependencyDraft })
+    dependencies.value.push(created)
+    dependencyDraft.target_record_id = ''
+    announcement.value = `Dependency from ${dependencyTaskTitle(created.source_record_id)} to ${dependencyTaskTitle(
+      created.target_record_id,
+    )} created.`
+  } catch (e: any) {
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt dependency creation failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    savingDependencyId.value = undefined
+  }
+}
+
+const updateDependency = async (
+  dependency: GanttDependencyType,
+  patch: Pick<Partial<GanttDependencyType>, 'dependency_type' | 'lag_days'>,
+) => {
+  if (!view.value?.id || !canManageDependencies.value || savingDependencyId.value) return
+  const previous = {
+    dependency_type: dependency.dependency_type,
+    lag_days: dependency.lag_days,
+  }
+  Object.assign(dependency, patch)
+  savingDependencyId.value = dependency.id
+  try {
+    const updated = await $api.dbGanttDependency.update(view.value.id, dependency.id, patch)
+    Object.assign(dependency, updated)
+    announcement.value = 'Gantt dependency updated.'
+  } catch (e: any) {
+    Object.assign(dependency, previous)
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt dependency update failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    savingDependencyId.value = undefined
+  }
+}
+
+const deleteDependency = async (dependency: GanttDependencyType) => {
+  if (!view.value?.id || !canManageDependencies.value || savingDependencyId.value) return
+  savingDependencyId.value = dependency.id
+  try {
+    await $api.dbGanttDependency.delete(view.value.id, dependency.id)
+    dependencies.value = dependencies.value.filter((candidate) => candidate.id !== dependency.id)
+    announcement.value = 'Gantt dependency removed.'
+  } catch (e: any) {
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt dependency removal failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    savingDependencyId.value = undefined
+  }
+}
+
+const updateDependencyType = (dependency: GanttDependencyType, value: unknown) =>
+  updateDependency(dependency, { dependency_type: value as GanttDependencyType['dependency_type'] })
+
+const updateDependencyLag = (dependency: GanttDependencyType, value: unknown) =>
+  updateDependency(dependency, { lag_days: Number(value) })
 
 watch([rangeStart, xWhere], loadRecords)
 const reloadListener = () => loadRecords()
@@ -446,16 +579,123 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           {{ rangeStart.format('MMM D, YYYY') }} – {{ rangeEnd.subtract(1, 'day').format('MMM D, YYYY') }}
         </span>
       </div>
-      <NcButton
-        v-if="canConfigure"
-        size="small"
-        type="secondary"
-        data-testid="nc-gantt-settings-toggle"
-        @click="settingsOpen = !settingsOpen"
-      >
-        <GeneralIcon icon="settings" />
-        Settings
-      </NcButton>
+      <div class="flex items-center gap-2">
+        <NcButton
+          v-if="canManageDependencies"
+          size="small"
+          type="secondary"
+          data-testid="nc-gantt-dependencies-toggle"
+          @click="dependenciesOpen = !dependenciesOpen"
+        >
+          Dependencies
+          <span v-if="dependencies.length" class="text-xs text-nc-content-gray-muted">{{ dependencies.length }}</span>
+        </NcButton>
+        <NcButton
+          v-if="canConfigure"
+          size="small"
+          type="secondary"
+          data-testid="nc-gantt-settings-toggle"
+          @click="settingsOpen = !settingsOpen"
+        >
+          <GeneralIcon icon="settings" />
+          Settings
+        </NcButton>
+      </div>
+    </div>
+
+    <div
+      v-if="dependenciesOpen"
+      class="border-b border-nc-border-gray-medium bg-white p-3"
+      data-testid="nc-gantt-dependencies-panel"
+    >
+      <div class="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_auto_minmax(10rem,1fr)_10rem_7rem_auto]">
+        <a-select
+          v-model:value="dependencyDraft.source_record_id"
+          show-search
+          placeholder="Predecessor"
+          data-testid="nc-gantt-dependency-source"
+        >
+          <a-select-option v-for="task in tasks" :key="task.id" :value="task.id">{{ taskTitle(task.record) }}</a-select-option>
+        </a-select>
+        <span class="self-center text-center text-nc-content-gray-muted" aria-hidden="true">→</span>
+        <a-select
+          v-model:value="dependencyDraft.target_record_id"
+          show-search
+          placeholder="Successor"
+          data-testid="nc-gantt-dependency-target"
+        >
+          <a-select-option v-for="task in tasks" :key="task.id" :value="task.id">{{ taskTitle(task.record) }}</a-select-option>
+        </a-select>
+        <a-select v-model:value="dependencyDraft.dependency_type" data-testid="nc-gantt-dependency-type">
+          <a-select-option v-for="option in dependencyTypes" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </a-select-option>
+        </a-select>
+        <a-input-number
+          v-model:value="dependencyDraft.lag_days"
+          :min="-3650"
+          :max="3650"
+          :precision="0"
+          addon-after="days"
+          data-testid="nc-gantt-dependency-lag"
+        />
+        <NcButton
+          type="primary"
+          :loading="savingDependencyId === 'new'"
+          :disabled="
+            !dependencyDraft.source_record_id ||
+            !dependencyDraft.target_record_id ||
+            dependencyDraft.source_record_id === dependencyDraft.target_record_id
+          "
+          data-testid="nc-gantt-dependency-add"
+          @click="createDependency"
+        >
+          Add
+        </NcButton>
+      </div>
+
+      <div v-if="dependencies.length" class="mt-3 max-h-40 space-y-1 overflow-auto" data-testid="nc-gantt-dependency-list">
+        <div
+          v-for="dependency in dependencies"
+          :key="dependency.id"
+          class="grid grid-cols-[minmax(0,1fr)_10rem_7rem_auto] items-center gap-2 rounded border border-nc-border-gray-light px-2 py-1"
+          data-testid="nc-gantt-dependency-item"
+        >
+          <span class="truncate text-sm text-nc-content-gray">
+            {{ dependencyTaskTitle(dependency.source_record_id) }} → {{ dependencyTaskTitle(dependency.target_record_id) }}
+          </span>
+          <a-select
+            :value="dependency.dependency_type"
+            size="small"
+            :aria-label="`Dependency type for ${dependencyTaskTitle(dependency.target_record_id)}`"
+            @change="updateDependencyType(dependency, $event)"
+          >
+            <a-select-option v-for="option in dependencyTypes" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </a-select-option>
+          </a-select>
+          <a-input-number
+            :value="dependency.lag_days"
+            size="small"
+            :min="-3650"
+            :max="3650"
+            :precision="0"
+            :aria-label="`Dependency lag for ${dependencyTaskTitle(dependency.target_record_id)}`"
+            @change="updateDependencyLag(dependency, $event)"
+          />
+          <NcButton
+            size="small"
+            type="text"
+            :loading="savingDependencyId === dependency.id"
+            :aria-label="`Remove dependency to ${dependencyTaskTitle(dependency.target_record_id)}`"
+            data-testid="nc-gantt-dependency-remove"
+            @click="deleteDependency(dependency)"
+          >
+            Remove
+          </NcButton>
+        </div>
+      </div>
+      <p v-else class="mt-3 text-xs text-nc-content-gray-muted">No dependencies connect tasks in this loaded window.</p>
     </div>
 
     <div
@@ -579,6 +819,47 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           <GeneralLoader size="large" />
         </div>
         <template v-else>
+          <svg
+            class="pointer-events-none absolute inset-0 z-[5] overflow-visible"
+            :width="totalWidth"
+            :height="canvasHeight"
+            aria-hidden="true"
+            data-testid="nc-gantt-dependency-layer"
+          >
+            <defs>
+              <marker
+                id="nc-gantt-dependency-arrow"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" class="fill-purple-600" />
+              </marker>
+            </defs>
+            <g
+              v-for="link in visibleDependencyLinks"
+              :key="link.id"
+              :data-dependency-id="link.id"
+              :data-dependency-type="link.dependency_type"
+              :data-lag-days="link.lag_days || 0"
+              data-testid="nc-gantt-dependency-link"
+            >
+              <path
+                :d="link.path"
+                fill="none"
+                class="stroke-purple-600"
+                stroke-width="1.5"
+                marker-end="url(#nc-gantt-dependency-arrow)"
+              />
+              <text v-if="link.lag_days" :x="link.labelX" :y="link.labelY" class="fill-purple-700 text-[10px]">
+                {{ link.lag_days > 0 ? '+' : '' }}{{ link.lag_days }}d
+              </text>
+            </g>
+          </svg>
+
           <div
             v-for="task in visibleRows"
             :key="`row-${task.id}`"
