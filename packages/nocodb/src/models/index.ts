@@ -20,6 +20,7 @@ export { default as TimelineView } from './TimelineView';
 export { default as TimelineViewColumn } from './TimelineViewColumn';
 export { default as GanttView } from './GanttView';
 export { default as GanttViewColumn } from './GanttViewColumn';
+export { default as GanttDependency } from './GanttDependency';
 export { default as Hook } from './Hook';
 export { default as HookFilter } from './HookFilter';
 export { default as HookLog } from './HookLog';

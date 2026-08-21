@@ -443,6 +443,128 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   ]);
   expect([false, 0]).toContain(ganttRange.list[0]?.Milestone);
 
+  const insertedTimelineRecordsResponse = await page.request.get(
+    `/api/v2/tables/${createdTableBody.id}/records?limit=100`,
+    { headers: sessionHeaders }
+  );
+  const insertedTimelineRecordsBody = await insertedTimelineRecordsResponse.json();
+  expect(insertedTimelineRecordsResponse.ok(), JSON.stringify(insertedTimelineRecordsBody)).toBeTruthy();
+  const insertedTimelineRecords = insertedTimelineRecordsBody.list;
+  const dependencySourceRecord = insertedTimelineRecords.find(
+    (record: { Title?: string }) => record.Title === 'Timeline spanning range'
+  );
+  const dependencyTargetRecord = insertedTimelineRecords.find(
+    (record: { Title?: string }) => record.Title === 'Timeline point in range'
+  );
+  const dependencySourceId = String(dependencySourceRecord?.Id ?? dependencySourceRecord?.id);
+  const dependencyTargetId = String(dependencyTargetRecord?.Id ?? dependencyTargetRecord?.id);
+  expect(dependencySourceId).not.toBe('undefined');
+  expect(dependencyTargetId).not.toBe('undefined');
+
+  const emptyDependencyQueryResponse = await page.request.post(
+    `/api/v2/meta/gantts/${createdGantt.id}/dependencies/query`,
+    {
+      headers: sessionHeaders,
+      data: { record_ids: [dependencySourceId, dependencyTargetId] },
+    }
+  );
+  expect(emptyDependencyQueryResponse.ok(), await emptyDependencyQueryResponse.text()).toBeTruthy();
+  expect(await emptyDependencyQueryResponse.json()).toEqual({ list: [] });
+
+  const dependencyCreateResponse = await page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+    headers: sessionHeaders,
+    data: {
+      source_record_id: dependencySourceId,
+      target_record_id: dependencyTargetId,
+      dependency_type: 'finish_start',
+      lag_days: 2,
+    },
+  });
+  const createdDependency = await dependencyCreateResponse.json();
+  expect(dependencyCreateResponse.ok(), JSON.stringify(createdDependency)).toBeTruthy();
+  expect(createdDependency).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      fk_view_id: createdGantt.id,
+      source_record_id: dependencySourceId,
+      target_record_id: dependencyTargetId,
+      dependency_type: 'finish_start',
+      lag_days: 2,
+    })
+  );
+  expect(createdDependency).not.toHaveProperty('source_record_hash');
+  expect(createdDependency).not.toHaveProperty('target_record_hash');
+
+  const invalidDependencyResponses = await Promise.all([
+    page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+      headers: sessionHeaders,
+      data: {
+        source_record_id: dependencySourceId,
+        target_record_id: dependencyTargetId,
+      },
+    }),
+    page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+      headers: sessionHeaders,
+      data: {
+        source_record_id: dependencySourceId,
+        target_record_id: dependencySourceId,
+      },
+    }),
+    page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+      headers: sessionHeaders,
+      data: {
+        source_record_id: dependencySourceId,
+        target_record_id: `0${dependencySourceId}`,
+      },
+    }),
+    page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+      headers: sessionHeaders,
+      data: {
+        source_record_id: dependencyTargetId,
+        target_record_id: dependencySourceId,
+      },
+    }),
+    page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+      headers: sessionHeaders,
+      data: {
+        source_record_id: dependencySourceId,
+        target_record_id: 'missing-record',
+      },
+    }),
+  ]);
+  expect(invalidDependencyResponses.map(response => response.status())).toEqual([400, 400, 400, 400, 422]);
+
+  const dependencyUpdateResponse = await page.request.patch(
+    `/api/v2/meta/gantts/${createdGantt.id}/dependencies/${createdDependency.id}`,
+    {
+      headers: sessionHeaders,
+      data: { dependency_type: 'start_start', lag_days: -1 },
+    }
+  );
+  expect(dependencyUpdateResponse.ok(), await dependencyUpdateResponse.text()).toBeTruthy();
+  expect(await dependencyUpdateResponse.json()).toEqual(
+    expect.objectContaining({ dependency_type: 'start_start', lag_days: -1 })
+  );
+
+  const dependencyQueryResponse = await page.request.post(
+    `/api/v1/db/meta/gantts/${createdGantt.id}/dependencies/query`,
+    {
+      headers: sessionHeaders,
+      data: { record_ids: [dependencySourceId, dependencyTargetId] },
+    }
+  );
+  expect(dependencyQueryResponse.ok(), await dependencyQueryResponse.text()).toBeTruthy();
+  expect((await dependencyQueryResponse.json()).list).toEqual([
+    expect.objectContaining({ id: createdDependency.id, dependency_type: 'start_start', lag_days: -1 }),
+  ]);
+
+  const dependencyDeleteResponse = await page.request.delete(
+    `/api/v2/meta/gantts/${createdGantt.id}/dependencies/${createdDependency.id}`,
+    { headers: sessionHeaders }
+  );
+  expect(dependencyDeleteResponse.ok(), await dependencyDeleteResponse.text()).toBeTruthy();
+  expect(await dependencyDeleteResponse.json()).toEqual({ id: createdDependency.id });
+
   const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
     data: timelineRecords,
@@ -1179,6 +1301,33 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(ganttView.getByTestId('nc-gantt-row').filter({ hasText: 'Ungrouped Timeline item' })).toContainText(
     '100%'
   );
+
+  await page.getByTestId('nc-gantt-dependencies-toggle').click();
+  await expect(page.getByTestId('nc-gantt-dependencies-panel')).toBeVisible();
+  await page.getByTestId('nc-gantt-dependency-source').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Current Timeline item', { exact: true }).click();
+  await page.getByTestId('nc-gantt-dependency-target').click();
+  await page
+    .locator('.ant-select-dropdown:visible')
+    .last()
+    .getByText('Ungrouped Timeline item', { exact: true })
+    .click();
+  await page.getByTestId('nc-gantt-dependency-lag').fill('2');
+  const uiDependencyCreateResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/gantts/${createdUiGantt.id}/dependencies`) &&
+      !response.url().endsWith('/query') &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-gantt-dependency-add').click();
+  const createdUiDependencyResponse = await uiDependencyCreateResponse;
+  expect(createdUiDependencyResponse.ok(), await createdUiDependencyResponse.text()).toBeTruthy();
+  const createdUiDependency = await createdUiDependencyResponse.json();
+  expect(createdUiDependency).toEqual(expect.objectContaining({ dependency_type: 'finish_start', lag_days: 2 }));
+  await expect(page.getByTestId('nc-gantt-dependency-item')).toHaveCount(1);
+  await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveCount(1);
+  await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-dependency-type', 'finish_start');
+  await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-lag-days', '2');
 
   await page.getByTestId('nc-gantt-next').click();
   await expect(currentGanttTask).toHaveCount(0);
