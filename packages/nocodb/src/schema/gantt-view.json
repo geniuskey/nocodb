@@ -170,6 +170,146 @@
           "400": { "$ref": "#/components/responses/BadRequest" }
         }
       }
+    },
+    "/api/v1/db/meta/gantts/{viewId}/dependencies/query": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Query Gantt Dependencies",
+        "operationId": "db-gantt-dependency-query",
+        "description": "List dependency edges whose endpoints are both present in the supplied bounded task set",
+        "tags": ["DB Gantt Dependency"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GanttDependencyQueryReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttDependencyList" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/gantts/{viewId}/dependencies": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Create Gantt Dependency",
+        "operationId": "db-gantt-dependency-create",
+        "description": "Create an acyclic dependency edge between two records in the Gantt table",
+        "tags": ["DB Gantt Dependency"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GanttDependencyCreateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttDependency" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/gantts/{viewId}/dependencies/{dependencyId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "dependencyId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt Dependency ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "patch": {
+        "summary": "Update Gantt Dependency",
+        "operationId": "db-gantt-dependency-update",
+        "description": "Update the dependency kind or whole-day lag without changing its endpoints",
+        "tags": ["DB Gantt Dependency"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GanttDependencyUpdateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttDependency" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "delete": {
+        "summary": "Delete Gantt Dependency",
+        "operationId": "db-gantt-dependency-delete",
+        "description": "Delete one dependency edge from a Gantt view",
+        "tags": ["DB Gantt Dependency"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id"],
+                  "properties": { "id": { "$ref": "#/components/schemas/Id" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
     }
   },
   "components": {
@@ -249,6 +389,93 @@
             "items": { "type": "object", "additionalProperties": true }
           },
           "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
+      },
+      "GanttDependency": {
+        "title": "Gantt Dependency Model",
+        "description": "A directed scheduling dependency between two records in one Gantt view",
+        "type": "object",
+        "required": [
+          "id",
+          "fk_view_id",
+          "source_record_id",
+          "target_record_id",
+          "dependency_type",
+          "lag_days"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "source_record_id": { "type": "string", "maxLength": 2048 },
+          "target_record_id": { "type": "string", "maxLength": 2048 },
+          "dependency_type": {
+            "type": "string",
+            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"]
+          },
+          "lag_days": { "type": "integer", "minimum": -3650, "maximum": 3650 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "GanttDependencyCreateReq": {
+        "title": "Gantt Dependency Create Request",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_record_id", "target_record_id"],
+        "properties": {
+          "source_record_id": { "type": "string", "minLength": 1, "maxLength": 2048 },
+          "target_record_id": { "type": "string", "minLength": 1, "maxLength": 2048 },
+          "dependency_type": {
+            "type": "string",
+            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"],
+            "default": "finish_start"
+          },
+          "lag_days": {
+            "type": "integer",
+            "minimum": -3650,
+            "maximum": 3650,
+            "default": 0
+          }
+        }
+      },
+      "GanttDependencyUpdateReq": {
+        "title": "Gantt Dependency Update Request",
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "dependency_type": {
+            "type": "string",
+            "enum": ["finish_start", "start_start", "finish_finish", "start_finish"]
+          },
+          "lag_days": { "type": "integer", "minimum": -3650, "maximum": 3650 }
+        }
+      },
+      "GanttDependencyQueryReq": {
+        "title": "Gantt Dependency Query Request",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["record_ids"],
+        "properties": {
+          "record_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          }
+        }
+      },
+      "GanttDependencyList": {
+        "title": "Gantt Dependency List",
+        "type": "object",
+        "required": ["list"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GanttDependency" }
+          }
         }
       }
     }

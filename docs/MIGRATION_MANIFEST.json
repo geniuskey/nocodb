@@ -37,6 +37,10 @@
         {
           "name": "nc_008_gantt_view",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_008_gantt_view.ts"
+        },
+        {
+          "name": "nc_009_gantt_dependencies",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_009_gantt_dependencies.ts"
         }
       ]
     },
@@ -492,6 +496,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_008_gantt_view.ts",
       "sha256": "dd52678af2453f7b81944212ef35eba9f8bb9952c1b07981b05df92ccfcce24b"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_009_gantt_dependencies.ts",
+      "sha256": "8e7a40b77c36914710c6b0ceb6edb6ad9d157e9d87c07ac0ea3d2591292921bc"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

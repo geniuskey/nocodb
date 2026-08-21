@@ -36,6 +36,7 @@ import GridViewColumn from '~/models/GridViewColumn';
 import ListViewColumn from '~/models/ListViewColumn';
 import TimelineViewColumn from '~/models/TimelineViewColumn';
 import GanttViewColumn from '~/models/GanttViewColumn';
+import GanttDependency from '~/models/GanttDependency';
 import CalendarViewColumn from '~/models/CalendarViewColumn';
 import CalendarRange from '~/models/CalendarRange';
 import Sort from '~/models/Sort';
@@ -484,6 +485,18 @@ export default class View implements ViewType {
 
           await CalendarRange.bulkInsert(context, calendarRange, ncMeta);
         }
+      }
+
+      if (
+        copyFromView?.type === ViewTypes.GANTT &&
+        view.type === ViewTypes.GANTT
+      ) {
+        await GanttDependency.copyAll(
+          context,
+          copyFromView.id,
+          view_id,
+          ncMeta,
+        );
       }
 
       if (copyFromView) {
@@ -1682,6 +1695,14 @@ export default class View implements ViewType {
     await RowColorViewHelpers.withContext(context, { ncMeta }).viewDeleted(
       view,
     );
+    if (view.type === ViewTypes.GANTT) {
+      await ncMeta.metaDelete(
+        context.workspace_id,
+        context.base_id,
+        MetaTable.GANTT_DEPENDENCIES,
+        { fk_view_id: viewId },
+      );
+    }
     await ncMeta.metaDelete(
       context.workspace_id,
       context.base_id,
@@ -2664,6 +2685,12 @@ export default class View implements ViewType {
 
         break;
       }
+    }
+    if (
+      copyFromView?.type === ViewTypes.GANTT &&
+      view.type === ViewTypes.GANTT
+    ) {
+      await GanttDependency.copyAll(context, copyFromView.id, view_id, ncMeta);
     }
     try {
       // copy from view

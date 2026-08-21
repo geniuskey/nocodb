@@ -343,7 +343,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Frozen install: passed.
 - Nested integration workspace frozen install, Community core build, and core tests: passed.
 - Community source/default-script boundary check: passed.
-- Append-only metadata migration ledger: 110 files and 107 ordered registrations hash-verified across the v0, v1, v2, and audit tracks.
+- Append-only metadata migration ledger: 111 files and 108 ordered registrations hash-verified across the v0, v1, v2, and audit tracks.
 - Vendored runtime asset provenance/hash/notice check: passed.
 - Enterprise-labelled source/configuration absence check: passed.
 - Community SDK build: passed.
