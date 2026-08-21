@@ -906,6 +906,13 @@ interface CreateViewForm {
   fk_timeline_start_column_id?: string | null
   fk_timeline_end_column_id?: string | null
   timeline_zoom?: 'day' | 'week' | 'month' | 'quarter'
+  // for Gantt view only
+  fk_gantt_title_column_id?: string | null
+  fk_gantt_start_column_id?: string | null
+  fk_gantt_end_column_id?: string | null
+  fk_gantt_progress_column_id?: string | null
+  fk_gantt_milestone_column_id?: string | null
+  gantt_zoom?: 'day' | 'week' | 'month' | 'quarter'
 }
 
 // NcClipboardDataType type starts here

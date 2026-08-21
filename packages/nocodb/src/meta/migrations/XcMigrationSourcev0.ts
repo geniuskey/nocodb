@@ -5,6 +5,7 @@ import * as nc_004_workflows from './v0/nc_004_workflows';
 import * as nc_005_add_user_specific_and_meta_column_in_sync_configs from './v0/nc_005_add_user_specific_and_meta_column_in_sync_configs';
 import * as nc_006_list_view from './v0/nc_006_list_view';
 import * as nc_007_timeline_view from './v0/nc_007_timeline_view';
+import * as nc_008_gantt_view from './v0/nc_008_gantt_view';
 
 // Create a custom migration source class
 export default class XcMigrationSourcev0 {
@@ -21,6 +22,7 @@ export default class XcMigrationSourcev0 {
       'nc_005_add_user_specific_and_meta_column_in_sync_configs',
       'nc_006_list_view',
       'nc_007_timeline_view',
+      'nc_008_gantt_view',
     ]);
   }
 
@@ -44,6 +46,8 @@ export default class XcMigrationSourcev0 {
         return nc_006_list_view;
       case 'nc_007_timeline_view':
         return nc_007_timeline_view;
+      case 'nc_008_gantt_view':
+        return nc_008_gantt_view;
     }
   }
 }

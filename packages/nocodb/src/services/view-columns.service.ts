@@ -10,6 +10,7 @@ import { Logger } from '@nestjs/common';
 import GridViewColumn from '../models/GridViewColumn';
 import ListViewColumn from '../models/ListViewColumn';
 import TimelineViewColumn from '../models/TimelineViewColumn';
+import GanttViewColumn from '../models/GanttViewColumn';
 import GalleryViewColumn from '../models/GalleryViewColumn';
 import KanbanViewColumn from '../models/KanbanViewColumn';
 import MapViewColumn from '../models/MapViewColumn';
@@ -18,6 +19,7 @@ import type {
   CalendarColumnReqType,
   FormColumnReqType,
   GalleryColumnReqType,
+  GanttColumnReqType,
   GridColumnReqType,
   KanbanColumnReqType,
   TimelineColumnReqType,
@@ -346,6 +348,29 @@ export class ViewColumnsService {
                   context,
                   {
                     ...(column as TimelineColumnReqType),
+                    fk_view_id: viewId,
+                    fk_column_id: columnId,
+                  },
+                  ncMeta,
+                ),
+              );
+            }
+            break;
+          case ViewTypes.GANTT:
+            validatePayload(
+              'swagger.json#/components/schemas/GanttColumnReq',
+              column,
+            );
+            if (existingCol) {
+              updateOrInsertOptions.push(
+                GanttViewColumn.update(context, existingCol.id, column, ncMeta),
+              );
+            } else {
+              updateOrInsertOptions.push(
+                GanttViewColumn.insert(
+                  context,
+                  {
+                    ...(column as GanttColumnReqType),
                     fk_view_id: viewId,
                     fk_column_id: columnId,
                   },

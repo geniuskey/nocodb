@@ -144,6 +144,10 @@ export enum AppEvents {
   TIMELINE_UPDATE = 'timeline.update',
   TIMELINE_DELETE = 'timeline.delete',
 
+  GANTT_CREATE = 'gantt.create',
+  GANTT_UPDATE = 'gantt.update',
+  GANTT_DELETE = 'gantt.delete',
+
   GRID_COLUMN_UPDATE = 'grid.column.update',
 
   WEBHOOK_CREATE = 'webhook.create',

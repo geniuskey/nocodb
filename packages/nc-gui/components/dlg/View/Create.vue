@@ -76,6 +76,12 @@ interface Form {
   fk_timeline_start_column_id: string | null
   fk_timeline_end_column_id: string | null
   timeline_zoom: 'day' | 'week' | 'month' | 'quarter'
+  fk_gantt_title_column_id: string | null
+  fk_gantt_start_column_id: string | null
+  fk_gantt_end_column_id: string | null
+  fk_gantt_progress_column_id: string | null
+  fk_gantt_milestone_column_id: string | null
+  gantt_zoom: 'day' | 'week' | 'month' | 'quarter'
 }
 
 type AiSuggestedViewType = SerializedAiViewType & {
@@ -129,6 +135,7 @@ const errorMessages = {
   [ViewTypes.MAP]: t('msg.warning.mapNoFields'),
   [ViewTypes.CALENDAR]: t('msg.warning.calendarNoFields'),
   [ViewTypes.TIMELINE]: 'Timeline view requires at least one Date or DateTime field.',
+  [ViewTypes.GANTT]: 'Gantt view requires at least one Date or DateTime field.',
 }
 
 const form = reactive<Form>({
@@ -143,6 +150,12 @@ const form = reactive<Form>({
   fk_timeline_start_column_id: null,
   fk_timeline_end_column_id: null,
   timeline_zoom: 'week',
+  fk_gantt_title_column_id: null,
+  fk_gantt_start_column_id: null,
+  fk_gantt_end_column_id: null,
+  fk_gantt_progress_column_id: null,
+  fk_gantt_milestone_column_id: null,
+  gantt_zoom: 'week',
   description: props.description || '',
 })
 
@@ -150,6 +163,8 @@ const viewSelectFieldOptions = ref<SelectProps['options']>([])
 
 const timelineDateFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
 const timelineTitleFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
+const ganttProgressFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
+const ganttMilestoneFieldOptions = ref<Array<{ value: string; label: string; col: ColumnType }>>([])
 
 const viewNameRules = [
   // name is required
@@ -171,6 +186,7 @@ const groupingFieldColumnRules = [{ required: true, message: `${t('general.group
 const geoDataFieldColumnRules = [{ required: true, message: `${t('general.geoDataField')} ${t('general.required')}` }]
 
 const timelineStartFieldRules = [{ required: true, message: `Start field ${t('general.required').toLowerCase()}` }]
+const ganttEndFieldRules = [{ required: true, message: `End field ${t('general.required').toLowerCase()}` }]
 
 const typeAlias = computed(
   () =>
@@ -183,6 +199,7 @@ const typeAlias = computed(
       [ViewTypes.MAP]: 'map',
       [ViewTypes.CALENDAR]: 'calendar',
       [ViewTypes.TIMELINE]: 'timeline',
+      [ViewTypes.GANTT]: 'gantt',
       // Todo: add ai view docs route
       AI: '',
     }[props.type]),
@@ -350,12 +367,14 @@ onMounted(async () => {
   }
 
   if (
-    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR, ViewTypes.TIMELINE].includes(props.type) ||
+    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR, ViewTypes.TIMELINE, ViewTypes.GANTT].includes(
+      props.type,
+    ) ||
     aiIntegrationAvailable.value
   ) {
     isMetaLoading.value = true
     try {
-      meta.value = (await getMeta(tableId.value, props.type === ViewTypes.TIMELINE))!
+      meta.value = (await getMeta(tableId.value, props.type === ViewTypes.TIMELINE || props.type === ViewTypes.GANTT))!
 
       if (props.type === ViewTypes.MAP) {
         viewSelectFieldOptions.value = meta
@@ -536,6 +555,34 @@ onMounted(async () => {
         form.fk_timeline_start_column_id = timelineDateFieldOptions.value[0]?.value || null
 
         if (!form.fk_timeline_start_column_id) {
+          isNecessaryColumnsPresent.value = false
+        }
+      }
+
+      if (props.type === ViewTypes.GANTT) {
+        timelineDateFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => [UITypes.Date, UITypes.DateTime].includes(column.uidt))
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        timelineTitleFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => ![UITypes.Attachment, UITypes.Barcode, UITypes.QrCode].includes(column.uidt))
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        ganttProgressFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => [UITypes.Number, UITypes.Decimal, UITypes.Percent].includes(column.uidt))
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        ganttMilestoneFieldOptions.value = (meta.value?.columns || [])
+          .filter((column) => column.uidt === UITypes.Checkbox)
+          .map((column) => ({ value: column.id!, label: column.title!, col: column }))
+
+        form.fk_gantt_title_column_id = meta.value?.columns?.find((column) => column.pv)?.id || null
+        form.fk_gantt_start_column_id = timelineDateFieldOptions.value[0]?.value || null
+        form.fk_gantt_end_column_id = timelineDateFieldOptions.value[1]?.value || timelineDateFieldOptions.value[0]?.value || null
+        form.fk_gantt_progress_column_id = ganttProgressFieldOptions.value[0]?.value || null
+        form.fk_gantt_milestone_column_id = ganttMilestoneFieldOptions.value[0]?.value || null
+
+        if (!form.fk_gantt_start_column_id || !form.fk_gantt_end_column_id) {
           isNecessaryColumnsPresent.value = false
         }
       }
@@ -880,6 +927,9 @@ watch(activeBaseId, () => {
           <template v-else-if="form.type === ViewTypes.TIMELINE">
             {{ form.copy_from_id ? 'Duplicate Timeline View' : 'Create Timeline View' }}
           </template>
+          <template v-else-if="form.type === ViewTypes.GANTT">
+            {{ form.copy_from_id ? 'Duplicate Gantt View' : 'Create Gantt View' }}
+          </template>
           <template v-else-if="form.type === 'AI'">
             {{ $t('labels.createViewUsingAi') }}
           </template>
@@ -981,6 +1031,109 @@ watch(activeBaseId, () => {
 
             <a-form-item label="Initial zoom" name="timeline_zoom">
               <NcSelect v-model:value="form.timeline_zoom" class="nc-select-shadow w-full" data-testid="nc-timeline-zoom-select">
+                <a-select-option v-for="zoom in ['day', 'week', 'month', 'quarter']" :key="zoom" :value="zoom">
+                  {{ zoom[0].toUpperCase() + zoom.slice(1) }}
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+          </template>
+
+          <template v-if="form.type === ViewTypes.GANTT && !form.copy_from_id">
+            <a-form-item label="Start field" :rules="timelineStartFieldRules" name="fk_gantt_start_column_id">
+              <NcSelect
+                v-model:value="form.fk_gantt_start_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full"
+                data-testid="nc-gantt-start-field-select"
+                show-search
+              >
+                <a-select-option v-for="option in timelineDateFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="End field" :rules="ganttEndFieldRules" name="fk_gantt_end_column_id">
+              <NcSelect
+                v-model:value="form.fk_gantt_end_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full"
+                data-testid="nc-gantt-end-field-select"
+                show-search
+              >
+                <a-select-option v-for="option in timelineDateFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Title field (optional)" name="fk_gantt_title_column_id">
+              <NcSelect
+                v-model:value="form.fk_gantt_title_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full"
+                data-testid="nc-gantt-title-field-select"
+                allow-clear
+                show-search
+              >
+                <a-select-option v-for="option in timelineTitleFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Progress field (optional)" name="fk_gantt_progress_column_id">
+              <NcSelect
+                v-model:value="form.fk_gantt_progress_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full"
+                data-testid="nc-gantt-progress-field-select"
+                allow-clear
+                show-search
+              >
+                <a-select-option v-for="option in ganttProgressFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Milestone field (optional)" name="fk_gantt_milestone_column_id">
+              <NcSelect
+                v-model:value="form.fk_gantt_milestone_column_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                class="nc-select-shadow w-full"
+                data-testid="nc-gantt-milestone-field-select"
+                allow-clear
+                show-search
+              >
+                <a-select-option v-for="option in ganttMilestoneFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon :column="option.col" />
+                    <span>{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+
+            <a-form-item label="Initial zoom" name="gantt_zoom">
+              <NcSelect v-model:value="form.gantt_zoom" class="nc-select-shadow w-full" data-testid="nc-gantt-zoom-select">
                 <a-select-option v-for="zoom in ['day', 'week', 'month', 'quarter']" :key="zoom" :value="zoom">
                   {{ zoom[0].toUpperCase() + zoom.slice(1) }}
                 </a-select-option>

@@ -28,12 +28,16 @@ const listView = JSON.parse(
 const timelineView = JSON.parse(
   readFileSync('../nocodb/src/schema/timeline-view.json', 'utf8')
 );
+const ganttView = JSON.parse(
+  readFileSync('../nocodb/src/schema/gantt-view.json', 'utf8')
+);
 const swagger = {
   ...swaggerCE,
   paths: {
     ...swaggerCE.paths,
     ...listView.paths,
     ...timelineView.paths,
+    ...ganttView.paths,
   },
   components: {
     ...swaggerCE.components,
@@ -42,6 +46,7 @@ const swagger = {
       ...swaggerCE.components.schemas,
       ...listView.components.schemas,
       ...timelineView.components.schemas,
+      ...ganttView.components.schemas,
     },
     responses: {
       ...swaggerCE.components.responses,
@@ -54,6 +59,9 @@ swagger.components.schemas.View.properties.view.anyOf.push({
 });
 swagger.components.schemas.View.properties.view.anyOf.push({
   $ref: '#/components/schemas/Timeline',
+});
+swagger.components.schemas.View.properties.view.anyOf.push({
+  $ref: '#/components/schemas/Gantt',
 });
 
 writeFileSync('nc_swagger.json', JSON.stringify(swagger));

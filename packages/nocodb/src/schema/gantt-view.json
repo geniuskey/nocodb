@@ -1,0 +1,256 @@
+{
+  "paths": {
+    "/api/v1/db/meta/tables/{tableId}/gantts": {
+      "parameters": [
+        {
+          "name": "tableId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Table ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Create Gantt View",
+        "operationId": "db-view-gantt-create",
+        "description": "Create a Gantt view in a table",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ViewCreateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/meta/gantts/{viewId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "Read Gantt View",
+        "operationId": "db-view-gantt-read",
+        "description": "Read Gantt presentation settings",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gantt" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Gantt View",
+        "operationId": "db-view-gantt-update",
+        "description": "Update Gantt presentation settings",
+        "tags": ["DB View"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GanttUpdateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/View" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/db/gantt-data/{viewId}": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Gantt Tasks in a Bounded Range",
+        "operationId": "db-gantt-view-row-list",
+        "description": "List tasks overlapping a required half-open calendar range. The range and page size are server bounded.",
+        "tags": ["DB Gantt View Row"],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive range start in YYYY-MM-DD format",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive range end in YYYY-MM-DD format",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size; defaults to 500 and cannot exceed 1000",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based record offset",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "description": "Optional comma-separated fields; Gantt mapping fields are always returned",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Optional sort expression applied over the view sort",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "where",
+            "in": "query",
+            "description": "Optional filter expression ANDed with the Gantt range and view filters",
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/xc-auth" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttRangeResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Gantt": {
+        "title": "Gantt View Model",
+        "description": "Task mapping and presentation settings for a Gantt view",
+        "type": "object",
+        "properties": {
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_title_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_start_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_end_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_progress_column_id": { "$ref": "#/components/schemas/Id" },
+          "fk_milestone_column_id": { "$ref": "#/components/schemas/Id" },
+          "zoom": {
+            "type": "string",
+            "enum": ["day", "week", "month", "quarter"],
+            "default": "week"
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" },
+          "columns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GanttColumn" }
+          }
+        }
+      },
+      "GanttColumn": {
+        "title": "Gantt View Column Model",
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "fk_view_id": { "$ref": "#/components/schemas/Id" },
+          "fk_column_id": { "$ref": "#/components/schemas/Id" },
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      },
+      "GanttUpdateReq": {
+        "title": "Gantt View Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fk_title_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "fk_start_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "fk_end_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "fk_progress_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "fk_milestone_column_id": { "$ref": "#/components/schemas/StringOrNull" },
+          "zoom": {
+            "type": "string",
+            "enum": ["day", "week", "month", "quarter"]
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "GanttColumnReq": {
+        "title": "Gantt View Column Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "show": { "$ref": "#/components/schemas/Bool" },
+          "order": { "type": "number" }
+        }
+      },
+      "GanttRangeResponse": {
+        "title": "Gantt Range Response",
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "description": "Tasks overlapping the requested Gantt range",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
+      }
+    }
+  }
+}

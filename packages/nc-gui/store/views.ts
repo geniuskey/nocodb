@@ -2,6 +2,7 @@ import type {
   CalendarType,
   FilterType,
   GalleryType,
+  GanttType,
   KanbanType,
   MapType,
   RowColoringInfo,
@@ -413,6 +414,20 @@ export const useViewsStore = defineStore('viewsStore', () => {
           }
           break
         }
+        case ViewTypes.GANTT: {
+          data = await $api.dbView.ganttCreate(tableId, form)
+          if (data?.id && !form.copy_from_id) {
+            data = await $api.dbView.ganttUpdate(data.id, {
+              fk_title_column_id: form.fk_gantt_title_column_id,
+              fk_start_column_id: form.fk_gantt_start_column_id,
+              fk_end_column_id: form.fk_gantt_end_column_id,
+              fk_progress_column_id: form.fk_gantt_progress_column_id,
+              fk_milestone_column_id: form.fk_gantt_milestone_column_id,
+              zoom: form.gantt_zoom || 'week',
+            })
+          }
+          break
+        }
       }
 
       if (data) {
@@ -472,6 +487,12 @@ export const useViewsStore = defineStore('viewsStore', () => {
         fk_timeline_start_column_id: null as string | null,
         fk_timeline_end_column_id: null as string | null,
         timeline_zoom: 'week' as const,
+        fk_gantt_title_column_id: null as string | null,
+        fk_gantt_start_column_id: null as string | null,
+        fk_gantt_end_column_id: null as string | null,
+        fk_gantt_progress_column_id: null as string | null,
+        fk_gantt_milestone_column_id: null as string | null,
+        gantt_zoom: 'week' as const,
       }
 
       switch (sourceView.type) {
@@ -508,6 +529,18 @@ export const useViewsStore = defineStore('viewsStore', () => {
             fk_timeline_start_column_id: timeline?.fk_start_column_id || null,
             fk_timeline_end_column_id: timeline?.fk_end_column_id || null,
             timeline_zoom: timeline?.zoom || 'week',
+          }
+        }
+        case ViewTypes.GANTT: {
+          const gantt = sourceView.view as GanttType
+          return {
+            ...baseProps,
+            fk_gantt_title_column_id: gantt?.fk_title_column_id || null,
+            fk_gantt_start_column_id: gantt?.fk_start_column_id || null,
+            fk_gantt_end_column_id: gantt?.fk_end_column_id || null,
+            fk_gantt_progress_column_id: gantt?.fk_progress_column_id || null,
+            fk_gantt_milestone_column_id: gantt?.fk_milestone_column_id || null,
+            gantt_zoom: gantt?.zoom || 'week',
           }
         }
         default:
@@ -680,6 +713,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
             break
           case ViewTypes.TIMELINE:
             updatedView = await $api.dbView.timelineUpdate(viewId, updates)
+            break
+          case ViewTypes.GANTT:
+            updatedView = await $api.dbView.ganttUpdate(viewId, updates)
             break
           case ViewTypes.FORM:
             updatedView = await $api.dbView.formUpdate(viewId, updates)

@@ -389,6 +389,8 @@ export class ViewsService {
       deleteEvent = AppEvents.LIST_DELETE;
     } else if (view.type === ViewTypes.TIMELINE) {
       deleteEvent = AppEvents.TIMELINE_DELETE;
+    } else if (view.type === ViewTypes.GANTT) {
+      deleteEvent = AppEvents.GANTT_DELETE;
     } else if (view.type === ViewTypes.CALENDAR) {
       deleteEvent = AppEvents.CALENDAR_DELETE;
     } else if (view.type === ViewTypes.GALLERY) {

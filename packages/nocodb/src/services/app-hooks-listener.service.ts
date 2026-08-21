@@ -152,11 +152,13 @@ export class AppHooksListenerService implements OnModuleInit, OnModuleDestroy {
 
       case AppEvents.GRID_CREATE:
       case AppEvents.TIMELINE_CREATE:
+      case AppEvents.GANTT_CREATE:
         break;
       case AppEvents.GRID_COLUMN_UPDATE:
         break;
       case AppEvents.GRID_DELETE:
       case AppEvents.TIMELINE_DELETE:
+      case AppEvents.GANTT_DELETE:
         break;
       case AppEvents.GRID_DUPLICATE:
         break;
@@ -165,6 +167,7 @@ export class AppHooksListenerService implements OnModuleInit, OnModuleDestroy {
       case AppEvents.FORM_UPDATE:
       case AppEvents.GRID_UPDATE:
       case AppEvents.TIMELINE_UPDATE:
+      case AppEvents.GANTT_UPDATE:
       case AppEvents.CALENDAR_UPDATE:
       case AppEvents.GALLERY_UPDATE:
       case AppEvents.KANBAN_UPDATE:

@@ -33,6 +33,10 @@
         {
           "name": "nc_007_timeline_view",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_007_timeline_view.ts"
+        },
+        {
+          "name": "nc_008_gantt_view",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_008_gantt_view.ts"
         }
       ]
     },
@@ -484,6 +488,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_007_timeline_view.ts",
       "sha256": "ecfcc7005f564aff909ee857600afd310d57882b5160d6b812faf1fac6733d97"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_008_gantt_view.ts",
+      "sha256": "dd52678af2453f7b81944212ef35eba9f8bb9952c1b07981b05df92ccfcce24b"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",
