@@ -258,6 +258,10 @@ export class RecordTrashService {
       modelId: param.modelId,
       body: records.map((record) => record.row_data),
       cookie: param.req,
+      // Trash restoration must preserve auto-increment primary keys. The
+      // existing undo insertion path is the baseline's supported mechanism
+      // for retaining those values across every database client.
+      undo: true,
       internalFlags: { allowSystemColumn: true },
     });
     const restoredRows = Array.isArray(restored) ? restored : [restored];

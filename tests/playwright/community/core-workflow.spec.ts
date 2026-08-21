@@ -863,7 +863,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     }),
   ]);
 
-  const collisionResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+  const collisionResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records?undo=true`, {
     headers: sessionHeaders,
     data: { Id: trashCandidates[0].Id, Title: 'Trash PK collision', Status: 'Blocked' },
   });
