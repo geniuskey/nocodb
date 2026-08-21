@@ -100,6 +100,8 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const statusColumnModel = await createdStatusColumnResponse.json();
   const createdStatusColumn = statusColumnModel.columns.find((column: { title?: string }) => column.title === 'Status');
   expect(createdStatusColumn?.id).toEqual(expect.any(String));
+  const titleColumn = statusColumnModel.columns.find((column: { title?: string }) => column.title === 'Title');
+  expect(titleColumn?.id).toEqual(expect.any(String));
   await expect(columnForm).toBeHidden();
   await expect(grid.locator('[data-title="Status"]')).toBeVisible();
 
@@ -145,6 +147,8 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   };
   const timelineStartColumn = await createTimelineColumn('Timeline start', UITypes.Date);
   const timelineEndColumn = await createTimelineColumn('Timeline end', UITypes.DateTime);
+  const ganttProgressColumn = await createTimelineColumn('Progress', UITypes.Number);
+  const ganttMilestoneColumn = await createTimelineColumn('Milestone', UITypes.Checkbox);
 
   const timelineCreateResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/timelines`, {
     headers: sessionHeaders,
@@ -225,12 +229,16 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
         Status: 'Ready',
         'Timeline start': '2025-01-05',
         'Timeline end': '2025-01-20T12:00:00Z',
+        Progress: 65,
+        Milestone: false,
       },
       {
         Title: 'Timeline point in range',
         Status: 'Blocked',
         'Timeline start': '2025-01-12',
         'Timeline end': null,
+        Progress: 100,
+        Milestone: true,
       },
       {
         Title: 'Timeline after range',
@@ -333,6 +341,108 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     expect.objectContaining({ Title: 'Timeline point in range', 'Timeline start': '2025-01-12' }),
   ]);
 
+  const ganttCreateResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/gantts`, {
+    headers: sessionHeaders,
+    data: { title: 'Task Gantt', type: ViewTypes.GANTT },
+  });
+  const createdGantt = await ganttCreateResponse.json();
+  expect(ganttCreateResponse.ok(), JSON.stringify(createdGantt)).toBeTruthy();
+  expect(createdGantt).toEqual(
+    expect.objectContaining({
+      title: 'Task Gantt',
+      type: ViewTypes.GANTT,
+      view: expect.objectContaining({ zoom: 'week' }),
+    })
+  );
+
+  const unconfiguredGanttRange = await page.request.get(
+    `/api/v2/gantts/${createdGantt.id}/records?from=2025-01-01&to=2025-02-01`,
+    { headers: sessionHeaders }
+  );
+  expect(unconfiguredGanttRange.status()).toBe(400);
+
+  const invalidGanttUpdate = await page.request.patch(`/api/v2/meta/gantts/${createdGantt.id}`, {
+    headers: sessionHeaders,
+    data: { fk_progress_column_id: createdStatusColumn.id },
+  });
+  expect(invalidGanttUpdate.status()).toBe(400);
+
+  const ganttUpdateResponse = await page.request.patch(`/api/v2/meta/gantts/${createdGantt.id}`, {
+    headers: sessionHeaders,
+    data: {
+      fk_title_column_id: titleColumn.id,
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      fk_progress_column_id: ganttProgressColumn.id,
+      fk_milestone_column_id: ganttMilestoneColumn.id,
+      zoom: 'month',
+    },
+  });
+  const updatedGantt = await ganttUpdateResponse.json();
+  expect(ganttUpdateResponse.ok(), JSON.stringify(updatedGantt)).toBeTruthy();
+  expect(updatedGantt.view).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: titleColumn.id,
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      fk_progress_column_id: ganttProgressColumn.id,
+      fk_milestone_column_id: ganttMilestoneColumn.id,
+      zoom: 'month',
+    })
+  );
+
+  const ganttReadResponse = await page.request.get(`/api/v2/meta/gantts/${createdGantt.id}`, {
+    headers: sessionHeaders,
+  });
+  const readGantt = await ganttReadResponse.json();
+  expect(ganttReadResponse.ok(), JSON.stringify(readGantt)).toBeTruthy();
+  expect(readGantt).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: titleColumn.id,
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      fk_progress_column_id: ganttProgressColumn.id,
+      fk_milestone_column_id: ganttMilestoneColumn.id,
+      zoom: 'month',
+    })
+  );
+
+  const invalidGanttRanges = await Promise.all([
+    page.request.get(`/api/v2/gantts/${createdGantt.id}/records?to=2025-01-15`, { headers: sessionHeaders }),
+    page.request.get(`/api/v2/gantts/${createdGantt.id}/records?from=2025-02-01&to=2025-01-01`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/gantts/${createdGantt.id}/records?from=2025-01-01&to=2026-01-03`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/gantts/${createdGantt.id}/records?from=2025-01-01&to=2025-02-01&limit=1001`, {
+      headers: sessionHeaders,
+    }),
+    page.request.get(`/api/v2/gantts/${createdList.id}/records?from=2025-01-01&to=2025-02-01`, {
+      headers: sessionHeaders,
+    }),
+  ]);
+  expect(invalidGanttRanges.map(response => response.status())).toEqual([400, 400, 400, 400, 400]);
+
+  const ganttRangeResponse = await page.request.get(
+    `/api/v1/db/gantt-data/${createdGantt.id}?from=2025-01-10&to=2025-01-15&fields=Title&limit=1`,
+    { headers: sessionHeaders }
+  );
+  const ganttRange = await ganttRangeResponse.json();
+  expect(ganttRangeResponse.ok(), JSON.stringify(ganttRange)).toBeTruthy();
+  expect(ganttRange.pageInfo).toEqual(
+    expect.objectContaining({ totalRows: 2, pageSize: 1, isFirstPage: true, isLastPage: false })
+  );
+  expect(ganttRange.list).toEqual([
+    expect.objectContaining({
+      Title: 'Timeline spanning range',
+      'Timeline start': '2025-01-05',
+      'Timeline end': expect.stringContaining('2025-01-20'),
+      Progress: 65,
+      Milestone: 0,
+    }),
+  ]);
+
   const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
     data: timelineRecords,
@@ -355,6 +465,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
         id: createdTimeline.id,
         title: 'Task Timeline',
         type: ViewTypes.TIMELINE,
+      }),
+      expect.objectContaining({
+        id: createdGantt.id,
+        title: 'Task Gantt',
+        type: ViewTypes.GANTT,
       }),
     ])
   );
@@ -727,12 +842,16 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
         Status: 'Ready',
         'Timeline start': currentTimelineDate,
         'Timeline end': currentTimelineEnd,
+        Progress: 40,
+        Milestone: false,
       },
       {
         Title: 'Ungrouped Timeline item',
         Status: null,
         'Timeline start': currentTimelineDate,
         'Timeline end': currentTimelineEnd,
+        Progress: 100,
+        Milestone: true,
       },
     ],
   });
@@ -999,4 +1118,87 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(
     timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
   ).toBeVisible();
+
+  await page.locator('.nc-create-view-btn').click();
+  await page.getByTestId('sidebar-view-create-gantt').click();
+
+  const ganttName = page.locator('.nc-view-create-modal .nc-view-input');
+  await expect(ganttName).toBeVisible();
+  await ganttName.fill('Task Gantt UI');
+
+  await page.getByTestId('nc-gantt-start-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Timeline start', { exact: true }).click();
+  await page.getByTestId('nc-gantt-end-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Timeline end', { exact: true }).click();
+  await page.getByTestId('nc-gantt-progress-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Progress', { exact: true }).click();
+  await page.getByTestId('nc-gantt-milestone-field-select').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Milestone', { exact: true }).click();
+
+  const uiGanttCreateResponse = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/tables/${createdTableBody.id}/gantts`) && response.request().method() === 'POST'
+  );
+  const uiGanttUpdateResponse = page.waitForResponse(
+    response => response.url().includes('/meta/gantts/') && response.request().method() === 'PATCH'
+  );
+  const firstGanttRangeResponse = page.waitForResponse(
+    response => response.url().includes('/api/v1/db/gantt-data/') && response.request().method() === 'GET'
+  );
+  await page.getByTestId('nc-view-create-submit').click();
+
+  const createdUiGantt = await (await uiGanttCreateResponse).json();
+  expect(createdUiGantt).toEqual(expect.objectContaining({ title: 'Task Gantt UI', type: ViewTypes.GANTT }));
+  const configuredUiGanttResponse = await uiGanttUpdateResponse;
+  expect(configuredUiGanttResponse.ok()).toBeTruthy();
+  expect((await configuredUiGanttResponse.json()).view).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: titleColumn.id,
+      fk_start_column_id: timelineStartColumn.id,
+      fk_end_column_id: timelineEndColumn.id,
+      fk_progress_column_id: ganttProgressColumn.id,
+      fk_milestone_column_id: ganttMilestoneColumn.id,
+      zoom: 'week',
+    })
+  );
+
+  const initialGanttRange = await firstGanttRangeResponse;
+  expect(initialGanttRange.ok(), await initialGanttRange.text()).toBeTruthy();
+  const initialGanttRangeUrl = new URL(initialGanttRange.url());
+  expect(initialGanttRangeUrl.searchParams.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(initialGanttRangeUrl.searchParams.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(initialGanttRangeUrl.searchParams.get('limit')).toBe('1000');
+
+  const ganttView = page.getByTestId('nc-gantt-wrapper');
+  await expect(ganttView).toBeVisible({ timeout: 30_000 });
+  const currentGanttTask = ganttView.getByTestId('nc-gantt-task').filter({ hasText: 'Current Timeline item' });
+  await expect(currentGanttTask).toBeVisible();
+  await expect(currentGanttTask).toHaveAttribute('data-progress', '40');
+  await expect(currentGanttTask.getByTestId('nc-gantt-progress')).toBeVisible();
+  await expect(ganttView.locator('[data-testid="nc-gantt-task"][data-milestone="true"]')).toHaveCount(1);
+  await expect(ganttView.getByTestId('nc-gantt-row').filter({ hasText: 'Ungrouped Timeline item' })).toContainText(
+    '100%'
+  );
+
+  await page.getByTestId('nc-gantt-next').click();
+  await expect(currentGanttTask).toHaveCount(0);
+  await page.getByTestId('nc-gantt-today').click();
+  await expect(currentGanttTask).toBeVisible();
+
+  const ganttKeyboardMoveResponsePromise = page.waitForResponse(
+    response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
+  );
+  await currentGanttTask.focus();
+  await currentGanttTask.press('ArrowRight');
+  const ganttKeyboardMoveResponse = await ganttKeyboardMoveResponsePromise;
+  expect(ganttKeyboardMoveResponse.ok(), await ganttKeyboardMoveResponse.text()).toBeTruthy();
+  expect(ganttKeyboardMoveResponse.request().postDataJSON()).toEqual({
+    'Timeline start': new Date(Date.parse(`${currentTimelineDate}T00:00:00Z`) + 4 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+    'Timeline end': new Date(
+      Math.floor(Date.parse(currentTimelineEnd) / 1000) * 1000 + 4 * 24 * 60 * 60 * 1000
+    ).toISOString(),
+  });
+  await expect(page.getByTestId('nc-gantt-announcement')).toContainText('moved 1 day');
 });

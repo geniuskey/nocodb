@@ -49,6 +49,14 @@ test('Community image preserves login, schema, and records across restart', asyn
     (view: { title?: string; type?: number }) => view.title === 'Task Timeline UI' && view.type === ViewTypes.TIMELINE
   );
   expect(uiTimeline?.id).toEqual(expect.any(String));
+  const gantt = views.list.find(
+    (view: { title?: string; type?: number }) => view.title === 'Task Gantt' && view.type === ViewTypes.GANTT
+  );
+  expect(gantt?.id).toEqual(expect.any(String));
+  const uiGantt = views.list.find(
+    (view: { title?: string; type?: number }) => view.title === 'Task Gantt UI' && view.type === ViewTypes.GANTT
+  );
+  expect(uiGantt?.id).toEqual(expect.any(String));
 
   const uiTimelineResponse = await page.request.get(`/api/v2/meta/timelines/${uiTimeline.id}`, {
     headers: sessionHeaders,
@@ -65,11 +73,43 @@ test('Community image preserves login, schema, and records across restart', asyn
   );
   expect(parseProp(uiTimelineMeta.meta)).toEqual(expect.objectContaining({ group_by_column_id: expect.any(String) }));
 
+  const ganttResponse = await page.request.get(`/api/v2/meta/gantts/${gantt.id}`, {
+    headers: sessionHeaders,
+  });
+  const ganttMeta = await ganttResponse.json();
+  expect(ganttResponse.ok(), JSON.stringify(ganttMeta)).toBeTruthy();
+  expect(ganttMeta).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: expect.any(String),
+      fk_start_column_id: expect.any(String),
+      fk_end_column_id: expect.any(String),
+      fk_progress_column_id: expect.any(String),
+      fk_milestone_column_id: expect.any(String),
+      zoom: 'month',
+    })
+  );
+
+  const uiGanttResponse = await page.request.get(`/api/v2/meta/gantts/${uiGantt.id}`, {
+    headers: sessionHeaders,
+  });
+  const uiGanttMeta = await uiGanttResponse.json();
+  expect(uiGanttResponse.ok(), JSON.stringify(uiGanttMeta)).toBeTruthy();
+  expect(uiGanttMeta).toEqual(
+    expect.objectContaining({
+      fk_title_column_id: expect.any(String),
+      fk_start_column_id: expect.any(String),
+      fk_end_column_id: expect.any(String),
+      fk_progress_column_id: expect.any(String),
+      fk_milestone_column_id: expect.any(String),
+      zoom: 'week',
+    })
+  );
+
   const restartToday = new Date().toISOString().slice(0, 10);
-  const expectedStartDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 3 * 24 * 60 * 60 * 1000)
+  const expectedStartDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 4 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  const expectedEndDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 5 * 24 * 60 * 60 * 1000)
+  const expectedEndDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 6 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
   const restartRangeEnd = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 5 * 24 * 60 * 60 * 1000)
@@ -92,6 +132,35 @@ test('Community image preserves login, schema, and records across restart', asyn
       expect.objectContaining({
         Title: 'Ungrouped Timeline item',
         Status: null,
+      }),
+    ])
+  );
+
+  const expectedGanttStartDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 4 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const expectedGanttEndDate = new Date(Date.parse(`${restartToday}T00:00:00Z`) + 6 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const persistedGanttRangeResponse = await page.request.get(
+    `/api/v2/gantts/${uiGantt.id}/records?from=${restartToday}&to=${restartRangeEnd}&fields=Title`,
+    { headers: sessionHeaders }
+  );
+  const persistedGanttRange = await persistedGanttRangeResponse.json();
+  expect(persistedGanttRangeResponse.ok(), JSON.stringify(persistedGanttRange)).toBeTruthy();
+  expect(persistedGanttRange.list).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        Title: 'Current Timeline item',
+        'Timeline start': expectedGanttStartDate,
+        'Timeline end': expect.stringContaining(expectedGanttEndDate),
+        Progress: 40,
+        Milestone: 0,
+      }),
+      expect.objectContaining({
+        Title: 'Ungrouped Timeline item',
+        Progress: 100,
+        Milestone: 1,
       }),
     ])
   );
@@ -171,10 +240,35 @@ test('Community image preserves login, schema, and records across restart', asyn
     timelineView.getByTestId('nc-timeline-item').filter({ hasText: 'Virtualized Timeline item' }).first()
   ).toBeVisible();
 
+  await page.getByTestId('view-sidebar-view-Task Gantt UI').click();
+  const ganttView = page.getByTestId('nc-gantt-wrapper');
+  await expect(ganttView).toBeVisible({ timeout: 30_000 });
+  const ganttCanvas = ganttView.getByTestId('nc-gantt-canvas');
+  await expect(ganttCanvas).toHaveAttribute('data-total-tasks', '38');
+  expect(Number(await ganttCanvas.getAttribute('data-rendered-tasks'))).toBeLessThan(38);
+  await expect(ganttView.getByTestId('nc-gantt-task').filter({ hasText: 'Current Timeline item' })).toHaveAttribute(
+    'data-progress',
+    '40'
+  );
+  await expect(ganttView.locator('[data-testid="nc-gantt-task"][data-milestone="true"]')).toHaveCount(1);
+
+  await ganttView.getByTestId('nc-gantt-scroll-region').evaluate(element => {
+    element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(async () => Number(await ganttCanvas.getAttribute('data-rendered-tasks'))).toBeGreaterThan(0);
+  await expect(
+    ganttView.getByTestId('nc-gantt-row').filter({ hasText: 'Virtualized Timeline item' }).first()
+  ).toBeVisible();
+
   const timelineDeleteResponse = await page.request.delete(`/api/v2/meta/views/${timeline.id}`, {
     headers: sessionHeaders,
   });
   expect(timelineDeleteResponse.ok()).toBeTruthy();
+  const ganttDeleteResponse = await page.request.delete(`/api/v2/meta/views/${gantt.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(ganttDeleteResponse.ok()).toBeTruthy();
 
   await tasksTable.click();
   await expect(grid).toBeVisible({ timeout: 30_000 });

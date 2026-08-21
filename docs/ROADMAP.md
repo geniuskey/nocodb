@@ -162,10 +162,17 @@ interactions remain pinned in the DOM. Phase 3 is complete.
 
 ## Phase 4 — Gantt
 
-Build Gantt independently on the Timeline primitives. Planned concepts include
-tasks, start/end dates, milestones, dependencies, progress, critical-path
-calculation, calendar-aware duration, and transactional drag/resize updates.
-No proprietary implementation is an allowed design input.
+Build Gantt independently on the Timeline primitives. The first vertical slice
+is implemented as a first-class view with append-only metadata, validated
+start/end/title/progress/milestone mappings, bounded range loading, a fixed task
+table and virtualized time axis, progress and milestone rendering, and
+permission-aware transactional move/resize updates. SQLite, PostgreSQL, and
+MySQL acceptance covers creation, rendering, persistence, and deletion.
+
+The next Gantt slice will define an append-only dependency graph and its
+transaction rules before adding dependency rendering. Critical-path analysis,
+working calendars, and calendar-aware duration follow that contract. No
+proprietary implementation is an allowed design input.
 
 ## Phase 5 — Trash / Restore
 
