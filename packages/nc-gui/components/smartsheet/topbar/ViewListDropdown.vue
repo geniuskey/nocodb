@@ -251,6 +251,12 @@ async function onOpenModal({
                     Timeline
                   </div>
                 </a-menu-item>
+                <a-menu-item data-testid="topbar-view-create-gantt" @click="onOpenModal({ type: ViewTypes.GANTT })">
+                  <div class="nc-viewlist-submenu-popup-item">
+                    <GeneralViewIcon :meta="{ type: ViewTypes.GANTT }" class="!w-4 !h-4" />
+                    Gantt
+                  </div>
+                </a-menu-item>
 
                 <template v-if="isAiFeaturesEnabled">
                   <NcDivider />

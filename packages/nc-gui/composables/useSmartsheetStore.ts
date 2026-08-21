@@ -53,6 +53,7 @@ const [useProvideSmartsheetStore, useSmartsheetStore] = useInjectionState(
     const isGallery = computed(() => view.value?.type === ViewTypes.GALLERY)
     const isCalendar = computed(() => view.value?.type === ViewTypes.CALENDAR)
     const isTimeline = computed(() => view.value?.type === ViewTypes.TIMELINE)
+    const isGantt = computed(() => view.value?.type === ViewTypes.GANTT)
     const isKanban = computed(() => view.value?.type === ViewTypes.KANBAN)
     const isMap = computed(() => view.value?.type === ViewTypes.MAP)
     const isSharedForm = computed(() => isForm.value && shared)
@@ -236,6 +237,7 @@ const [useProvideSmartsheetStore, useSmartsheetStore] = useInjectionState(
       isMap,
       isCalendar,
       isTimeline,
+      isGantt,
       isSharedForm,
       sorts,
       nestedFilters,
