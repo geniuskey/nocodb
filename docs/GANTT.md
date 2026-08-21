@@ -28,9 +28,9 @@ first slice provides:
 - bounded dependency queries, virtualized SVG link rendering, and an
   accessible dependency editor.
 
-Automatic successor rescheduling, critical-path analysis, working calendars,
-and calendar-aware duration remain outside this slice. Dependency edges are
-explicit constraints; they do not silently mutate task dates.
+Schedule propagation is explicit and preview-first. Critical-path analysis,
+working calendars, and calendar-aware duration remain outside this slice.
+Dependency edges never silently mutate task dates.
 
 ## Dependency graph contract
 
@@ -108,6 +108,11 @@ Dependency endpoints are available under both v1 and v2 metadata prefixes:
 - `PATCH /api/v1/db/meta/gantts/{viewId}/dependencies/{dependencyId}`
 - `DELETE /api/v1/db/meta/gantts/{viewId}/dependencies/{dependencyId}`
 
+Schedule endpoints are also available under both prefixes:
+
+- `POST /api/v1/db/meta/gantts/{viewId}/schedule/preview`
+- `POST /api/v1/db/meta/gantts/{viewId}/schedule/apply`
+
 The dependency query accepts at most 1,000 current record identities and
 returns only edges whose two endpoints are in that set. This matches the
 bounded task API and avoids an unbounded graph response for large tables.
@@ -122,6 +127,40 @@ treated as a point at its start for compatibility with existing Timeline data.
 The controller delegates to `GanttDatasService`, which adds only validated
 range conditions before calling `DatasService`. Gantt does not introduce a
 second record CRUD engine. Record edits use the existing view-scoped row PATCH.
+
+## Schedule propagation contract
+
+A schedule request names one to 100 anchor records. Anchors are fixed; only
+their reachable successors are considered. The scheduler walks the acyclic
+graph in deterministic topological order, preserves each successor's duration,
+and moves it only later by whole days. It never pulls a task earlier. Multiple
+incoming constraints use the greatest required delay. The four edge kinds use
+their standard start/finish anchors, and positive or negative `lag_days` is
+added to the predecessor anchor. A blank end is a point at start and remains
+blank. A Date end is inclusive for finish constraints; a DateTime end is its
+exact instant.
+
+`preview` is read-only and returns current/next dates, whole-day deltas, the
+driving dependency identities, and a SHA-256 `plan_hash`. `apply` requires the
+same anchors and hash. It locks the metadata graph, recomputes the complete
+plan, and rejects a stale hash so the caller must preview again. Its record
+changes use the shared bulk-update transaction, so either every scheduled row
+is written or none is. The apply path emits the ordinary shared data hooks and
+audits; it does not create a second CRUD engine.
+
+One plan is bounded to 100 anchors, 1,000 affected/required records, and the
+view's 10,000-edge graph limit. Missing endpoints, missing/invalid dates,
+negative durations, cycles, and over-limit plans fail without record changes.
+Graph serialization prevents an edge update from racing the recomputation.
+PostgreSQL/MySQL metadata uses a row lock; SQLite uses a per-view process lock
+so its single local connection is not held while user rows are read. The
+metadata and user-data stores can still be physically separate, so the graph
+lock and record transaction are not a distributed transaction. A concurrent
+direct edit after preview invalidates the hash when it is visible to
+recomputation. The hash is not a database-wide compare-and-set for the narrow
+interval between recomputation and the shared bulk update, so callers should
+reload after a rejected apply and integrations should avoid concurrent writes
+to the same scheduled date fields.
 
 ## Frontend behavior
 
@@ -141,13 +180,21 @@ rejected before mutation. Write permissions, SQL/read-only/locked source state,
 rollback, announcements, and undo/redo follow the existing Community mutation
 contracts.
 
+The dependency panel also provides an accessible schedule workflow. A user can
+select fixed anchors and inspect every proposed date change. Applying is shown
+only when record updates are allowed. The preview is cleared whenever the
+loaded task window or anchor selection changes, and the server hash remains the
+authoritative stale-plan guard.
+
 ## Verification
 
 Pure unit tests cover stable task ordering, progress/milestone normalization,
-dependency anchor geometry, identity hashing, cycle detection, and
-missing-endpoint filtering. Community Playwright acceptance covers metadata
+dependency anchor geometry, identity hashing, cycle detection, all four
+schedule constraints, cascades, strongest-predecessor selection, negative lag,
+and forward-only behavior. Community Playwright acceptance covers metadata
 lifecycle, invalid mappings, bounded range validation, required field
-projection, dependency CRUD and invalid-graph rejection, UI creation,
+projection, dependency CRUD and invalid-graph rejection, stale schedule
+rejection, preview/apply persistence, UI creation,
 progress/milestone/link rendering, navigation, keyboard rescheduling,
 virtualization, restart persistence, and generic view deletion. The workflow
 runs against SQLite, PostgreSQL, and MySQL.

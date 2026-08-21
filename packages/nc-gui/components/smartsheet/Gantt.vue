@@ -1,6 +1,14 @@
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import { type ColumnType, type GanttDependencyType, type GanttType, type PaginatedType, UITypes, ViewTypes } from 'nocodb-sdk'
+import {
+  type ColumnType,
+  type GanttDependencyType,
+  type GanttSchedulePlanType,
+  type GanttType,
+  type PaginatedType,
+  UITypes,
+  ViewTypes,
+} from 'nocodb-sdk'
 import { isGanttMilestone, layoutGanttDependencyLinks, layoutGanttTasks, normalizeGanttProgress } from '~/utils/ganttView'
 import {
   TIMELINE_PIXELS_PER_DAY,
@@ -43,6 +51,9 @@ const savingRecordId = ref<string>()
 const savingDependencyId = ref<string>()
 const announcement = ref('')
 const dependencies = ref<GanttDependencyType[]>([])
+const scheduleAnchorIds = ref<string[]>([])
+const schedulePreview = ref<GanttSchedulePlanType>()
+const scheduling = ref<'preview' | 'apply'>()
 
 const dependencyTypes = [
   { value: 'finish_start', label: 'Finish → Start' },
@@ -151,6 +162,7 @@ const loadDependencies = async (recordList: Record<string, any>[]) => {
 }
 
 const loadRecords = async () => {
+  schedulePreview.value = undefined
   if (!view.value?.id || !settings.value?.fk_start_column_id || !settings.value?.fk_end_column_id) {
     records.value = []
     dependencies.value = []
@@ -470,6 +482,7 @@ const saveSettings = async () => {
 
 const canConfigure = computed(() => !isLocked.value && isUIAllowed('viewCreateOrEdit'))
 const canManageDependencies = computed(() => canConfigure.value && !isSqlView.value && !isSyncedTable.value)
+const canPreviewSchedule = computed(() => !!startColumn.value && !!endColumn.value && !isSqlView.value && !isSyncedTable.value)
 
 const dependencyTaskTitle = (recordId: string) => {
   const task = tasks.value.find((candidate) => candidate.id === recordId)
@@ -549,6 +562,46 @@ const updateDependencyType = (dependency: GanttDependencyType, value: unknown) =
 const updateDependencyLag = (dependency: GanttDependencyType, value: unknown) =>
   updateDependency(dependency, { lag_days: Number(value) })
 
+const previewSchedule = async () => {
+  if (!view.value?.id || !canPreviewSchedule.value || !scheduleAnchorIds.value.length || scheduling.value) return
+  scheduling.value = 'preview'
+  try {
+    schedulePreview.value = await $api.dbGanttSchedule.preview(view.value.id, {
+      anchor_record_ids: [...scheduleAnchorIds.value],
+    })
+    announcement.value = schedulePreview.value.changes.length
+      ? `Schedule preview contains ${schedulePreview.value.changes.length} task changes.`
+      : 'Schedule preview found no task changes.'
+  } catch (e: any) {
+    schedulePreview.value = undefined
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt schedule preview failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    scheduling.value = undefined
+  }
+}
+
+const applySchedule = async () => {
+  if (!view.value?.id || !canReschedule.value || !schedulePreview.value || scheduling.value) return
+  scheduling.value = 'apply'
+  try {
+    const applied = await $api.dbGanttSchedule.apply(view.value.id, {
+      anchor_record_ids: [...schedulePreview.value.anchor_record_ids],
+      plan_hash: schedulePreview.value.plan_hash,
+    })
+    await loadRecords()
+    scheduleAnchorIds.value = []
+    announcement.value = `Applied ${applied.changes.length} scheduled task change${applied.changes.length === 1 ? '' : 's'}.`
+  } catch (e: any) {
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt schedule apply failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    scheduling.value = undefined
+  }
+}
+
 watch([rangeStart, xWhere], loadRecords)
 const reloadListener = () => loadRecords()
 reloadViewDataHook?.on(reloadListener)
@@ -581,7 +634,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
       </div>
       <div class="flex items-center gap-2">
         <NcButton
-          v-if="canManageDependencies"
+          v-if="canManageDependencies || canPreviewSchedule"
           size="small"
           type="secondary"
           data-testid="nc-gantt-dependencies-toggle"
@@ -608,7 +661,10 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
       class="border-b border-nc-border-gray-medium bg-white p-3"
       data-testid="nc-gantt-dependencies-panel"
     >
-      <div class="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_auto_minmax(10rem,1fr)_10rem_7rem_auto]">
+      <div
+        v-if="canManageDependencies"
+        class="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_auto_minmax(10rem,1fr)_10rem_7rem_auto]"
+      >
         <a-select
           v-model:value="dependencyDraft.source_record_id"
           show-search
@@ -667,6 +723,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           <a-select
             :value="dependency.dependency_type"
             size="small"
+            :disabled="!canManageDependencies"
             :aria-label="`Dependency type for ${dependencyTaskTitle(dependency.target_record_id)}`"
             @change="updateDependencyType(dependency, $event)"
           >
@@ -680,10 +737,12 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
             :min="-3650"
             :max="3650"
             :precision="0"
+            :disabled="!canManageDependencies"
             :aria-label="`Dependency lag for ${dependencyTaskTitle(dependency.target_record_id)}`"
             @change="updateDependencyLag(dependency, $event)"
           />
           <NcButton
+            v-if="canManageDependencies"
             size="small"
             type="text"
             :loading="savingDependencyId === dependency.id"
@@ -696,6 +755,80 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
         </div>
       </div>
       <p v-else class="mt-3 text-xs text-nc-content-gray-muted">No dependencies connect tasks in this loaded window.</p>
+
+      <div v-if="canPreviewSchedule" class="mt-3 border-t border-nc-border-gray-light pt-3" data-testid="nc-gantt-schedule">
+        <div class="flex flex-wrap items-center gap-2">
+          <a-select
+            v-model:value="scheduleAnchorIds"
+            mode="multiple"
+            class="min-w-64 flex-1"
+            :max-tag-count="3"
+            placeholder="Choose fixed anchor tasks"
+            data-testid="nc-gantt-schedule-anchors"
+            @change="schedulePreview = undefined"
+          >
+            <a-select-option v-for="task in tasks" :key="task.id" :value="task.id">{{ taskTitle(task.record) }}</a-select-option>
+          </a-select>
+          <NcButton
+            type="secondary"
+            :loading="scheduling === 'preview'"
+            :disabled="!scheduleAnchorIds.length || !!scheduling"
+            data-testid="nc-gantt-schedule-preview"
+            @click="previewSchedule"
+          >
+            Preview schedule
+          </NcButton>
+        </div>
+        <p class="mt-2 text-xs text-nc-content-gray-muted">
+          Anchor tasks stay fixed. Successors only move later, by whole days, after you review and confirm the plan.
+        </p>
+
+        <div
+          v-if="schedulePreview"
+          class="mt-3 rounded border border-nc-border-gray-light bg-nc-bg-gray-light p-2"
+          data-testid="nc-gantt-schedule-plan"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-sm font-medium text-nc-content-gray">
+              {{ schedulePreview.changes.length }} change{{ schedulePreview.changes.length === 1 ? '' : 's' }}
+              <span v-if="schedulePreview.unchanged_count" class="font-normal text-nc-content-gray-muted">
+                · {{ schedulePreview.unchanged_count }} already satisfied
+              </span>
+            </span>
+            <NcButton
+              v-if="canReschedule && schedulePreview.changes.length"
+              type="primary"
+              size="small"
+              :loading="scheduling === 'apply'"
+              :disabled="!!scheduling"
+              data-testid="nc-gantt-schedule-apply"
+              @click="applySchedule"
+            >
+              Apply all changes
+            </NcButton>
+          </div>
+          <div v-if="schedulePreview.changes.length" class="mt-2 max-h-40 space-y-1 overflow-auto">
+            <div
+              v-for="change in schedulePreview.changes"
+              :key="change.record_id"
+              class="grid gap-1 rounded bg-white px-2 py-1 text-xs text-nc-content-gray md:grid-cols-[minmax(8rem,1fr)_auto]"
+              data-testid="nc-gantt-schedule-change"
+            >
+              <span class="truncate font-medium">{{ change.title || dependencyTaskTitle(change.record_id) }}</span>
+              <span>
+                {{ change.previous_start }}<template v-if="change.previous_end"> – {{ change.previous_end }}</template> →
+                {{ change.next_start }}<template v-if="change.next_end"> – {{ change.next_end }}</template> (+{{
+                  change.delta_days
+                }}d)
+              </span>
+            </div>
+          </div>
+          <p v-else class="mt-2 text-xs text-nc-content-gray-muted">All reachable dependencies are already satisfied.</p>
+          <p v-if="!canReschedule && schedulePreview.changes.length" class="mt-2 text-xs text-nc-content-gray-muted">
+            You can inspect this plan, but you do not have permission to update these records.
+          </p>
+        </div>
+      </div>
     </div>
 
     <div

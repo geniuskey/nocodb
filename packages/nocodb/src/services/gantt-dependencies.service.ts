@@ -19,6 +19,7 @@ import {
   GANTT_DEPENDENCY_MAX_RECORD_IDS,
   isGanttDependencyKind,
   normalizeGanttRecordId,
+  withGanttGraphLock,
   wouldCreateGanttDependencyCycle,
 } from '~/helpers/ganttDependency';
 import { getCompositePkValue } from '~/helpers/dbHelpers';
@@ -150,92 +151,96 @@ export class GanttDependenciesService {
     context: NcContext,
     param: { viewId: string; dependency: GanttDependencyCreateReqType },
   ) {
-    validatePayload(
-      'swagger.json#/components/schemas/GanttDependencyCreateReq',
-      param.dependency,
-    );
-    const view = await this.getGanttView(context, param.viewId);
-    let sourceRecordId = normalizeGanttRecordId(
-      param.dependency.source_record_id,
-    );
-    let targetRecordId = normalizeGanttRecordId(
-      param.dependency.target_record_id,
-    );
-    if (!sourceRecordId || !targetRecordId) {
-      NcError.get(context).badRequest(
-        'Gantt dependency record IDs must be non-empty strings of at most 2048 bytes',
+    return await withGanttGraphLock(param.viewId, async () => {
+      validatePayload(
+        'swagger.json#/components/schemas/GanttDependencyCreateReq',
+        param.dependency,
       );
-    }
-    if (sourceRecordId === targetRecordId) {
-      NcError.get(context).badRequest('A Gantt task cannot depend on itself');
-    }
-    const dependencyType = param.dependency.dependency_type ?? 'finish_start';
-    const lagDays = param.dependency.lag_days ?? 0;
-    if (!isGanttDependencyKind(dependencyType)) {
-      NcError.get(context).badRequest('Unsupported Gantt dependency type');
-    }
-    this.validateLag(context, lagDays);
-    [sourceRecordId, targetRecordId] = await this.assertRecordsExist(
-      context,
-      view,
-      [sourceRecordId, targetRecordId],
-    );
-    if (sourceRecordId === targetRecordId) {
-      NcError.get(context).badRequest('A Gantt task cannot depend on itself');
-    }
-
-    const trxMeta = await Noco.ncMeta.startTransaction();
-    try {
-      await this.lockGraph(context, param.viewId, trxMeta);
-      const dependencies = await GanttDependency.listAll(
-        context,
-        param.viewId,
-        trxMeta,
+      const view = await this.getGanttView(context, param.viewId);
+      let sourceRecordId = normalizeGanttRecordId(
+        param.dependency.source_record_id,
       );
-      if (dependencies.length >= GANTT_DEPENDENCY_MAX_EDGES) {
+      let targetRecordId = normalizeGanttRecordId(
+        param.dependency.target_record_id,
+      );
+      if (!sourceRecordId || !targetRecordId) {
         NcError.get(context).badRequest(
-          `A Gantt view supports at most ${GANTT_DEPENDENCY_MAX_EDGES} dependencies`,
+          'Gantt dependency record IDs must be non-empty strings of at most 2048 bytes',
         );
       }
-      if (
-        dependencies.some(
-          (dependency) =>
-            dependency.source_record_id === sourceRecordId &&
-            dependency.target_record_id === targetRecordId,
-        )
-      ) {
-        NcError.get(context).badRequest('This Gantt dependency already exists');
+      if (sourceRecordId === targetRecordId) {
+        NcError.get(context).badRequest('A Gantt task cannot depend on itself');
       }
-      if (
-        wouldCreateGanttDependencyCycle(
-          dependencies,
-          sourceRecordId,
-          targetRecordId,
-        )
-      ) {
-        NcError.get(context).badRequest(
-          'This Gantt dependency would create a cycle',
-        );
+      const dependencyType = param.dependency.dependency_type ?? 'finish_start';
+      const lagDays = param.dependency.lag_days ?? 0;
+      if (!isGanttDependencyKind(dependencyType)) {
+        NcError.get(context).badRequest('Unsupported Gantt dependency type');
+      }
+      this.validateLag(context, lagDays);
+      [sourceRecordId, targetRecordId] = await this.assertRecordsExist(
+        context,
+        view,
+        [sourceRecordId, targetRecordId],
+      );
+      if (sourceRecordId === targetRecordId) {
+        NcError.get(context).badRequest('A Gantt task cannot depend on itself');
       }
 
-      const created = await GanttDependency.insert(
-        context,
-        {
-          fk_view_id: param.viewId,
-          source_record_id: sourceRecordId,
-          target_record_id: targetRecordId,
-          dependency_type: dependencyType,
-          lag_days: lagDays,
-          source_id: view.source_id,
-        },
-        trxMeta,
-      );
-      await trxMeta.commit();
-      return created;
-    } catch (error) {
-      await trxMeta.rollback();
-      throw error;
-    }
+      const trxMeta = await Noco.ncMeta.startTransaction();
+      try {
+        await this.lockGraph(context, param.viewId, trxMeta);
+        const dependencies = await GanttDependency.listAll(
+          context,
+          param.viewId,
+          trxMeta,
+        );
+        if (dependencies.length >= GANTT_DEPENDENCY_MAX_EDGES) {
+          NcError.get(context).badRequest(
+            `A Gantt view supports at most ${GANTT_DEPENDENCY_MAX_EDGES} dependencies`,
+          );
+        }
+        if (
+          dependencies.some(
+            (dependency) =>
+              dependency.source_record_id === sourceRecordId &&
+              dependency.target_record_id === targetRecordId,
+          )
+        ) {
+          NcError.get(context).badRequest(
+            'This Gantt dependency already exists',
+          );
+        }
+        if (
+          wouldCreateGanttDependencyCycle(
+            dependencies,
+            sourceRecordId,
+            targetRecordId,
+          )
+        ) {
+          NcError.get(context).badRequest(
+            'This Gantt dependency would create a cycle',
+          );
+        }
+
+        const created = await GanttDependency.insert(
+          context,
+          {
+            fk_view_id: param.viewId,
+            source_record_id: sourceRecordId,
+            target_record_id: targetRecordId,
+            dependency_type: dependencyType,
+            lag_days: lagDays,
+            source_id: view.source_id,
+          },
+          trxMeta,
+        );
+        await trxMeta.commit();
+        return created;
+      } catch (error) {
+        await trxMeta.rollback();
+        throw error;
+      }
+    });
   }
 
   async dependencyUpdate(
@@ -246,72 +251,76 @@ export class GanttDependenciesService {
       dependency: GanttDependencyUpdateReqType;
     },
   ) {
-    validatePayload(
-      'swagger.json#/components/schemas/GanttDependencyUpdateReq',
-      param.dependency,
-    );
-    await this.getGanttView(context, param.viewId);
-    if (
-      param.dependency.dependency_type !== undefined &&
-      !isGanttDependencyKind(param.dependency.dependency_type)
-    ) {
-      NcError.get(context).badRequest('Unsupported Gantt dependency type');
-    }
-    if (param.dependency.lag_days !== undefined) {
-      this.validateLag(context, param.dependency.lag_days);
-    }
-
-    const trxMeta = await Noco.ncMeta.startTransaction();
-    try {
-      await this.lockGraph(context, param.viewId, trxMeta);
-      const dependency = await GanttDependency.get(
-        context,
-        param.dependencyId,
-        trxMeta,
-      );
-      if (!dependency || dependency.fk_view_id !== param.viewId) {
-        NcError.get(context).badRequest(
-          'Gantt dependency was not found in this view',
-        );
-      }
-      const updated = await GanttDependency.update(
-        context,
-        param.dependencyId,
+    return await withGanttGraphLock(param.viewId, async () => {
+      validatePayload(
+        'swagger.json#/components/schemas/GanttDependencyUpdateReq',
         param.dependency,
-        trxMeta,
       );
-      await trxMeta.commit();
-      return updated;
-    } catch (error) {
-      await trxMeta.rollback();
-      throw error;
-    }
+      await this.getGanttView(context, param.viewId);
+      if (
+        param.dependency.dependency_type !== undefined &&
+        !isGanttDependencyKind(param.dependency.dependency_type)
+      ) {
+        NcError.get(context).badRequest('Unsupported Gantt dependency type');
+      }
+      if (param.dependency.lag_days !== undefined) {
+        this.validateLag(context, param.dependency.lag_days);
+      }
+
+      const trxMeta = await Noco.ncMeta.startTransaction();
+      try {
+        await this.lockGraph(context, param.viewId, trxMeta);
+        const dependency = await GanttDependency.get(
+          context,
+          param.dependencyId,
+          trxMeta,
+        );
+        if (!dependency || dependency.fk_view_id !== param.viewId) {
+          NcError.get(context).badRequest(
+            'Gantt dependency was not found in this view',
+          );
+        }
+        const updated = await GanttDependency.update(
+          context,
+          param.dependencyId,
+          param.dependency,
+          trxMeta,
+        );
+        await trxMeta.commit();
+        return updated;
+      } catch (error) {
+        await trxMeta.rollback();
+        throw error;
+      }
+    });
   }
 
   async dependencyDelete(
     context: NcContext,
     param: { viewId: string; dependencyId: string },
   ) {
-    await this.getGanttView(context, param.viewId);
-    const trxMeta = await Noco.ncMeta.startTransaction();
-    try {
-      await this.lockGraph(context, param.viewId, trxMeta);
-      const dependency = await GanttDependency.get(
-        context,
-        param.dependencyId,
-        trxMeta,
-      );
-      if (!dependency || dependency.fk_view_id !== param.viewId) {
-        NcError.get(context).badRequest(
-          'Gantt dependency was not found in this view',
+    return await withGanttGraphLock(param.viewId, async () => {
+      await this.getGanttView(context, param.viewId);
+      const trxMeta = await Noco.ncMeta.startTransaction();
+      try {
+        await this.lockGraph(context, param.viewId, trxMeta);
+        const dependency = await GanttDependency.get(
+          context,
+          param.dependencyId,
+          trxMeta,
         );
+        if (!dependency || dependency.fk_view_id !== param.viewId) {
+          NcError.get(context).badRequest(
+            'Gantt dependency was not found in this view',
+          );
+        }
+        await GanttDependency.delete(context, param.dependencyId, trxMeta);
+        await trxMeta.commit();
+        return { id: param.dependencyId };
+      } catch (error) {
+        await trxMeta.rollback();
+        throw error;
       }
-      await GanttDependency.delete(context, param.dependencyId, trxMeta);
-      await trxMeta.commit();
-      return { id: param.dependencyId };
-    } catch (error) {
-      await trxMeta.rollback();
-      throw error;
-    }
+    });
   }
 }

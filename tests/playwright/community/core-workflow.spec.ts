@@ -495,6 +495,89 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(createdDependency).not.toHaveProperty('source_record_hash');
   expect(createdDependency).not.toHaveProperty('target_record_hash');
 
+  const initialSchedulePreviewResponse = await page.request.post(
+    `/api/v2/meta/gantts/${createdGantt.id}/schedule/preview`,
+    {
+      headers: sessionHeaders,
+      data: { anchor_record_ids: [dependencySourceId] },
+    }
+  );
+  const initialSchedulePreview = await initialSchedulePreviewResponse.json();
+  expect(initialSchedulePreviewResponse.ok(), JSON.stringify(initialSchedulePreview)).toBeTruthy();
+  expect(initialSchedulePreview).toEqual(
+    expect.objectContaining({
+      plan_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      anchor_record_ids: [dependencySourceId],
+      applied: false,
+      changes: [
+        expect.objectContaining({
+          record_id: dependencyTargetId,
+          title: 'Timeline point in range',
+          previous_start: '2025-01-12',
+          next_start: '2025-01-23',
+          delta_days: 11,
+          driving_dependency_ids: [createdDependency.id],
+        }),
+      ],
+    })
+  );
+
+  const changedDependencyResponse = await page.request.patch(
+    `/api/v2/meta/gantts/${createdGantt.id}/dependencies/${createdDependency.id}`,
+    {
+      headers: sessionHeaders,
+      data: { lag_days: 3 },
+    }
+  );
+  expect(changedDependencyResponse.ok(), await changedDependencyResponse.text()).toBeTruthy();
+  const staleScheduleApplyResponse = await page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/schedule/apply`, {
+    headers: sessionHeaders,
+    data: {
+      anchor_record_ids: [dependencySourceId],
+      plan_hash: initialSchedulePreview.plan_hash,
+    },
+  });
+  expect(staleScheduleApplyResponse.status()).toBe(400);
+
+  const currentSchedulePreviewResponse = await page.request.post(
+    `/api/v1/db/meta/gantts/${createdGantt.id}/schedule/preview`,
+    {
+      headers: sessionHeaders,
+      data: { anchor_record_ids: [dependencySourceId] },
+    }
+  );
+  const currentSchedulePreview = await currentSchedulePreviewResponse.json();
+  expect(currentSchedulePreviewResponse.ok(), JSON.stringify(currentSchedulePreview)).toBeTruthy();
+  expect(currentSchedulePreview.changes).toEqual([
+    expect.objectContaining({
+      record_id: dependencyTargetId,
+      previous_start: '2025-01-12',
+      next_start: '2025-01-24',
+      delta_days: 12,
+    }),
+  ]);
+  const scheduleApplyResponse = await page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/schedule/apply`, {
+    headers: sessionHeaders,
+    data: {
+      anchor_record_ids: [dependencySourceId],
+      plan_hash: currentSchedulePreview.plan_hash,
+    },
+  });
+  const appliedSchedule = await scheduleApplyResponse.json();
+  expect(scheduleApplyResponse.ok(), JSON.stringify(appliedSchedule)).toBeTruthy();
+  expect(appliedSchedule).toEqual(
+    expect.objectContaining({ applied: true, plan_hash: currentSchedulePreview.plan_hash })
+  );
+
+  const scheduledRecordsResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const scheduledRecords = (await scheduledRecordsResponse.json()).list;
+  expect(scheduledRecordsResponse.ok()).toBeTruthy();
+  expect(scheduledRecords.find((record: { Title?: string }) => record.Title === 'Timeline point in range')).toEqual(
+    expect.objectContaining({ 'Timeline start': '2025-01-24' })
+  );
+
   const invalidDependencyResponses = await Promise.all([
     page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
       headers: sessionHeaders,
@@ -1328,6 +1411,51 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveCount(1);
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-dependency-type', 'finish_start');
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-lag-days', '2');
+
+  await page.getByTestId('nc-gantt-schedule-anchors').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Current Timeline item', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  const uiSchedulePreviewResponsePromise = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/gantts/${createdUiGantt.id}/schedule/preview`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-gantt-schedule-preview').click();
+  const uiSchedulePreviewResponse = await uiSchedulePreviewResponsePromise;
+  expect(uiSchedulePreviewResponse.ok(), await uiSchedulePreviewResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-gantt-schedule-plan')).toBeVisible();
+  await expect(page.getByTestId('nc-gantt-schedule-change')).toHaveCount(1);
+
+  const uiScheduleApplyResponsePromise = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/gantts/${createdUiGantt.id}/schedule/apply`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-gantt-schedule-apply').click();
+  const uiScheduleApplyResponse = await uiScheduleApplyResponsePromise;
+  expect(uiScheduleApplyResponse.ok(), await uiScheduleApplyResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-gantt-announcement')).toContainText('Applied 1 scheduled task change');
+
+  // Keep the long-lived restart fixture inside its original bounded window.
+  // The API contract above already verifies schedule persistence; this UI
+  // assertion verifies the preview/confirm interaction and then restores the
+  // shared fixture through the ordinary bulk row update.
+  const uiTaskRowsResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const uiTaskRows = (await uiTaskRowsResponse.json()).list;
+  const ungroupedTask = uiTaskRows.find((record: { Title?: string }) => record.Title === 'Ungrouped Timeline item');
+  const restoreScheduledTaskResponse = await page.request.patch(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [
+      {
+        Id: ungroupedTask.Id,
+        'Timeline start': currentTimelineDate,
+        'Timeline end': currentTimelineEnd,
+      },
+    ],
+  });
+  expect(restoreScheduledTaskResponse.ok(), await restoreScheduledTaskResponse.text()).toBeTruthy();
 
   await page.getByTestId('nc-gantt-next').click();
   await expect(currentGanttTask).toHaveCount(0);

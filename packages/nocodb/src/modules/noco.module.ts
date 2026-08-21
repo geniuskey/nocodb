@@ -55,6 +55,7 @@ import { ListsController } from '~/controllers/lists.controller';
 import { TimelinesController } from '~/controllers/timelines.controller';
 import { GanttsController } from '~/controllers/gantts.controller';
 import { GanttDependenciesController } from '~/controllers/gantt-dependencies.controller';
+import { GanttSchedulesController } from '~/controllers/gantt-schedules.controller';
 import { MapsController } from '~/controllers/maps.controller';
 import { ModelVisibilitiesController } from '~/controllers/model-visibilities.controller';
 import { NotificationsController } from '~/controllers/notifications.controller';
@@ -97,6 +98,7 @@ import { ListsService } from '~/services/lists.service';
 import { TimelinesService } from '~/services/timelines.service';
 import { GanttsService } from '~/services/gantts.service';
 import { GanttDependenciesService } from '~/services/gantt-dependencies.service';
+import { GanttSchedulesService } from '~/services/gantt-schedules.service';
 import { MapsService } from '~/services/maps.service';
 import { MetaDiffsService } from '~/services/meta-diffs.service';
 import { ModelVisibilitiesService } from '~/services/model-visibilities.service';
@@ -224,6 +226,7 @@ export const nocoModuleMetadata = {
           TimelinesController,
           GanttsController,
           GanttDependenciesController,
+          GanttSchedulesController,
           MapsController,
           ModelVisibilitiesController,
           OrgLcenseController,
@@ -313,6 +316,7 @@ export const nocoModuleMetadata = {
     TimelinesService,
     GanttsService,
     GanttDependenciesService,
+    GanttSchedulesService,
     MapsService,
     MetaDiffsService,
     ModelVisibilitiesService,
