@@ -14,6 +14,7 @@ import { Column, GanttView, Model, User, View } from '~/models';
 import NocoCache from '~/cache/NocoCache';
 import { CacheScope } from '~/utils/globals';
 import NocoSocket from '~/socket/NocoSocket';
+import { normalizeGanttWorkingCalendar } from '~/helpers/ganttWorkingCalendar';
 
 @Injectable()
 export class GanttsService {
@@ -156,6 +157,15 @@ export class GanttsService {
       param.gantt,
       ncMeta,
     );
+    if ('working_calendar' in param.gantt) {
+      try {
+        param.gantt.working_calendar = normalizeGanttWorkingCalendar(
+          param.gantt.working_calendar,
+        );
+      } catch (error) {
+        NcError.get(context).badRequest((error as Error).message);
+      }
+    }
 
     const oldGanttView = await GanttView.get(context, param.viewId, ncMeta);
     const viewWebhookManager =

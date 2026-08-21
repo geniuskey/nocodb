@@ -6,6 +6,7 @@ import {
   type GanttDependencyType,
   type GanttSchedulePlanType,
   type GanttType,
+  type GanttWorkingCalendarType,
   type PaginatedType,
   UITypes,
   ViewTypes,
@@ -28,6 +29,21 @@ const HEADER_HEIGHT = 36
 const ROW_HEIGHT = 44
 const ROW_OVERSCAN = 4
 const DAY_OVERSCAN = 160
+const DEFAULT_WORKING_CALENDAR: GanttWorkingCalendarType = {
+  enabled: false,
+  weekdays: [1, 2, 3, 4, 5],
+  holidays: [],
+  timezone: 'UTC',
+}
+const WEEKDAYS = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 7, label: 'Sun' },
+]
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -113,6 +129,7 @@ const draft = reactive<{
   fk_progress_column_id: string | null
   fk_milestone_column_id: string | null
   zoom: TimelineZoom
+  working_calendar: GanttWorkingCalendarType
 }>({
   fk_title_column_id: null,
   fk_start_column_id: null,
@@ -120,7 +137,10 @@ const draft = reactive<{
   fk_progress_column_id: null,
   fk_milestone_column_id: null,
   zoom: 'week',
+  working_calendar: { ...DEFAULT_WORKING_CALENDAR, weekdays: [...DEFAULT_WORKING_CALENDAR.weekdays], holidays: [] },
 })
+
+const holidayText = ref('')
 
 const syncDraft = () => {
   draft.fk_title_column_id = settings.value?.fk_title_column_id || null
@@ -129,6 +149,32 @@ const syncDraft = () => {
   draft.fk_progress_column_id = settings.value?.fk_progress_column_id || null
   draft.fk_milestone_column_id = settings.value?.fk_milestone_column_id || null
   draft.zoom = settings.value?.zoom || 'week'
+  const calendar = settings.value?.working_calendar || DEFAULT_WORKING_CALENDAR
+  draft.working_calendar = {
+    ...calendar,
+    weekdays: [...calendar.weekdays],
+    holidays: [...calendar.holidays],
+  }
+  holidayText.value = calendar.holidays.join('\n')
+}
+
+const toggleWorkingWeekday = (weekday: number) => {
+  const selected = new Set(draft.working_calendar.weekdays)
+  if (selected.has(weekday)) {
+    if (selected.size === 1) return
+    selected.delete(weekday)
+  } else {
+    selected.add(weekday)
+  }
+  draft.working_calendar.weekdays = [...selected].sort((left, right) => left - right)
+}
+
+const workingCalendar = computed(() => settings.value?.working_calendar || DEFAULT_WORKING_CALENDAR)
+const isNonWorkingDay = (index: number) => {
+  if (!workingCalendar.value.enabled) return false
+  const date = rangeStart.value.add(index, 'day')
+  const weekday = date.day() || 7
+  return !workingCalendar.value.weekdays.includes(weekday) || workingCalendar.value.holidays.includes(date.format('YYYY-MM-DD'))
 }
 
 const resetWindow = (nextZoom: TimelineZoom = zoom.value, previousWindowDays = windowDays.value) => {
@@ -488,7 +534,22 @@ const saveSettings = async () => {
   const previousZoom = zoom.value
   const previousWindowDays = windowDays.value
   try {
-    await updateViewMeta(view.value.id, ViewTypes.GANTT, { ...draft })
+    draft.working_calendar.holidays = [
+      ...new Set(
+        holidayText.value
+          .split(/[\s,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ].sort()
+    await updateViewMeta(view.value.id, ViewTypes.GANTT, {
+      ...draft,
+      working_calendar: {
+        ...draft.working_calendar,
+        weekdays: [...draft.working_calendar.weekdays],
+        holidays: [...draft.working_calendar.holidays],
+      },
+    })
     settings.value = await $api.dbView.ganttRead(view.value.id)
     if (previousZoom !== draft.zoom) resetWindow(draft.zoom, previousWindowDays)
     settingsOpen.value = false
@@ -829,7 +890,9 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               criticalPath.critical_record_ids.length === 1 ? '' : 's'
             }}
             across {{ criticalPath.component_count }} network{{ criticalPath.component_count === 1 ? '' : 's' }}
-            <template v-if="criticalPath.component_count"> · longest {{ maximumCriticalPathDays }}d</template>
+            <template v-if="criticalPath.component_count">
+              · longest {{ maximumCriticalPathDays }}{{ criticalPath.day_mode === 'working' ? 'wd' : 'd' }}
+            </template>
           </p>
           <div v-if="criticalPath.tasks.length" class="mt-2 flex max-h-24 flex-wrap gap-1 overflow-auto">
             <span
@@ -839,7 +902,8 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               :class="task.critical ? 'font-medium text-red-700' : 'text-nc-content-gray-muted'"
               data-testid="nc-gantt-critical-path-task"
             >
-              {{ task.title || dependencyTaskTitle(task.record_id) }} · {{ task.total_float_days }}d float
+              {{ task.title || dependencyTaskTitle(task.record_id) }} · {{ task.total_float_days
+              }}{{ criticalPath.day_mode === 'working' ? 'wd' : 'd' }} float
             </span>
           </div>
           <p v-else>No dependency networks are available to analyze.</p>
@@ -867,7 +931,8 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           </NcButton>
         </div>
         <p class="mt-2 text-xs text-nc-content-gray-muted">
-          Anchor tasks stay fixed. Successors only move later, by whole days, after you review and confirm the plan.
+          Anchor tasks stay fixed. Successors only move later, by whole
+          {{ workingCalendar.enabled ? 'working days' : 'days' }}, after you review and confirm the plan.
         </p>
 
         <div
@@ -906,7 +971,7 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
                 {{ change.previous_start }}<template v-if="change.previous_end"> – {{ change.previous_end }}</template> →
                 {{ change.next_start }}<template v-if="change.next_end"> – {{ change.next_end }}</template> (+{{
                   change.delta_days
-                }}d)
+                }}{{ schedulePreview.day_mode === 'working' ? 'wd' : 'd' }})
               </span>
             </div>
           </div>
@@ -975,6 +1040,50 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           >
         </div>
       </label>
+      <fieldset class="col-span-full grid gap-3 rounded border border-nc-border-gray-light p-3 md:grid-cols-[auto_1fr_1fr]">
+        <legend class="px-1 text-xs font-semibold text-nc-content-gray">Working calendar</legend>
+        <label class="flex items-center gap-2 text-xs text-nc-content-gray">
+          <input v-model="draft.working_calendar.enabled" type="checkbox" data-testid="nc-gantt-working-calendar-enabled" />
+          Skip non-working dates
+        </label>
+        <label class="text-xs font-medium text-nc-content-gray">
+          Timezone
+          <a-input
+            v-model:value="draft.working_calendar.timezone"
+            size="small"
+            placeholder="UTC"
+            data-testid="nc-gantt-working-calendar-timezone"
+          />
+        </label>
+        <label class="text-xs font-medium text-nc-content-gray">
+          Holidays
+          <a-textarea
+            v-model:value="holidayText"
+            :auto-size="{ minRows: 1, maxRows: 3 }"
+            placeholder="2026-01-01, 2026-12-25"
+            data-testid="nc-gantt-working-calendar-holidays"
+          />
+        </label>
+        <div class="col-span-full flex flex-wrap gap-1" aria-label="Working weekdays">
+          <button
+            v-for="weekday in WEEKDAYS"
+            :key="weekday.value"
+            type="button"
+            class="rounded border px-2 py-1 text-xs"
+            :class="
+              draft.working_calendar.weekdays.includes(weekday.value)
+                ? 'border-nc-border-brand bg-nc-bg-brand text-nc-content-brand'
+                : 'border-nc-border-gray-medium text-nc-content-gray-muted'
+            "
+            :aria-pressed="draft.working_calendar.weekdays.includes(weekday.value)"
+            :data-weekday="weekday.value"
+            data-testid="nc-gantt-working-calendar-weekday"
+            @click="toggleWorkingWeekday(weekday.value)"
+          >
+            {{ weekday.label }}
+          </button>
+        </div>
+      </fieldset>
     </div>
 
     <div v-if="error" class="border-b border-nc-border-red bg-nc-bg-red-light px-4 py-2 text-sm text-nc-content-red-dark">
@@ -1011,8 +1120,10 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
           v-for="index in visibleDayIndexes"
           :key="index"
           class="absolute top-0 h-full border-r border-nc-border-gray-light px-1 py-2 text-[11px] text-nc-content-gray-muted"
+          :class="isNonWorkingDay(index) ? 'bg-nc-bg-gray-light' : ''"
           :style="{ left: `${TASK_TABLE_WIDTH + index * pixelsPerDay}px`, width: `${pixelsPerDay}px` }"
           :data-day-index="index"
+          :data-working-day="!isNonWorkingDay(index)"
           data-testid="nc-gantt-day"
         >
           <span class="whitespace-nowrap">{{ headerLabel(index) }}</span>

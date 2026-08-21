@@ -86,6 +86,12 @@ test('Community image preserves login, schema, and records across restart', asyn
       fk_progress_column_id: expect.any(String),
       fk_milestone_column_id: expect.any(String),
       zoom: 'month',
+      working_calendar: {
+        enabled: true,
+        weekdays: [1, 2, 3, 4, 5],
+        holidays: ['2026-01-01'],
+        timezone: 'Asia/Seoul',
+      },
     })
   );
 
@@ -102,6 +108,12 @@ test('Community image preserves login, schema, and records across restart', asyn
       fk_progress_column_id: expect.any(String),
       fk_milestone_column_id: expect.any(String),
       zoom: 'week',
+      working_calendar: {
+        enabled: true,
+        weekdays: [1, 2, 3, 4, 5],
+        holidays: ['2030-01-01'],
+        timezone: 'UTC',
+      },
     })
   );
 

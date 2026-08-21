@@ -443,6 +443,9 @@
             "enum": ["day", "week", "month", "quarter"],
             "default": "week"
           },
+          "working_calendar": {
+            "$ref": "#/components/schemas/GanttWorkingCalendar"
+          },
           "meta": { "$ref": "#/components/schemas/Meta" },
           "columns": {
             "type": "array",
@@ -481,7 +484,44 @@
             "type": "string",
             "enum": ["day", "week", "month", "quarter"]
           },
+          "working_calendar": {
+            "$ref": "#/components/schemas/GanttWorkingCalendar"
+          },
           "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "GanttWorkingCalendar": {
+        "title": "Gantt Working Calendar",
+        "description": "ISO-weekday project calendar used by scheduling and critical-path duration when enabled",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enabled", "weekdays", "holidays", "timezone"],
+        "properties": {
+          "enabled": { "type": "boolean", "default": false },
+          "weekdays": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 7,
+            "uniqueItems": true,
+            "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+            "default": [1, 2, 3, 4, 5]
+          },
+          "holidays": {
+            "type": "array",
+            "maxItems": 366,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "default": []
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "default": "UTC"
+          }
         }
       },
       "GanttColumnReq": {
@@ -655,6 +695,7 @@
         "required": [
           "analyzed_record_count",
           "component_count",
+          "day_mode",
           "critical_record_ids",
           "critical_dependency_ids",
           "tasks",
@@ -663,6 +704,7 @@
         "properties": {
           "analyzed_record_count": { "type": "integer", "minimum": 0 },
           "component_count": { "type": "integer", "minimum": 0 },
+          "day_mode": { "type": "string", "enum": ["calendar", "working"] },
           "critical_record_ids": {
             "type": "array",
             "items": { "type": "string" }
@@ -746,6 +788,7 @@
         "required": [
           "plan_hash",
           "anchor_record_ids",
+          "day_mode",
           "changes",
           "unchanged_count",
           "applied"
@@ -756,6 +799,7 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "day_mode": { "type": "string", "enum": ["calendar", "working"] },
           "changes": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/GanttScheduleChange" }

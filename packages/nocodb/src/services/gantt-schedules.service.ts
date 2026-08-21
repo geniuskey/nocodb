@@ -27,6 +27,13 @@ import {
 import { GanttDependency, GanttView, Model, Source, View } from '~/models';
 import { MetaTable } from '~/utils/globals';
 import { DataTableService } from '~/services/data-table.service';
+import {
+  ganttDurationDays,
+  type GanttWorkingCalendarConfig,
+  normalizeGanttWorkingCalendar,
+  shiftGanttDate,
+  shiftGanttTimestamp,
+} from '~/helpers/ganttWorkingCalendar';
 
 type SchedulePlanInternal = GanttSchedulePlanType & { updates: any[] };
 
@@ -129,9 +136,13 @@ export class GanttSchedulesService {
     recordId: string,
     value: unknown,
     column: any,
+    calendar?: GanttWorkingCalendarConfig,
   ) {
     if (value === null || value === undefined || value === '') return null;
-    const parsed = dayjs(value as any);
+    const parsed =
+      column.uidt === UITypes.Date && calendar?.enabled
+        ? dayjs.tz(`${String(value)} 00:00:00.000`, calendar.timezone)
+        : dayjs(value as any);
     if (!parsed.isValid()) {
       NcError.get(context).badRequest(
         `Gantt schedule task has an invalid ${column.title} value: ${recordId}`,
@@ -146,11 +157,22 @@ export class GanttSchedulesService {
     };
   }
 
-  private shiftDate(text: string, column: any, deltaDays: number) {
-    const shifted = dayjs(text).add(deltaDays, 'day');
-    return column.uidt === UITypes.Date
-      ? shifted.format('YYYY-MM-DD')
-      : shifted.toISOString();
+  private shiftDate(
+    text: string,
+    column: any,
+    deltaDays: number,
+    calendar: GanttWorkingCalendarConfig,
+  ) {
+    if (column.uidt === UITypes.Date) {
+      return calendar.enabled
+        ? shiftGanttDate(text, deltaDays, calendar)
+        : dayjs(text).add(deltaDays, 'day').format('YYYY-MM-DD');
+    }
+    return calendar.enabled
+      ? dayjs(
+          shiftGanttTimestamp(dayjs(text).valueOf(), deltaDays, calendar),
+        ).toISOString()
+      : dayjs(text).add(deltaDays, 'day').toISOString();
   }
 
   private async calculatePlan(
@@ -167,6 +189,7 @@ export class GanttSchedulesService {
         'Gantt start and end fields must be configured before scheduling tasks',
       );
     }
+    const calendar = normalizeGanttWorkingCalendar(gantt.working_calendar);
 
     const model = await Model.getByIdOrName(
       context,
@@ -220,6 +243,7 @@ export class GanttSchedulesService {
         recordId,
         this.value(record, startColumn),
         startColumn,
+        calendar,
       );
       if (!start) {
         NcError.get(context).badRequest(
@@ -231,10 +255,21 @@ export class GanttSchedulesService {
         recordId,
         this.value(record, endColumn),
         endColumn,
+        calendar,
       );
       const finish = end
-        ? end.timestamp +
-          (endColumn.uidt === UITypes.Date ? GANTT_SCHEDULE_DAY_MS : 0)
+        ? endColumn.uidt === UITypes.Date && calendar.enabled
+          ? dayjs
+              .tz(
+                `${shiftGanttDate(end.text, 1, {
+                  ...calendar,
+                  enabled: false,
+                })} 00:00:00.000`,
+                calendar.timezone,
+              )
+              .valueOf()
+          : end.timestamp +
+            (endColumn.uidt === UITypes.Date ? GANTT_SCHEDULE_DAY_MS : 0)
         : start.timestamp;
       if (finish < start.timestamp) {
         NcError.get(context).badRequest(
@@ -245,6 +280,7 @@ export class GanttSchedulesService {
         id: recordId,
         start: start.timestamp,
         finish,
+        finish_is_date: endColumn.uidt === UITypes.Date,
         startText: start.text,
         endText: end?.text ?? null,
       };
@@ -252,7 +288,12 @@ export class GanttSchedulesService {
 
     let shifts;
     try {
-      shifts = buildGanttScheduleShifts(taskState, dependencies, anchors);
+      shifts = buildGanttScheduleShifts(
+        taskState,
+        dependencies,
+        anchors,
+        calendar,
+      );
     } catch (error) {
       NcError.get(context).badRequest((error as Error).message);
     }
@@ -271,9 +312,10 @@ export class GanttSchedulesService {
         state.startText,
         startColumn,
         shift.delta_days,
+        calendar,
       );
       const nextEnd = state.endText
-        ? this.shiftDate(state.endText, endColumn, shift.delta_days)
+        ? this.shiftDate(state.endText, endColumn, shift.delta_days, calendar)
         : null;
       updates.push({
         ...Object.fromEntries(
@@ -317,12 +359,14 @@ export class GanttSchedulesService {
         end: endText,
       })),
       changes,
+      working_calendar: calendar,
     };
     return {
       plan_hash: createHash('sha256')
         .update(JSON.stringify(hashInput), 'utf8')
         .digest('hex'),
       anchor_record_ids: anchors,
+      day_mode: calendar.enabled ? 'working' : 'calendar',
       changes,
       unchanged_count: affected.size - changes.length,
       applied: false,
@@ -342,12 +386,14 @@ export class GanttSchedulesService {
         'Gantt start and end fields must be configured before analyzing critical paths',
       );
     }
+    const calendar = normalizeGanttWorkingCalendar(gantt.working_calendar);
 
     const dependencies = await GanttDependency.listAll(context, viewId);
     if (!dependencies.length) {
       return {
         analyzed_record_count: 0,
         component_count: 0,
+        day_mode: calendar.enabled ? 'working' : 'calendar',
         critical_record_ids: [],
         critical_dependency_ids: [],
         tasks: [],
@@ -413,6 +459,7 @@ export class GanttSchedulesService {
         recordId,
         this.value(record, startColumn),
         startColumn,
+        calendar,
       );
       if (!start) {
         NcError.get(context).badRequest(
@@ -424,10 +471,21 @@ export class GanttSchedulesService {
         recordId,
         this.value(record, endColumn),
         endColumn,
+        calendar,
       );
       const finish = end
-        ? end.timestamp +
-          (endColumn.uidt === UITypes.Date ? GANTT_SCHEDULE_DAY_MS : 0)
+        ? endColumn.uidt === UITypes.Date && calendar.enabled
+          ? dayjs
+              .tz(
+                `${shiftGanttDate(end.text, 1, {
+                  ...calendar,
+                  enabled: false,
+                })} 00:00:00.000`,
+                calendar.timezone,
+              )
+              .valueOf()
+          : end.timestamp +
+            (endColumn.uidt === UITypes.Date ? GANTT_SCHEDULE_DAY_MS : 0)
         : start.timestamp;
       if (finish < start.timestamp) {
         NcError.get(context).badRequest(
@@ -440,7 +498,10 @@ export class GanttSchedulesService {
           String(this.value(record, titleColumn) ?? recordId),
         );
       }
-      return { id: recordId, duration: finish - start.timestamp };
+      return {
+        id: recordId,
+        duration: ganttDurationDays(start.timestamp, finish, calendar),
+      };
     });
 
     let analysis;
@@ -449,8 +510,7 @@ export class GanttSchedulesService {
     } catch (error) {
       NcError.get(context).badRequest((error as Error).message);
     }
-    const toDays = (value: number) =>
-      Math.round((value / GANTT_SCHEDULE_DAY_MS) * 1_000_000) / 1_000_000;
+    const toDays = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
     const tasks = analysis!.tasks.map((task) => ({
       record_id: task.record_id,
       ...(taskTitles.has(task.record_id)
@@ -465,6 +525,7 @@ export class GanttSchedulesService {
     return {
       analyzed_record_count: tasks.length,
       component_count: analysis!.components.length,
+      day_mode: calendar.enabled ? 'working' : 'calendar',
       critical_record_ids: tasks
         .filter((task) => task.critical)
         .map((task) => task.record_id),

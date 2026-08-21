@@ -1,4 +1,4 @@
-import type { GanttType, MetaType } from 'nocodb-sdk';
+import type { GanttType, GanttWorkingCalendarType, MetaType } from 'nocodb-sdk';
 import type { NcContext } from '~/interface/config';
 import Noco from '~/Noco';
 import NocoCache from '~/cache/NocoCache';
@@ -6,6 +6,10 @@ import { extractProps } from '~/helpers/extractProps';
 import GanttViewColumn from '~/models/GanttViewColumn';
 import { CacheGetType, CacheScope, MetaTable } from '~/utils/globals';
 import { prepareForDb, prepareForResponse } from '~/utils/modelUtils';
+import {
+  DEFAULT_GANTT_WORKING_CALENDAR,
+  normalizeGanttWorkingCalendar,
+} from '~/helpers/ganttWorkingCalendar';
 
 export default class GanttView implements GanttType {
   fk_view_id: string;
@@ -18,11 +22,22 @@ export default class GanttView implements GanttType {
   fk_progress_column_id?: string;
   fk_milestone_column_id?: string;
   zoom?: GanttType['zoom'];
+  working_calendar?: GanttWorkingCalendarType;
   meta?: MetaType;
   columns?: GanttViewColumn[];
 
   constructor(data: GanttView) {
-    Object.assign(this, data);
+    const prepared = prepareForResponse({ ...data });
+    Object.assign(this, prepared);
+    try {
+      this.working_calendar = normalizeGanttWorkingCalendar(
+        (prepared.meta as any)?.working_calendar,
+      );
+    } catch {
+      this.working_calendar = normalizeGanttWorkingCalendar(
+        DEFAULT_GANTT_WORKING_CALENDAR,
+      );
+    }
   }
 
   public static async get(
@@ -75,6 +90,14 @@ export default class GanttView implements GanttType {
       'meta',
     ]);
     insertObj.zoom ??= 'week';
+    const workingCalendar = normalizeGanttWorkingCalendar(
+      view.working_calendar,
+    );
+    const preparedMeta = prepareForResponse({ meta: insertObj.meta }).meta;
+    insertObj.meta = {
+      ...((preparedMeta as Record<string, any>) ?? {}),
+      working_calendar: workingCalendar,
+    };
 
     await ncMeta.metaInsert2(
       context.workspace_id,
@@ -102,6 +125,15 @@ export default class GanttView implements GanttType {
       'zoom',
       'meta',
     ]);
+    if ('working_calendar' in body) {
+      const current = await this.get(context, viewId, ncMeta);
+      const bodyMeta = prepareForResponse({ meta: body.meta }).meta;
+      updateObj.meta = {
+        ...((current?.meta as Record<string, any>) ?? {}),
+        ...((bodyMeta as Record<string, any>) ?? {}),
+        working_calendar: normalizeGanttWorkingCalendar(body.working_calendar),
+      };
+    }
 
     const res = await ncMeta.metaUpdate(
       context.workspace_id,

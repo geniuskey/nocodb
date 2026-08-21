@@ -181,8 +181,13 @@ whole-day lead/lag participate, stale plans are hash-rejected, and confirmed
 multi-record changes use the shared bulk-update transaction. Independently
 designed, read-only critical-path analysis is now implemented across separate
 dependency networks, including total float and critical task/link highlighting.
-Working calendars and calendar-aware duration are the next scheduling work. No
-proprietary implementation is an allowed design input.
+Project working calendars are now independently implemented with ISO weekdays,
+holidays, IANA timezones, daylight-saving-stable shifts, calendar-aware
+schedule propagation and critical-path duration, API validation, settings UI,
+and cross-database persistence coverage. Phase 4 is complete at the project
+calendar level; resource leveling and per-task calendars remain optional later
+extensions rather than prerequisites for Phase 5. No proprietary
+implementation is an allowed design input.
 
 ## Phase 5 — Trash / Restore
 

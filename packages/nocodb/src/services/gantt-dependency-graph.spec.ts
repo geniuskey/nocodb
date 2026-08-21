@@ -5,6 +5,7 @@ import {
   normalizeGanttRecordId,
   wouldCreateGanttDependencyCycle,
 } from '~/helpers/ganttDependency';
+import { normalizeGanttWorkingCalendar } from '~/helpers/ganttWorkingCalendar';
 
 describe('Gantt dependency graph', () => {
   it('normalizes bounded scalar record identities without trimming significant data', () => {
@@ -111,5 +112,77 @@ describe('Gantt schedule propagation', () => {
         ['a'],
       ),
     ).toEqual([]);
+  });
+
+  it('propagates by working days while skipping weekends and holidays', () => {
+    const timestamp = (date: string) => Date.parse(`${date}T00:00:00.000Z`);
+    const calendar = normalizeGanttWorkingCalendar({
+      enabled: true,
+      weekdays: [1, 2, 3, 4, 5],
+      holidays: ['2026-01-12'],
+      timezone: 'UTC',
+    });
+    expect(
+      buildGanttScheduleShifts(
+        [
+          {
+            id: 'a',
+            start: timestamp('2026-01-09'),
+            finish: timestamp('2026-01-10'),
+            finish_is_date: true,
+          },
+          {
+            id: 'b',
+            start: timestamp('2026-01-09'),
+            finish: timestamp('2026-01-10'),
+            finish_is_date: true,
+          },
+        ],
+        [{ id: 'ab', source_record_id: 'a', target_record_id: 'b' }],
+        ['a'],
+        calendar,
+      ),
+    ).toEqual([
+      {
+        record_id: 'b',
+        delta_days: 1,
+        driving_dependency_ids: ['ab'],
+      },
+    ]);
+
+    expect(
+      buildGanttScheduleShifts(
+        [
+          {
+            id: 'a',
+            start: timestamp('2026-01-09'),
+            finish: timestamp('2026-01-10'),
+            finish_is_date: true,
+          },
+          {
+            id: 'b',
+            start: timestamp('2026-01-09'),
+            finish: timestamp('2026-01-10'),
+            finish_is_date: true,
+          },
+        ],
+        [
+          {
+            id: 'ab',
+            source_record_id: 'a',
+            target_record_id: 'b',
+            lag_days: 1,
+          },
+        ],
+        ['a'],
+        calendar,
+      ),
+    ).toEqual([
+      {
+        record_id: 'b',
+        delta_days: 2,
+        driving_dependency_ids: ['ab'],
+      },
+    ]);
   });
 });

@@ -28,7 +28,7 @@ export interface GanttCriticalPathResult {
   critical_dependency_ids: string[];
 }
 
-const CRITICAL_EPSILON = 1;
+const CRITICAL_EPSILON = 1e-9;
 
 export function ganttDependencyStartOffset(
   dependencyType: GanttDependencyKind,
