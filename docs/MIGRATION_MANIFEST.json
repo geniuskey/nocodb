@@ -41,6 +41,10 @@
         {
           "name": "nc_009_gantt_dependencies",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_009_gantt_dependencies.ts"
+        },
+        {
+          "name": "nc_010_record_trash",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_010_record_trash.ts"
         }
       ]
     },
@@ -500,6 +504,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_009_gantt_dependencies.ts",
       "sha256": "8e7a40b77c36914710c6b0ceb6edb6ad9d157e9d87c07ac0ea3d2591292921bc"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_010_record_trash.ts",
+      "sha256": "9249aa229bedfa01c6aa0e9a131c673f064a3a548416ddb27c3660ae4c57f9a2"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

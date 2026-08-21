@@ -656,6 +656,13 @@ export default class Model implements TableType {
   ): Promise<boolean> {
     await Comment.deleteModelComments(context, this.id, ncMeta);
 
+    await ncMeta.metaDelete(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.RECORD_TRASH,
+      { fk_model_id: this.id },
+    );
+
     for (const view of await this.getViews(context, true, ncMeta)) {
       await view.delete(context, ncMeta);
     }

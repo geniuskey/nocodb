@@ -195,6 +195,14 @@ Introduce reversible deletion semantics for supported metadata and records,
 retention policy, restore conflict handling, permanent deletion, audit events,
 migrations, and backward-compatible API behavior.
 
+The first foundation slice adds an opt-in record trash API without changing the
+existing permanent-delete route. It uses append-only metadata, a 30-day expiry,
+bounded list/write requests, shared CRUD hooks and permissions, explicit
+restore/permanent-delete operations, and failure ordering that favors
+recoverable duplicates over data loss across separate metadata/user databases.
+The table Trash UI, expiry worker, richer conflict handling, and supported
+metadata deletion lifecycles remain before Phase 5 is complete.
+
 ## Phase 6 — Snapshot
 
 Define consistent metadata/data snapshot boundaries, storage format,

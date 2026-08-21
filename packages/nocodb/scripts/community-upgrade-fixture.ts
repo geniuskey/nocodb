@@ -31,6 +31,7 @@ const expectedMigrations = [
   'nc_007_timeline_view',
   'nc_008_gantt_view',
   'nc_009_gantt_dependencies',
+  'nc_010_record_trash',
 ];
 
 class HistoricalV0MigrationSource {
@@ -184,6 +185,7 @@ async function verify(connection: Knex, sourceTag: string) {
     MetaTable.GANTT_VIEW,
     MetaTable.GANTT_VIEW_COLUMNS,
     MetaTable.GANTT_DEPENDENCIES,
+    MetaTable.RECORD_TRASH,
   ]) {
     if (!(await connection.schema.hasTable(table))) {
       fail(`expected migrated table ${table} is absent.`);
