@@ -26,7 +26,7 @@ const { isMobileMode } = useGlobal()
 
 const { $e, $api } = useNuxtApp()
 
-const { isMysql, isPg } = useBase()
+const { isMysql, isPg, isSharedBase } = useBase()
 
 useTableNew({
   baseId: base.value.id!,
@@ -65,8 +65,18 @@ const source = computed(() => {
 
 const isTableDeleteDialogVisible = ref(false)
 const isTablePermissionsDialogVisible = ref(false)
+const isRecordTrashDialogVisible = ref(false)
 
 const isOptionsOpen = ref(false)
+
+const canRestoreTrash = computed(() => isUIAllowed('dataInsert', { roles: baseRole?.value, source: source.value }))
+const canPermanentlyDeleteTrash = computed(() => isUIAllowed('dataDelete', { roles: baseRole?.value, source: source.value }))
+const canOpenRecordTrash = computed(() => !isSharedBase.value && (canRestoreTrash.value || canPermanentlyDeleteTrash.value))
+
+const openRecordTrash = () => {
+  isOptionsOpen.value = false
+  isRecordTrashDialogVisible.value = true
+}
 
 const input = ref<HTMLInputElement>()
 
@@ -147,7 +157,6 @@ const setIcon = async (icon: string, table: TableType) => {
 
 // Todo: temp
 
-const { isSharedBase } = useBase()
 // const isMultiBase = computed(() => base.sources && base.sources.length > 1)
 
 const canUserEditEmote = computed(() => {
@@ -492,6 +501,20 @@ async function onRename() {
                   "
                 />
 
+                <template v-if="canOpenRecordTrash">
+                  <NcDivider />
+                  <NcMenuItem class="nc-table-trash">
+                    <div
+                      data-testid="nc-sidebar-table-trash"
+                      class="flex w-full items-center gap-2"
+                      @click.stop="openRecordTrash"
+                    >
+                      <GeneralIcon icon="delete" class="opacity-80" />
+                      Trash
+                    </div>
+                  </NcMenuItem>
+                </template>
+
                 <NcMenuItem
                   v-if="
                     isUIAllowed('tableDescriptionEdit', { roles: baseRole, source }) &&
@@ -651,6 +674,13 @@ async function onRename() {
       v-model:visible="isTablePermissionsDialogVisible"
       :table-id="table.id"
       :title="table.title"
+    />
+    <DlgRecordTrash
+      v-if="table.id && canOpenRecordTrash"
+      v-model:visible="isRecordTrashDialogVisible"
+      :table="table"
+      :can-restore="canRestoreTrash"
+      :can-permanently-delete="canPermanentlyDeleteTrash"
     />
     <DashboardTreeViewViewsList v-if="isExpanded" :table-id="table.id" :base-id="base.id" />
   </div>

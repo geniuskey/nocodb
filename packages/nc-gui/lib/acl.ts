@@ -102,6 +102,7 @@ const rolePermissions = {
     include: {
       dataInsert: true,
       dataEdit: true,
+      dataDelete: true,
       sortSync: true,
       filterSync: true,
       filterChildrenRead: true,

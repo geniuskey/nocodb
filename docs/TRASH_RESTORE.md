@@ -25,6 +25,19 @@ The ACL boundary intentionally reuses existing table-data permissions:
 - trash and permanent deletion require `dataDelete`;
 - restore requires `dataInsert`.
 
+## Table Trash UI
+
+Editors and higher roles can open **Trash** from a table's sidebar context
+menu. The dialog provides a bounded, paginated list with record previews,
+deletion and expiry timestamps, multi-selection, restore, permanent deletion,
+and an explicit irreversible-action confirmation. Expired snapshots remain
+visible but cannot be selected for restore. Read-only sources do not expose
+mutation actions.
+
+This UI manages records created through the opt-in trash API. Ordinary record
+delete actions still use their baseline permanent-delete route until the next
+Phase 5 compatibility slice deliberately changes that behavior.
+
 ## Snapshot contents
 
 The snapshot retains primary keys and stored, writable table columns, including
@@ -57,8 +70,8 @@ There is therefore no claimed distributed transaction:
 
 This ordering favors a recoverable duplicate over irreversible data loss.
 Expired snapshots are not restorable. Automated expiry cleanup, table/base
-metadata trash, conflict-resolution UI, and the complete Trash browser are
-subsequent Phase 5 slices.
+metadata trash, richer conflict resolution, and routing ordinary record delete
+actions through Trash are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no
