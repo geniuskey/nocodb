@@ -53,6 +53,7 @@ import { JobsMetaController } from '~/controllers/jobs-meta.controller';
 import { KanbansController } from '~/controllers/kanbans.controller';
 import { ListsController } from '~/controllers/lists.controller';
 import { TimelinesController } from '~/controllers/timelines.controller';
+import { GanttsController } from '~/controllers/gantts.controller';
 import { MapsController } from '~/controllers/maps.controller';
 import { ModelVisibilitiesController } from '~/controllers/model-visibilities.controller';
 import { NotificationsController } from '~/controllers/notifications.controller';
@@ -93,6 +94,7 @@ import { JobsMetaService } from '~/services/jobs-meta.service';
 import { KanbansService } from '~/services/kanbans.service';
 import { ListsService } from '~/services/lists.service';
 import { TimelinesService } from '~/services/timelines.service';
+import { GanttsService } from '~/services/gantts.service';
 import { MapsService } from '~/services/maps.service';
 import { MetaDiffsService } from '~/services/meta-diffs.service';
 import { ModelVisibilitiesService } from '~/services/model-visibilities.service';
@@ -122,6 +124,7 @@ import { ViewRowColorV3Service } from '~/services/v3/view-row-color-v3.service';
 import { BulkDataAliasController } from '~/controllers/bulk-data-alias.controller';
 import { CalendarDatasController } from '~/controllers/calendars-datas.controller';
 import { TimelineDatasController } from '~/controllers/timeline-datas.controller';
+import { GanttDatasController } from '~/controllers/gantt-datas.controller';
 import { DataAliasNestedController } from '~/controllers/data-alias-nested.controller';
 import { DataAliasController } from '~/controllers/data-alias.controller';
 import { DataTableController } from '~/controllers/data-table.controller';
@@ -139,6 +142,7 @@ import { TablesV3Controller } from '~/controllers/v3/tables-v3.controller';
 import { BulkDataAliasService } from '~/services/bulk-data-alias.service';
 import { CalendarDatasService } from '~/services/calendar-datas.service';
 import { TimelineDatasService } from '~/services/timeline-datas.service';
+import { GanttDatasService } from '~/services/gantt-datas.service';
 import { BaseMembersV3Service } from '~/services/v3/base-members-v3.service';
 import { ViewRowColorService } from '~/services/view-row-color.service';
 import { DataAliasNestedService } from '~/services/data-alias-nested.service';
@@ -216,6 +220,7 @@ export const nocoModuleMetadata = {
           KanbansController,
           ListsController,
           TimelinesController,
+          GanttsController,
           MapsController,
           ModelVisibilitiesController,
           OrgLcenseController,
@@ -255,6 +260,7 @@ export const nocoModuleMetadata = {
           DatasController,
           CalendarDatasController,
           TimelineDatasController,
+          GanttDatasController,
           BulkDataAliasController,
           DataAliasController,
           DataAliasNestedController,
@@ -302,6 +308,7 @@ export const nocoModuleMetadata = {
     KanbansService,
     ListsService,
     TimelinesService,
+    GanttsService,
     MapsService,
     MetaDiffsService,
     ModelVisibilitiesService,
@@ -345,6 +352,7 @@ export const nocoModuleMetadata = {
     DataAliasNestedService,
     CalendarDatasService,
     TimelineDatasService,
+    GanttDatasService,
     OldDatasService,
     PublicDatasService,
     PublicDatasExportService,

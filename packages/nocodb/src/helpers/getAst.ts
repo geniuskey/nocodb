@@ -26,6 +26,7 @@ import {
   CalendarRange,
   Filter,
   GalleryView,
+  GanttView,
   GridViewColumn,
   KanbanView,
   KanbanViewColumn,
@@ -92,7 +93,7 @@ const getAst = async (
 
   let coverImageId;
   let dependencyFieldsForCalenderView;
-  let dependencyFieldsForTimelineView;
+  let dependencyFieldsForScheduleView;
   let kanbanGroupColumnId;
   let sortColumnIds: string[] = [];
   let filterColumnIds: string[] = [];
@@ -117,11 +118,22 @@ const getAst = async (
   } else if (view && view.type === ViewTypes.TIMELINE) {
     const timeline = await TimelineView.get(context, view.id);
     const timelineMeta = parseProp(timeline?.meta);
-    dependencyFieldsForTimelineView = [
+    dependencyFieldsForScheduleView = [
       timeline?.fk_title_column_id,
       timeline?.fk_start_column_id,
       timeline?.fk_end_column_id,
       timelineMeta?.group_by_column_id,
+    ]
+      .filter(Boolean)
+      .map(String);
+  } else if (view && view.type === ViewTypes.GANTT) {
+    const gantt = await GanttView.get(context, view.id);
+    dependencyFieldsForScheduleView = [
+      gantt?.fk_title_column_id,
+      gantt?.fk_start_column_id,
+      gantt?.fk_end_column_id,
+      gantt?.fk_progress_column_id,
+      gantt?.fk_milestone_column_id,
     ]
       .filter(Boolean)
       .map(String);
@@ -234,8 +246,8 @@ const getAst = async (
         allowedCols[id] = 1;
       });
     }
-    if (dependencyFieldsForTimelineView) {
-      dependencyFieldsForTimelineView.forEach((id) => {
+    if (dependencyFieldsForScheduleView) {
+      dependencyFieldsForScheduleView.forEach((id) => {
         allowedCols[id] = 1;
       });
     }
@@ -312,11 +324,11 @@ const getAst = async (
     const isSortOrFilterColumn =
       includeSortAndFilterColumns &&
       (sortColumnIds.includes(col.id) || filterColumnIds.includes(col.id));
-    const isTimelineMappingColumn = dependencyFieldsForTimelineView?.includes(
+    const isScheduleMappingColumn = dependencyFieldsForScheduleView?.includes(
       col.id,
     );
 
-    if (isSortOrFilterColumn || isTimelineMappingColumn) {
+    if (isSortOrFilterColumn || isScheduleMappingColumn) {
       isRequested = true;
     } else if (rowColoringColumnIds.has(col.id)) {
       isRequested = true;

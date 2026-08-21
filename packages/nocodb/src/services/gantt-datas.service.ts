@@ -1,24 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ViewTypes } from 'nocodb-sdk';
 import type { NcContext } from '~/interface/config';
-import { Model, TimelineView, View } from '~/models';
+import { GanttView, Model, View } from '~/models';
 import { NcError } from '~/helpers/catchError';
 import { DatasService } from '~/services/datas.service';
 import {
   buildScheduleRangeConditions,
   parseScheduleInteger,
   SCHEDULE_RANGE_DEFAULT_LIMIT,
-  SCHEDULE_RANGE_MAX_DAYS,
   SCHEDULE_RANGE_MAX_LIMIT,
   validateScheduleRange,
 } from '~/services/schedule-range';
 
-export const TIMELINE_RANGE_DEFAULT_LIMIT = SCHEDULE_RANGE_DEFAULT_LIMIT;
-export const TIMELINE_RANGE_MAX_LIMIT = SCHEDULE_RANGE_MAX_LIMIT;
-export const TIMELINE_RANGE_MAX_DAYS = SCHEDULE_RANGE_MAX_DAYS;
-
 @Injectable()
-export class TimelineDatasService {
+export class GanttDatasService {
   constructor(protected readonly datasService: DatasService) {}
 
   async dataList(
@@ -33,43 +28,34 @@ export class TimelineDatasService {
     },
   ) {
     const view = await View.get(context, param.viewId);
-    if (!view || view.type !== ViewTypes.TIMELINE) {
-      NcError.get(context).badRequest('View is not a timeline view');
+    if (!view || view.type !== ViewTypes.GANTT) {
+      NcError.get(context).badRequest('View is not a Gantt view');
     }
 
-    const timeline = await TimelineView.get(context, view.id);
-    if (!timeline?.fk_start_column_id) {
+    const gantt = await GanttView.get(context, view.id);
+    if (!gantt?.fk_start_column_id || !gantt?.fk_end_column_id) {
       NcError.get(context).badRequest(
-        'Timeline start field must be configured before loading records',
+        'Gantt start and end fields must be configured before loading tasks',
       );
     }
 
     const { from, to } = validateScheduleRange(
       context,
-      'Timeline',
+      'Gantt',
       param.from,
       param.to,
     );
-    const limit = parseScheduleInteger(
-      context,
-      'Timeline',
-      'limit',
-      param.limit,
-      {
-        defaultValue: TIMELINE_RANGE_DEFAULT_LIMIT,
-        min: 1,
-        max: TIMELINE_RANGE_MAX_LIMIT,
-      },
-    );
+    const limit = parseScheduleInteger(context, 'Gantt', 'limit', param.limit, {
+      defaultValue: SCHEDULE_RANGE_DEFAULT_LIMIT,
+      min: 1,
+      max: SCHEDULE_RANGE_MAX_LIMIT,
+    });
     const offset = parseScheduleInteger(
       context,
-      'Timeline',
+      'Gantt',
       'offset',
       param.offset,
-      {
-        defaultValue: 0,
-        min: 0,
-      },
+      { defaultValue: 0, min: 0 },
     );
 
     const model = await Model.getByIdOrName(context, {
@@ -85,8 +71,8 @@ export class TimelineDatasService {
       view,
       query,
       customConditions: buildScheduleRangeConditions({
-        startColumnId: timeline.fk_start_column_id,
-        endColumnId: timeline.fk_end_column_id,
+        startColumnId: gantt.fk_start_column_id,
+        endColumnId: gantt.fk_end_column_id,
         from,
         to,
       }),
