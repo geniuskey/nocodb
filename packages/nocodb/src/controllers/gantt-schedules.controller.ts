@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   GanttScheduleApplyReqType,
   GanttSchedulePreviewReqType,
@@ -14,6 +22,18 @@ import { GanttSchedulesService } from '~/services/gantt-schedules.service';
 @UseGuards(DataApiLimiterGuard, GlobalGuard)
 export class GanttSchedulesController {
   constructor(private readonly ganttSchedulesService: GanttSchedulesService) {}
+
+  @Get([
+    '/api/v1/db/meta/gantts/:viewId/schedule/critical-path',
+    '/api/v2/meta/gantts/:viewId/schedule/critical-path',
+  ])
+  @Acl('dataList')
+  async criticalPath(
+    @TenantContext() context: NcContext,
+    @Param('viewId') viewId: string,
+  ) {
+    return await this.ganttSchedulesService.criticalPath(context, viewId);
+  }
 
   @Post([
     '/api/v1/db/meta/gantts/:viewId/schedule/preview',

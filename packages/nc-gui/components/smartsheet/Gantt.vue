@@ -2,6 +2,7 @@
 import dayjs from 'dayjs'
 import {
   type ColumnType,
+  type GanttCriticalPathType,
   type GanttDependencyType,
   type GanttSchedulePlanType,
   type GanttType,
@@ -54,6 +55,8 @@ const dependencies = ref<GanttDependencyType[]>([])
 const scheduleAnchorIds = ref<string[]>([])
 const schedulePreview = ref<GanttSchedulePlanType>()
 const scheduling = ref<'preview' | 'apply'>()
+const criticalPath = ref<GanttCriticalPathType>()
+const loadingCriticalPath = ref(false)
 
 const dependencyTypes = [
   { value: 'finish_start', label: 'Finish → Start' },
@@ -163,6 +166,7 @@ const loadDependencies = async (recordList: Record<string, any>[]) => {
 
 const loadRecords = async () => {
   schedulePreview.value = undefined
+  criticalPath.value = undefined
   if (!view.value?.id || !settings.value?.fk_start_column_id || !settings.value?.fk_end_column_id) {
     records.value = []
     dependencies.value = []
@@ -279,6 +283,12 @@ const visibleDependencyLinks = computed(() =>
   }),
 )
 
+const criticalRecordIds = computed(() => new Set(criticalPath.value?.critical_record_ids || []))
+const criticalDependencyIds = computed(() => new Set(criticalPath.value?.critical_dependency_ids || []))
+const maximumCriticalPathDays = computed(() =>
+  Math.max(0, ...(criticalPath.value?.components || []).map((component) => component.project_duration_days)),
+)
+
 const visibleDayIndexes = computed(() => {
   const chartOffset = Math.max(0, scrollLeft.value - TASK_TABLE_WIDTH)
   const chartViewport = Math.max(0, viewportWidth.value - TASK_TABLE_WIDTH)
@@ -300,6 +310,16 @@ const taskGeometry = (task: GanttTaskRecord) => {
     top: `${task.row * ROW_HEIGHT + 6}px`,
     width: `${Math.max(18, width + (endDays - startDays) * pixelsPerDay.value)}px`,
   }
+}
+
+const taskClasses = (task: GanttTaskRecord) => {
+  const critical = criticalRecordIds.value.has(task.id)
+  if (task.milestone) {
+    return critical ? 'w-8 border border-red-600 bg-red-200' : 'w-8 border border-purple-500 bg-purple-200'
+  }
+  return critical
+    ? 'overflow-hidden rounded-md border border-red-500 bg-red-100 px-2 py-1 text-red-950'
+    : 'overflow-hidden rounded-md border border-purple-400 bg-purple-100 px-2 py-1 text-purple-950'
 }
 
 const taskTitle = (record: Record<string, any>) => {
@@ -502,6 +522,7 @@ const createDependency = async () => {
   try {
     const created = await $api.dbGanttDependency.create(view.value.id, { ...dependencyDraft })
     dependencies.value.push(created)
+    criticalPath.value = undefined
     dependencyDraft.target_record_id = ''
     announcement.value = `Dependency from ${dependencyTaskTitle(created.source_record_id)} to ${dependencyTaskTitle(
       created.target_record_id,
@@ -529,6 +550,7 @@ const updateDependency = async (
   try {
     const updated = await $api.dbGanttDependency.update(view.value.id, dependency.id, patch)
     Object.assign(dependency, updated)
+    criticalPath.value = undefined
     announcement.value = 'Gantt dependency updated.'
   } catch (e: any) {
     Object.assign(dependency, previous)
@@ -546,6 +568,7 @@ const deleteDependency = async (dependency: GanttDependencyType) => {
   try {
     await $api.dbGanttDependency.delete(view.value.id, dependency.id)
     dependencies.value = dependencies.value.filter((candidate) => candidate.id !== dependency.id)
+    criticalPath.value = undefined
     announcement.value = 'Gantt dependency removed.'
   } catch (e: any) {
     const messageText = await extractSdkResponseErrorMsg(e)
@@ -561,6 +584,28 @@ const updateDependencyType = (dependency: GanttDependencyType, value: unknown) =
 
 const updateDependencyLag = (dependency: GanttDependencyType, value: unknown) =>
   updateDependency(dependency, { lag_days: Number(value) })
+
+const toggleCriticalPath = async () => {
+  if (criticalPath.value) {
+    criticalPath.value = undefined
+    announcement.value = 'Critical-path analysis hidden.'
+    return
+  }
+  if (!view.value?.id || !canPreviewSchedule.value || loadingCriticalPath.value) return
+  loadingCriticalPath.value = true
+  try {
+    criticalPath.value = await $api.dbGanttSchedule.criticalPath(view.value.id)
+    announcement.value = criticalPath.value.critical_record_ids.length
+      ? `Critical-path analysis found ${criticalPath.value.critical_record_ids.length} critical tasks.`
+      : 'Critical-path analysis found no dependency networks.'
+  } catch (e: any) {
+    const messageText = await extractSdkResponseErrorMsg(e)
+    announcement.value = `Gantt critical-path analysis failed: ${messageText}`
+    message.error(messageText)
+  } finally {
+    loadingCriticalPath.value = false
+  }
+}
 
 const previewSchedule = async () => {
   if (!view.value?.id || !canPreviewSchedule.value || !scheduleAnchorIds.value.length || scheduling.value) return
@@ -757,6 +802,48 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
       <p v-else class="mt-3 text-xs text-nc-content-gray-muted">No dependencies connect tasks in this loaded window.</p>
 
       <div v-if="canPreviewSchedule" class="mt-3 border-t border-nc-border-gray-light pt-3" data-testid="nc-gantt-schedule">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-medium text-nc-content-gray">Critical path</p>
+            <p class="text-xs text-nc-content-gray-muted">Analyze dependency float without changing any records.</p>
+          </div>
+          <NcButton
+            type="secondary"
+            size="small"
+            :loading="loadingCriticalPath"
+            :disabled="loadingCriticalPath"
+            :aria-pressed="!!criticalPath"
+            data-testid="nc-gantt-critical-path-toggle"
+            @click="toggleCriticalPath"
+          >
+            {{ criticalPath ? 'Hide critical path' : 'Analyze critical path' }}
+          </NcButton>
+        </div>
+        <div
+          v-if="criticalPath"
+          class="mb-3 rounded border border-red-200 bg-red-50 p-2 text-xs text-nc-content-gray"
+          data-testid="nc-gantt-critical-path-summary"
+        >
+          <p class="font-medium text-red-800">
+            {{ criticalPath.critical_record_ids.length }} critical task{{
+              criticalPath.critical_record_ids.length === 1 ? '' : 's'
+            }}
+            across {{ criticalPath.component_count }} network{{ criticalPath.component_count === 1 ? '' : 's' }}
+            <template v-if="criticalPath.component_count"> · longest {{ maximumCriticalPathDays }}d</template>
+          </p>
+          <div v-if="criticalPath.tasks.length" class="mt-2 flex max-h-24 flex-wrap gap-1 overflow-auto">
+            <span
+              v-for="task in criticalPath.tasks"
+              :key="task.record_id"
+              class="rounded bg-white px-1.5 py-0.5"
+              :class="task.critical ? 'font-medium text-red-700' : 'text-nc-content-gray-muted'"
+              data-testid="nc-gantt-critical-path-task"
+            >
+              {{ task.title || dependencyTaskTitle(task.record_id) }} · {{ task.total_float_days }}d float
+            </span>
+          </div>
+          <p v-else>No dependency networks are available to analyze.</p>
+        </div>
         <div class="flex flex-wrap items-center gap-2">
           <a-select
             v-model:value="scheduleAnchorIds"
@@ -971,6 +1058,17 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               >
                 <path d="M 0 0 L 8 4 L 0 8 z" class="fill-purple-600" />
               </marker>
+              <marker
+                id="nc-gantt-critical-arrow"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" class="fill-red-600" />
+              </marker>
             </defs>
             <g
               v-for="link in visibleDependencyLinks"
@@ -978,16 +1076,24 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
               :data-dependency-id="link.id"
               :data-dependency-type="link.dependency_type"
               :data-lag-days="link.lag_days || 0"
+              :data-critical="criticalDependencyIds.has(link.id)"
               data-testid="nc-gantt-dependency-link"
             >
               <path
                 :d="link.path"
                 fill="none"
-                class="stroke-purple-600"
+                :class="criticalDependencyIds.has(link.id) ? 'stroke-red-600' : 'stroke-purple-600'"
                 stroke-width="1.5"
-                marker-end="url(#nc-gantt-dependency-arrow)"
+                :marker-end="
+                  criticalDependencyIds.has(link.id) ? 'url(#nc-gantt-critical-arrow)' : 'url(#nc-gantt-dependency-arrow)'
+                "
               />
-              <text v-if="link.lag_days" :x="link.labelX" :y="link.labelY" class="fill-purple-700 text-[10px]">
+              <text
+                v-if="link.lag_days"
+                :x="link.labelX"
+                :y="link.labelY"
+                :class="criticalDependencyIds.has(link.id) ? 'fill-red-700 text-[10px]' : 'fill-purple-700 text-[10px]'"
+              >
                 {{ link.lag_days > 0 ? '+' : '' }}{{ link.lag_days }}d
               </text>
             </g>
@@ -1017,20 +1123,19 @@ onBeforeUnmount(() => reloadViewDataHook?.off(reloadListener))
             v-for="task in visibleRows"
             :key="task.id"
             class="group absolute z-10 h-8 touch-none select-none text-xs shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600"
-            :class="
-              task.milestone
-                ? 'w-8 border border-purple-500 bg-purple-200'
-                : 'overflow-hidden rounded-md border border-purple-400 bg-purple-100 px-2 py-1 text-purple-950'
-            "
+            :class="taskClasses(task)"
             :style="
               task.milestone
                 ? { ...taskGeometry(task), width: '24px', transform: 'translateX(-12px) rotate(45deg)' }
                 : taskGeometry(task)
             "
             :tabindex="canReschedule ? 0 : undefined"
-            :aria-label="`Move ${taskTitle(task.record)}; use left or right arrow keys`"
+            :aria-label="`${criticalRecordIds.has(task.id) ? 'Critical task. ' : ''}Move ${taskTitle(
+              task.record,
+            )}; use left or right arrow keys`"
             :data-milestone="task.milestone"
             :data-progress="task.progress"
+            :data-critical="criticalRecordIds.has(task.id)"
             data-testid="nc-gantt-task"
             @pointerdown="beginPointer($event, task)"
             @pointermove="movePointer"

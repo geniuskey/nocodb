@@ -178,10 +178,11 @@ browser behavior are verified across SQLite, PostgreSQL, and MySQL.
 Explicit schedule propagation is now implemented as a preview-first,
 forward-only graph walk. Anchors remain fixed, all four dependency kinds and
 whole-day lead/lag participate, stale plans are hash-rejected, and confirmed
-multi-record changes use the shared bulk-update transaction. The next Gantt
-slice will add independently designed critical-path analysis. Working calendars
-and calendar-aware duration follow that contract. No proprietary implementation
-is an allowed design input.
+multi-record changes use the shared bulk-update transaction. Independently
+designed, read-only critical-path analysis is now implemented across separate
+dependency networks, including total float and critical task/link highlighting.
+Working calendars and calendar-aware duration are the next scheduling work. No
+proprietary implementation is an allowed design input.
 
 ## Phase 5 — Trash / Restore
 
