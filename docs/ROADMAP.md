@@ -169,9 +169,15 @@ table and virtualized time axis, progress and milestone rendering, and
 permission-aware transactional move/resize updates. SQLite, PostgreSQL, and
 MySQL acceptance covers creation, rendering, persistence, and deletion.
 
-The next Gantt slice will define an append-only dependency graph and its
-transaction rules before adding dependency rendering. Critical-path analysis,
-working calendars, and calendar-aware duration follow that contract. No
+The append-only dependency graph is now implemented with four standard edge
+kinds, whole-day lead/lag, endpoint validation, duplicate/self/cycle rejection,
+serialized graph writes, bounded queries, view duplication/deletion lifecycle,
+an accessible editor, and virtualized SVG link rendering. Persistence and
+browser behavior are verified across SQLite, PostgreSQL, and MySQL.
+
+The next Gantt slice will define explicit schedule-propagation policy and
+previewable multi-record transactions before adding critical-path analysis.
+Working calendars and calendar-aware duration follow that contract. No
 proprietary implementation is an allowed design input.
 
 ## Phase 5 — Trash / Restore

@@ -20,12 +20,45 @@ first slice provides:
 - vertically virtualized task rows and horizontally virtualized day headers;
 - normalized progress overlays and explicit Checkbox milestones;
 - permission-aware whole-day move and start/end resize operations, with
-  rollback and view-scoped undo/redo.
+  rollback and view-scoped undo/redo;
+- an independently authored directed dependency graph with finish-to-start,
+  start-to-start, finish-to-finish, and start-to-finish edges;
+- whole-day lead/lag values, acyclic graph enforcement, and serialized edge
+  create/update/delete operations; and
+- bounded dependency queries, virtualized SVG link rendering, and an
+  accessible dependency editor.
 
-Dependencies, critical-path analysis, working calendars, and calendar-aware
-duration are deliberately outside this slice. Dependencies require their own
-append-only graph schema and transaction rules; they will not be represented
-as opaque Gantt metadata.
+Automatic successor rescheduling, critical-path analysis, working calendars,
+and calendar-aware duration remain outside this slice. Dependency edges are
+explicit constraints; they do not silently mutate task dates.
+
+## Dependency graph contract
+
+Dependencies live in `nc_gantt_dependencies_v2`, not in user records or the
+Gantt view's opaque `meta` value. Each edge stores its Gantt view, predecessor
+and successor record identities, dependency kind, and an integer `lag_days`
+between -3,650 and 3,650. SHA-256 identity digests support bounded indexes;
+the API never exposes those internal digests.
+
+Both endpoints must exist in the Gantt view's table when an edge is created.
+Self edges, duplicate ordered pairs, and any edge that closes a directed cycle
+are rejected. A view supports at most 10,000 edges. PostgreSQL and MySQL writes
+serialize on the Gantt metadata row before reading and changing the graph;
+SQLite relies on its single-writer transaction semantics. This prevents two
+concurrent graph writers from validating against different committed graph
+states.
+
+The record database and metadata database may be separate, so endpoint
+existence and edge insertion cannot share one physical transaction. A later
+record deletion can therefore leave an edge whose endpoint no longer exists.
+Dependency queries are scoped to supplied current task identities and omit
+such edges from rendering. Trash/restore work will define record-lifecycle
+cleanup and restoration rules rather than making a read operation destructive.
+
+Dependency endpoints are immutable. Changing endpoints is an explicit delete
+and create operation, so the cycle and existence invariants always run. Kind
+and lag can be updated in place. Gantt view duplication copies its graph; view
+deletion removes its graph before removing the view metadata.
 
 ## Metadata contract
 
@@ -68,6 +101,17 @@ Task data endpoints:
 - `GET /api/v1/db/gantt-data/{viewId}`
 - `GET /api/v2/gantts/{viewId}/records`
 
+Dependency endpoints are available under both v1 and v2 metadata prefixes:
+
+- `POST /api/v1/db/meta/gantts/{viewId}/dependencies/query`
+- `POST /api/v1/db/meta/gantts/{viewId}/dependencies`
+- `PATCH /api/v1/db/meta/gantts/{viewId}/dependencies/{dependencyId}`
+- `DELETE /api/v1/db/meta/gantts/{viewId}/dependencies/{dependencyId}`
+
+The dependency query accepts at most 1,000 current record identities and
+returns only edges whose two endpoints are in that set. This matches the
+bounded task API and avoids an unbounded graph response for large tables.
+
 Both require `from` and `to` calendar dates and treat the requested interval as
 half-open: `[from, to)`. The range must be positive and no longer than 366 days.
 The default page size is 500 and the maximum is 1,000. `offset`, `fields`,
@@ -99,9 +143,11 @@ contracts.
 
 ## Verification
 
-Pure unit tests cover stable task ordering, progress normalization, and
-milestone normalization. Community Playwright acceptance covers metadata
+Pure unit tests cover stable task ordering, progress/milestone normalization,
+dependency anchor geometry, identity hashing, cycle detection, and
+missing-endpoint filtering. Community Playwright acceptance covers metadata
 lifecycle, invalid mappings, bounded range validation, required field
-projection, UI creation, progress and milestone rendering, navigation,
-keyboard rescheduling, virtualization, restart persistence, and generic view
-deletion. The workflow runs against SQLite, PostgreSQL, and MySQL.
+projection, dependency CRUD and invalid-graph rejection, UI creation,
+progress/milestone/link rendering, navigation, keyboard rescheduling,
+virtualization, restart persistence, and generic view deletion. The workflow
+runs against SQLite, PostgreSQL, and MySQL.

@@ -170,6 +170,35 @@ test('Community image preserves login, schema, and records across restart', asyn
   );
   expect([false, 0]).toContain(currentGanttRecord?.Milestone);
   expect([true, 1]).toContain(milestoneGanttRecord?.Milestone);
+  const taskRecordsResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const taskRecords = await taskRecordsResponse.json();
+  expect(taskRecordsResponse.ok(), JSON.stringify(taskRecords)).toBeTruthy();
+  const currentTaskRecord = taskRecords.list.find(
+    (record: { Title?: string }) => record.Title === 'Current Timeline item'
+  );
+  const milestoneTaskRecord = taskRecords.list.find(
+    (record: { Title?: string }) => record.Title === 'Ungrouped Timeline item'
+  );
+  const currentGanttRecordId = String(currentTaskRecord?.Id ?? currentTaskRecord?.id);
+  const milestoneGanttRecordId = String(milestoneTaskRecord?.Id ?? milestoneTaskRecord?.id);
+  expect(currentGanttRecordId).not.toBe('undefined');
+  expect(milestoneGanttRecordId).not.toBe('undefined');
+  const persistedDependencyResponse = await page.request.post(`/api/v2/meta/gantts/${uiGantt.id}/dependencies/query`, {
+    headers: sessionHeaders,
+    data: { record_ids: [currentGanttRecordId, milestoneGanttRecordId] },
+  });
+  const persistedDependencies = await persistedDependencyResponse.json();
+  expect(persistedDependencyResponse.ok(), JSON.stringify(persistedDependencies)).toBeTruthy();
+  expect(persistedDependencies.list).toEqual([
+    expect.objectContaining({
+      source_record_id: currentGanttRecordId,
+      target_record_id: milestoneGanttRecordId,
+      dependency_type: 'finish_start',
+      lag_days: 2,
+    }),
+  ]);
 
   const timelineResponse = await page.request.get(`/api/v2/meta/timelines/${timeline.id}`, {
     headers: sessionHeaders,
@@ -257,6 +286,10 @@ test('Community image preserves login, schema, and records across restart', asyn
     '40'
   );
   await expect(ganttView.locator('[data-testid="nc-gantt-task"][data-milestone="true"]')).toHaveCount(1);
+  await expect(ganttView.getByTestId('nc-gantt-dependency-link')).toHaveCount(1);
+  await expect(ganttView.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-lag-days', '2');
+  await page.getByTestId('nc-gantt-dependencies-toggle').click();
+  await expect(page.getByTestId('nc-gantt-dependency-item')).toHaveCount(1);
 
   await ganttView.getByTestId('nc-gantt-scroll-region').evaluate(element => {
     element.scrollTop = element.scrollHeight;
