@@ -31,6 +31,9 @@ const timelineView = JSON.parse(
 const ganttView = JSON.parse(
   readFileSync('../nocodb/src/schema/gantt-view.json', 'utf8')
 );
+const recordTrash = JSON.parse(
+  readFileSync('../nocodb/src/schema/record-trash.json', 'utf8')
+);
 const swagger = {
   ...swaggerCE,
   paths: {
@@ -38,6 +41,7 @@ const swagger = {
     ...listView.paths,
     ...timelineView.paths,
     ...ganttView.paths,
+    ...recordTrash.paths,
   },
   components: {
     ...swaggerCE.components,
@@ -47,6 +51,7 @@ const swagger = {
       ...listView.components.schemas,
       ...timelineView.components.schemas,
       ...ganttView.components.schemas,
+      ...recordTrash.components.schemas,
     },
     responses: {
       ...swaggerCE.components.responses,

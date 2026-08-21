@@ -36,6 +36,58 @@ test('Community image preserves login, schema, and records across restart', asyn
   const tasksTableMeta = tables.list.find((table: { title?: string }) => table.title === 'Tasks');
   expect(tasksTableMeta?.id).toEqual(expect.any(String));
 
+  const persistedTrashResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const persistedTrash = await persistedTrashResponse.json();
+  expect(persistedTrashResponse.ok(), JSON.stringify(persistedTrash)).toBeTruthy();
+  const persistedTrashRecord = persistedTrash.list.find(
+    (record: { row_data?: { Title?: string } }) => record.row_data?.Title === 'Trash survives restart'
+  );
+  expect(persistedTrashRecord).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      pk_data: expect.objectContaining({ Id: expect.anything() }),
+      row_data: expect.objectContaining({ Title: 'Trash survives restart', Status: 'Blocked' }),
+    })
+  );
+  const restorePersistedTrashResponse = await page.request.post(`/api/v2/tables/${tasksTableMeta.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [persistedTrashRecord.id] },
+  });
+  expect(restorePersistedTrashResponse.ok(), await restorePersistedTrashResponse.text()).toBeTruthy();
+
+  const restoredTrashRecordsResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const restoredTrashRecords = await restoredTrashRecordsResponse.json();
+  expect(restoredTrashRecordsResponse.ok(), JSON.stringify(restoredTrashRecords)).toBeTruthy();
+  const restoredTrashRecord = restoredTrashRecords.list.find(
+    (record: { Title?: string }) => record.Title === 'Trash survives restart'
+  );
+  expect(restoredTrashRecord).toEqual(expect.objectContaining({ Id: expect.anything(), Status: 'Blocked' }));
+
+  const retrashResponse = await page.request.post(`/api/v2/tables/${tasksTableMeta.id}/trash`, {
+    headers: sessionHeaders,
+    data: { records: [{ Id: restoredTrashRecord.Id }] },
+  });
+  const retrash = await retrashResponse.json();
+  expect(retrashResponse.ok(), JSON.stringify(retrash)).toBeTruthy();
+  const permanentDeleteResponse = await page.request.delete(`/api/v2/tables/${tasksTableMeta.id}/trash`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [retrash.list[0].id] },
+  });
+  const permanentDelete = await permanentDeleteResponse.json();
+  expect(permanentDeleteResponse.ok(), JSON.stringify(permanentDelete)).toBeTruthy();
+  expect(permanentDelete).toEqual({ deleted: 1 });
+
+  const emptyTrashResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const emptyTrash = await emptyTrashResponse.json();
+  expect(emptyTrashResponse.ok(), JSON.stringify(emptyTrash)).toBeTruthy();
+  expect(emptyTrash.list).toEqual([]);
+
   const viewsResponse = await page.request.get(`/api/v2/meta/tables/${tasksTableMeta.id}/views`, {
     headers: sessionHeaders,
   });

@@ -842,6 +842,72 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     )
     .toBe(true);
 
+  const trashCandidatesResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Title: 'Trash restore round trip', Status: 'Ready' }],
+  });
+  const trashCandidates = await trashCandidatesResponse.json();
+  expect(trashCandidatesResponse.ok(), JSON.stringify(trashCandidates)).toBeTruthy();
+  const trashCreateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: {
+      records: trashCandidates.map((record: { Id: number }) => ({ Id: record.Id })),
+    },
+  });
+  const createdTrash = await trashCreateResponse.json();
+  expect(trashCreateResponse.ok(), JSON.stringify(createdTrash)).toBeTruthy();
+  expect(createdTrash.list).toEqual([
+    expect.objectContaining({
+      record_id: String(trashCandidates[0].Id),
+      row_data: expect.objectContaining({ Title: 'Trash restore round trip', Status: 'Ready' }),
+    }),
+  ]);
+
+  const collisionResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Id: trashCandidates[0].Id, Title: 'Trash PK collision', Status: 'Blocked' },
+  });
+  expect(collisionResponse.ok(), await collisionResponse.text()).toBeTruthy();
+  const rejectedRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [createdTrash.list[0].id] },
+  });
+  expect(rejectedRestoreResponse.status()).toBe(422);
+  const collisionCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Id: trashCandidates[0].Id }],
+  });
+  expect(collisionCleanupResponse.ok(), await collisionCleanupResponse.text()).toBeTruthy();
+
+  const restoreTrashResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [createdTrash.list[0].id] },
+  });
+  const restoreTrash = await restoreTrashResponse.json();
+  expect(restoreTrashResponse.ok(), JSON.stringify(restoreTrash)).toBeTruthy();
+  expect(restoreTrash).toEqual({ restored: 1 });
+
+  const trashListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const trashList = await trashListResponse.json();
+  expect(trashListResponse.ok(), JSON.stringify(trashList)).toBeTruthy();
+  expect(trashList.list).toEqual([]);
+
+  const restoredRecordsResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const restoredRecords = await restoredRecordsResponse.json();
+  expect(restoredRecordsResponse.ok(), JSON.stringify(restoredRecords)).toBeTruthy();
+  expect(restoredRecords.list).toEqual(
+    expect.arrayContaining([expect.objectContaining({ Title: 'Trash restore round trip', Status: 'Ready' })])
+  );
+  const roundTripCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Id: trashCandidates[0].Id }],
+  });
+  expect(roundTripCleanupResponse.ok(), await roundTripCleanupResponse.text()).toBeTruthy();
+
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 
   const bulkListRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
@@ -1608,4 +1674,28 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     ).toISOString(),
   });
   await expect(page.getByTestId('nc-gantt-announcement')).toContainText('moved 1 day');
+
+  const restartTrashRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Trash survives restart', Status: 'Blocked' },
+  });
+  const restartTrashRecord = await restartTrashRecordResponse.json();
+  expect(restartTrashRecordResponse.ok(), JSON.stringify(restartTrashRecord)).toBeTruthy();
+  const restartTrashResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: { records: [{ Id: restartTrashRecord.Id }] },
+  });
+  const restartTrash = await restartTrashResponse.json();
+  expect(restartTrashResponse.ok(), JSON.stringify(restartTrash)).toBeTruthy();
+  expect(restartTrash.list).toEqual([
+    expect.objectContaining({
+      record_id: String(restartTrashRecord.Id),
+      pk_data: { Id: restartTrashRecord.Id },
+      row_data: expect.objectContaining({
+        Id: restartTrashRecord.Id,
+        Title: 'Trash survives restart',
+        Status: 'Blocked',
+      }),
+    }),
+  ]);
 });
