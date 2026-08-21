@@ -1,4 +1,10 @@
 import { createHash } from 'node:crypto';
+import type { GanttWorkingCalendarConfig } from '~/helpers/ganttWorkingCalendar';
+import {
+  ganttWorkingShiftForConstraint,
+  shiftGanttDateFinishTimestamp,
+  shiftGanttTimestamp,
+} from '~/helpers/ganttWorkingCalendar';
 
 export const GANTT_DEPENDENCY_TYPES = [
   'finish_start',
@@ -21,6 +27,7 @@ export interface GanttScheduleTaskInput {
   id: string;
   start: number;
   finish: number;
+  finish_is_date?: boolean;
 }
 
 export interface GanttScheduleShift {
@@ -116,6 +123,7 @@ export function buildGanttScheduleShifts(
   tasks: GanttScheduleTaskInput[],
   edges: GanttDependencyEdgeInput[],
   anchorRecordIds: string[],
+  calendar?: GanttWorkingCalendarConfig,
 ): GanttScheduleShift[] {
   const taskById = new Map(tasks.map((task) => [task.id, { ...task }]));
   const anchors = new Set(anchorRecordIds);
@@ -206,15 +214,44 @@ export function buildGanttScheduleShifts(
         kind === 'finish_finish' || kind === 'start_finish'
           ? target.finish
           : target.start;
-      const delta = Math.max(
-        0,
-        Math.ceil(
-          (sourceAnchor +
-            (edge.lag_days ?? 0) * GANTT_SCHEDULE_DAY_MS -
-            targetAnchor) /
-            GANTT_SCHEDULE_DAY_MS,
-        ),
-      );
+      let minimum: number;
+      if (!calendar?.enabled) {
+        minimum = sourceAnchor + (edge.lag_days ?? 0) * GANTT_SCHEDULE_DAY_MS;
+      } else if (source.finish_is_date && kind === 'finish_start') {
+        const nextWorkingStart = shiftGanttTimestamp(
+          source.finish,
+          1,
+          calendar,
+        );
+        minimum = shiftGanttTimestamp(
+          nextWorkingStart,
+          edge.lag_days ?? 0,
+          calendar,
+        );
+      } else if (source.finish_is_date && kind === 'finish_finish') {
+        minimum = shiftGanttDateFinishTimestamp(
+          source.finish,
+          edge.lag_days ?? 0,
+          calendar,
+        );
+      } else {
+        minimum = shiftGanttTimestamp(
+          sourceAnchor,
+          edge.lag_days ?? 0,
+          calendar,
+        );
+      }
+      const delta = calendar?.enabled
+        ? ganttWorkingShiftForConstraint(
+            targetAnchor,
+            target.start,
+            minimum,
+            calendar,
+          )
+        : Math.max(
+            0,
+            Math.ceil((minimum - targetAnchor) / GANTT_SCHEDULE_DAY_MS),
+          );
       if (delta > requiredDelta) {
         requiredDelta = delta;
         drivers = edge.id ? [edge.id] : [];
@@ -224,9 +261,18 @@ export function buildGanttScheduleShifts(
     }
 
     if (requiredDelta > 0) {
-      const shift = requiredDelta * GANTT_SCHEDULE_DAY_MS;
-      target.start += shift;
-      target.finish += shift;
+      target.start = calendar?.enabled
+        ? shiftGanttTimestamp(target.start, requiredDelta, calendar)
+        : target.start + requiredDelta * GANTT_SCHEDULE_DAY_MS;
+      target.finish = calendar?.enabled
+        ? target.finish_is_date
+          ? shiftGanttDateFinishTimestamp(
+              target.finish,
+              requiredDelta,
+              calendar,
+            )
+          : shiftGanttTimestamp(target.finish, requiredDelta, calendar)
+        : target.finish + requiredDelta * GANTT_SCHEDULE_DAY_MS;
       result.push({
         record_id: recordId,
         delta_days: requiredDelta,

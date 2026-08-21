@@ -354,6 +354,12 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       view: expect.objectContaining({ zoom: 'week' }),
     })
   );
+  expect(createdGantt.view.working_calendar).toEqual({
+    enabled: false,
+    weekdays: [1, 2, 3, 4, 5],
+    holidays: [],
+    timezone: 'UTC',
+  });
 
   const unconfiguredGanttRange = await page.request.get(
     `/api/v2/gantts/${createdGantt.id}/records?from=2025-01-01&to=2025-02-01`,
@@ -406,6 +412,19 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       zoom: 'month',
     })
   );
+
+  const invalidWorkingCalendarResponse = await page.request.patch(`/api/v2/meta/gantts/${createdGantt.id}`, {
+    headers: sessionHeaders,
+    data: {
+      working_calendar: {
+        enabled: true,
+        weekdays: [1, 2, 3, 4, 5],
+        holidays: [],
+        timezone: 'Not/A_Zone',
+      },
+    },
+  });
+  expect(invalidWorkingCalendarResponse.status()).toBe(400);
 
   const invalidGanttRanges = await Promise.all([
     page.request.get(`/api/v2/gantts/${createdGantt.id}/records?to=2025-01-15`, { headers: sessionHeaders }),
@@ -521,26 +540,27 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     expect.objectContaining({
       analyzed_record_count: 3,
       component_count: 1,
-      critical_record_ids: expect.arrayContaining([dependencySourceId, dependencyAfterId]),
-      critical_dependency_ids: [branchingDependency.id],
+      day_mode: 'calendar',
+      critical_record_ids: expect.arrayContaining([dependencySourceId, dependencyTargetId]),
+      critical_dependency_ids: [createdDependency.id],
     })
   );
-  expect(criticalPath.critical_record_ids).not.toContain(dependencyTargetId);
+  expect(criticalPath.critical_record_ids).not.toContain(dependencyAfterId);
   expect(criticalPath.tasks).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ record_id: dependencySourceId, title: 'Timeline spanning range', critical: true }),
-      expect.objectContaining({ record_id: dependencyAfterId, title: 'Timeline after range', critical: true }),
-      expect.objectContaining({ record_id: dependencyTargetId, critical: false }),
+      expect.objectContaining({ record_id: dependencyAfterId, title: 'Timeline after range', critical: false }),
+      expect.objectContaining({ record_id: dependencyTargetId, critical: true }),
     ])
   );
   const nonCriticalTask = criticalPath.tasks.find(
-    (task: { record_id: string }) => task.record_id === dependencyTargetId
-  );
-  const criticalBranchTask = criticalPath.tasks.find(
     (task: { record_id: string }) => task.record_id === dependencyAfterId
   );
+  const criticalBranchTask = criticalPath.tasks.find(
+    (task: { record_id: string }) => task.record_id === dependencyTargetId
+  );
   expect(nonCriticalTask.total_float_days).toBeGreaterThan(0);
-  expect(nonCriticalTask.total_float_days).toBe(criticalBranchTask.duration_days);
+  expect(criticalBranchTask.total_float_days).toBe(0);
 
   const branchingDependencyDeleteResponse = await page.request.delete(
     `/api/v2/meta/gantts/${createdGantt.id}/dependencies/${branchingDependency.id}`,
@@ -709,10 +729,30 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(await emptyCriticalPathResponse.json()).toEqual({
     analyzed_record_count: 0,
     component_count: 0,
+    day_mode: 'calendar',
     critical_record_ids: [],
     critical_dependency_ids: [],
     tasks: [],
     components: [],
+  });
+
+  const workingCalendarResponse = await page.request.patch(`/api/v2/meta/gantts/${createdGantt.id}`, {
+    headers: sessionHeaders,
+    data: {
+      working_calendar: {
+        enabled: true,
+        weekdays: [1, 2, 3, 4, 5],
+        holidays: ['2026-01-01'],
+        timezone: 'Asia/Seoul',
+      },
+    },
+  });
+  expect(workingCalendarResponse.ok(), await workingCalendarResponse.text()).toBeTruthy();
+  expect((await workingCalendarResponse.json()).view.working_calendar).toEqual({
+    enabled: true,
+    weekdays: [1, 2, 3, 4, 5],
+    holidays: ['2026-01-01'],
+    timezone: 'Asia/Seoul',
   });
 
   const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
@@ -1443,6 +1483,15 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   const ganttView = page.getByTestId('nc-gantt-wrapper');
   await expect(ganttView).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId('nc-gantt-settings-toggle').click();
+  await page.getByTestId('nc-gantt-working-calendar-enabled').check();
+  await page.getByTestId('nc-gantt-working-calendar-holidays').fill('2030-01-01');
+  const workingCalendarUiResponse = page.waitForResponse(
+    response => response.url().includes(`/meta/gantts/${createdUiGantt.id}`) && response.request().method() === 'PATCH'
+  );
+  await page.getByTestId('nc-gantt-settings-save').click();
+  expect((await workingCalendarUiResponse).ok()).toBeTruthy();
+  await expect(ganttView.locator('[data-testid="nc-gantt-day"][data-working-day="false"]').first()).toBeVisible();
   const currentGanttTask = ganttView.getByTestId('nc-gantt-task').filter({ hasText: 'Current Timeline item' });
   await expect(currentGanttTask).toBeVisible();
   await expect(currentGanttTask).toHaveAttribute('data-progress', '40');

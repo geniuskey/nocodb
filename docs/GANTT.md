@@ -29,10 +29,11 @@ first slice provides:
   accessible dependency editor;
 - read-only, component-local critical-path analysis with total float; and
 - permission-aware critical task/link highlighting and an accessible analysis
-  summary.
+  summary; and
+- an optional project working calendar with ISO weekdays, holidays, and an
+  IANA timezone.
 
-Schedule propagation is explicit and preview-first. Working calendars and
-calendar-aware duration remain outside this slice. Dependency edges and
+Schedule propagation is explicit and preview-first. Dependency edges and
 critical-path analysis never silently mutate task dates.
 
 ## Dependency graph contract
@@ -73,7 +74,16 @@ The companion record in `nc_gantt_view_v2` stores:
 - optional `fk_progress_column_id`;
 - optional `fk_milestone_column_id`;
 - `zoom` (`day`, `week`, `month`, or `quarter`);
-- reserved JSON `meta`.
+- reserved JSON `meta`, which stores the typed `working_calendar` value without
+  requiring a metadata-table migration.
+
+`working_calendar` contains `enabled`, unique ISO weekdays (`1` is Monday and
+`7` is Sunday), up to 366 unique `YYYY-MM-DD` holidays, and an IANA timezone.
+Its default is disabled, Monday through Friday, no holidays, and `UTC`.
+Disabled calendars preserve the original seven-calendar-day behavior. Invalid
+dates, duplicate weekdays, empty working weeks, unknown timezones, and unknown
+properties are rejected. The API returns a normalized value even for Gantt
+views created before this setting existed.
 
 Start and end accept Date or DateTime fields. Progress accepts Number, Decimal,
 or Percent and is clamped to the visual range 0–100. Milestone accepts only a
@@ -144,6 +154,14 @@ added to the predecessor anchor. A blank end is a point at start and remains
 blank. A Date end is inclusive for finish constraints; a DateTime end is its
 exact instant.
 
+When the working calendar is enabled, the same integer values represent
+working-day shifts. Shifted starts land on configured working dates, weekends
+and holidays are skipped, and DateTime shifts preserve the local wall-clock
+time in the configured timezone across daylight-saving changes. Date values
+remain calendar dates. The preview response reports `day_mode` as `working` or
+`calendar`, and the normalized calendar participates in `plan_hash`, so a
+calendar edit invalidates an earlier preview.
+
 `preview` is read-only and returns current/next dates, whole-day deltas, the
 driving dependency identities, and a SHA-256 `plan_hash`. `apply` requires the
 same anchors and hash. It locks the metadata graph, recomputes the complete
@@ -189,10 +207,12 @@ Task duration follows the mapped field semantics used by scheduling: a Date
 end is inclusive, a DateTime end is exact, and a blank end is a zero-duration
 point. The response reports duration, earliest start, latest start, and total
 float in days, plus critical record and binding dependency identities. A task
-with effectively zero float is critical. Analysis uses elapsed duration and
-does not yet model weekends, holidays, per-project calendars, or resources.
-Actual saved task placement is not mutated or persisted as part of the
-analysis.
+with effectively zero float is critical. With a working calendar enabled,
+duration and float use working-day units and exclude configured non-working
+dates; full local days remain one day across daylight-saving transitions. The
+response exposes the active `day_mode`. Resources and per-task calendars are
+not modeled. Actual saved task placement is not mutated or persisted as part
+of the analysis.
 
 ## Frontend behavior
 
@@ -224,6 +244,12 @@ task float, highlights critical task bars and binding links, and can be hidden
 without another request. Any task reload, dependency mutation, or applied
 schedule clears the result so stale analysis is never presented as current.
 
+The settings panel exposes the project calendar, and non-working dates are
+shaded in the time-axis header. Schedule changes and critical-path summaries
+use `wd` when the server reports working-day units. Direct drag and keyboard
+edits remain explicit calendar-day gestures; the saved graph scheduler is the
+calendar-aware planning operation.
+
 ## Verification
 
 Pure unit tests cover stable task ordering, progress/milestone normalization,
@@ -231,7 +257,9 @@ dependency anchor geometry, identity hashing, cycle detection, all four
 schedule constraints, cascades, strongest-predecessor selection, negative lag,
 forward-only behavior, generalized critical-path offsets, disconnected
 networks, float, deterministic critical edges, and cycle rejection. Community
-Playwright acceptance covers metadata
+tests also cover normalized calendar validation, weekend/holiday skipping,
+backward shifts, working duration, and timezone-stable daylight-saving
+arithmetic. Playwright acceptance covers metadata
 lifecycle, invalid mappings, bounded range validation, required field
 projection, dependency CRUD and invalid-graph rejection, stale schedule
 rejection, preview/apply persistence, critical-path API projection and empty
