@@ -171,6 +171,35 @@
         }
       }
     },
+    "/api/v1/db/meta/gantts/{viewId}/schedule/critical-path": {
+      "parameters": [
+        {
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Gantt View ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "Analyze Gantt Critical Paths",
+        "operationId": "db-gantt-schedule-critical-path",
+        "description": "Compute component-local critical paths and total float without changing records",
+        "tags": ["DB Gantt Schedule"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GanttCriticalPath" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
     "/api/v1/db/meta/gantts/{viewId}/schedule/preview": {
       "parameters": [
         {
@@ -584,6 +613,73 @@
           "list": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/GanttDependency" }
+          }
+        }
+      },
+      "GanttCriticalPathTask": {
+        "title": "Gantt Critical Path Task",
+        "type": "object",
+        "required": [
+          "record_id",
+          "duration_days",
+          "earliest_start_days",
+          "latest_start_days",
+          "total_float_days",
+          "critical"
+        ],
+        "properties": {
+          "record_id": { "type": "string" },
+          "title": { "type": "string" },
+          "duration_days": { "type": "number", "minimum": 0 },
+          "earliest_start_days": { "type": "number" },
+          "latest_start_days": { "type": "number" },
+          "total_float_days": { "type": "number", "minimum": 0 },
+          "critical": { "type": "boolean" }
+        }
+      },
+      "GanttCriticalPathComponent": {
+        "title": "Gantt Critical Path Component",
+        "type": "object",
+        "required": ["record_ids", "project_duration_days"],
+        "properties": {
+          "record_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "project_duration_days": { "type": "number", "minimum": 0 }
+        }
+      },
+      "GanttCriticalPath": {
+        "title": "Gantt Critical Path Analysis",
+        "type": "object",
+        "required": [
+          "analyzed_record_count",
+          "component_count",
+          "critical_record_ids",
+          "critical_dependency_ids",
+          "tasks",
+          "components"
+        ],
+        "properties": {
+          "analyzed_record_count": { "type": "integer", "minimum": 0 },
+          "component_count": { "type": "integer", "minimum": 0 },
+          "critical_record_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "critical_dependency_ids": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Id" }
+          },
+          "tasks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GanttCriticalPathTask" }
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GanttCriticalPathComponent"
+            }
           }
         }
       },

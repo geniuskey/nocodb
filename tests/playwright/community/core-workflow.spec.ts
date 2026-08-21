@@ -456,10 +456,15 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const dependencyTargetRecord = insertedTimelineRecords.find(
     (record: { Title?: string }) => record.Title === 'Timeline point in range'
   );
+  const dependencyAfterRecord = insertedTimelineRecords.find(
+    (record: { Title?: string }) => record.Title === 'Timeline after range'
+  );
   const dependencySourceId = String(dependencySourceRecord?.Id ?? dependencySourceRecord?.id);
   const dependencyTargetId = String(dependencyTargetRecord?.Id ?? dependencyTargetRecord?.id);
+  const dependencyAfterId = String(dependencyAfterRecord?.Id ?? dependencyAfterRecord?.id);
   expect(dependencySourceId).not.toBe('undefined');
   expect(dependencyTargetId).not.toBe('undefined');
+  expect(dependencyAfterId).not.toBe('undefined');
 
   const emptyDependencyQueryResponse = await page.request.post(
     `/api/v2/meta/gantts/${createdGantt.id}/dependencies/query`,
@@ -494,6 +499,54 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(createdDependency).not.toHaveProperty('source_record_hash');
   expect(createdDependency).not.toHaveProperty('target_record_hash');
+
+  const branchingDependencyResponse = await page.request.post(`/api/v2/meta/gantts/${createdGantt.id}/dependencies`, {
+    headers: sessionHeaders,
+    data: {
+      source_record_id: dependencySourceId,
+      target_record_id: dependencyAfterId,
+      dependency_type: 'finish_start',
+      lag_days: 0,
+    },
+  });
+  const branchingDependency = await branchingDependencyResponse.json();
+  expect(branchingDependencyResponse.ok(), JSON.stringify(branchingDependency)).toBeTruthy();
+
+  const criticalPathResponse = await page.request.get(`/api/v2/meta/gantts/${createdGantt.id}/schedule/critical-path`, {
+    headers: sessionHeaders,
+  });
+  const criticalPath = await criticalPathResponse.json();
+  expect(criticalPathResponse.ok(), JSON.stringify(criticalPath)).toBeTruthy();
+  expect(criticalPath).toEqual(
+    expect.objectContaining({
+      analyzed_record_count: 3,
+      component_count: 1,
+      critical_record_ids: expect.arrayContaining([dependencySourceId, dependencyAfterId]),
+      critical_dependency_ids: [branchingDependency.id],
+    })
+  );
+  expect(criticalPath.critical_record_ids).not.toContain(dependencyTargetId);
+  expect(criticalPath.tasks).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ record_id: dependencySourceId, title: 'Timeline spanning range', critical: true }),
+      expect.objectContaining({ record_id: dependencyAfterId, title: 'Timeline after range', critical: true }),
+      expect.objectContaining({ record_id: dependencyTargetId, critical: false }),
+    ])
+  );
+  const nonCriticalTask = criticalPath.tasks.find(
+    (task: { record_id: string }) => task.record_id === dependencyTargetId
+  );
+  const criticalBranchTask = criticalPath.tasks.find(
+    (task: { record_id: string }) => task.record_id === dependencyAfterId
+  );
+  expect(nonCriticalTask.total_float_days).toBeGreaterThan(0);
+  expect(nonCriticalTask.total_float_days).toBe(criticalBranchTask.duration_days);
+
+  const branchingDependencyDeleteResponse = await page.request.delete(
+    `/api/v2/meta/gantts/${createdGantt.id}/dependencies/${branchingDependency.id}`,
+    { headers: sessionHeaders }
+  );
+  expect(branchingDependencyDeleteResponse.ok(), await branchingDependencyDeleteResponse.text()).toBeTruthy();
 
   const initialSchedulePreviewResponse = await page.request.post(
     `/api/v2/meta/gantts/${createdGantt.id}/schedule/preview`,
@@ -647,6 +700,20 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(dependencyDeleteResponse.ok(), await dependencyDeleteResponse.text()).toBeTruthy();
   expect(await dependencyDeleteResponse.json()).toEqual({ id: createdDependency.id });
+
+  const emptyCriticalPathResponse = await page.request.get(
+    `/api/v1/db/meta/gantts/${createdGantt.id}/schedule/critical-path`,
+    { headers: sessionHeaders }
+  );
+  expect(emptyCriticalPathResponse.ok(), await emptyCriticalPathResponse.text()).toBeTruthy();
+  expect(await emptyCriticalPathResponse.json()).toEqual({
+    analyzed_record_count: 0,
+    component_count: 0,
+    critical_record_ids: [],
+    critical_dependency_ids: [],
+    tasks: [],
+    components: [],
+  });
 
   const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
@@ -1411,6 +1478,20 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveCount(1);
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-dependency-type', 'finish_start');
   await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-lag-days', '2');
+
+  const uiCriticalPathResponsePromise = page.waitForResponse(
+    response =>
+      response.url().includes(`/meta/gantts/${createdUiGantt.id}/schedule/critical-path`) &&
+      response.request().method() === 'GET'
+  );
+  await page.getByTestId('nc-gantt-critical-path-toggle').click();
+  const uiCriticalPathResponse = await uiCriticalPathResponsePromise;
+  expect(uiCriticalPathResponse.ok(), await uiCriticalPathResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-gantt-critical-path-summary')).toContainText('2 critical tasks');
+  await expect(currentGanttTask).toHaveAttribute('data-critical', 'true');
+  await expect(page.getByTestId('nc-gantt-dependency-link')).toHaveAttribute('data-critical', 'true');
+  await page.getByTestId('nc-gantt-critical-path-toggle').click();
+  await expect(page.getByTestId('nc-gantt-critical-path-summary')).toHaveCount(0);
 
   await page.getByTestId('nc-gantt-schedule-anchors').click();
   await page.locator('.ant-select-dropdown:visible').last().getByText('Current Timeline item', { exact: true }).click();

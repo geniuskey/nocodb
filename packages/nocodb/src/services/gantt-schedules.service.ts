@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import dayjs from 'dayjs';
 import { UITypes, ViewTypes } from 'nocodb-sdk';
 import type {
+  GanttCriticalPathType,
   GanttScheduleApplyReqType,
   GanttScheduleChangeType,
   GanttSchedulePlanType,
@@ -14,6 +15,7 @@ import Noco from '~/Noco';
 import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { validatePayload } from '~/helpers';
 import { NcError } from '~/helpers/catchError';
+import { buildGanttCriticalPath } from '~/helpers/ganttCriticalPath';
 import {
   buildGanttScheduleShifts,
   GANTT_SCHEDULE_DAY_MS,
@@ -325,6 +327,153 @@ export class GanttSchedulesService {
       unchanged_count: affected.size - changes.length,
       applied: false,
       updates,
+    };
+  }
+
+  async criticalPath(
+    context: NcContext,
+    viewId: string,
+  ): Promise<GanttCriticalPathType> {
+    const view = await View.get(context, viewId);
+    if (!view || view.type !== ViewTypes.GANTT) NcError.viewNotFound(viewId);
+    const gantt = await GanttView.get(context, viewId);
+    if (!gantt?.fk_start_column_id || !gantt?.fk_end_column_id) {
+      NcError.get(context).badRequest(
+        'Gantt start and end fields must be configured before analyzing critical paths',
+      );
+    }
+
+    const dependencies = await GanttDependency.listAll(context, viewId);
+    if (!dependencies.length) {
+      return {
+        analyzed_record_count: 0,
+        component_count: 0,
+        critical_record_ids: [],
+        critical_dependency_ids: [],
+        tasks: [],
+        components: [],
+      };
+    }
+    const recordIds = [
+      ...new Set(
+        dependencies.flatMap((dependency) => [
+          dependency.source_record_id,
+          dependency.target_record_id,
+        ]),
+      ),
+    ].sort();
+    if (recordIds.length > GANTT_SCHEDULE_MAX_TASKS) {
+      NcError.get(context).badRequest(
+        `Gantt critical-path analysis supports at most ${GANTT_SCHEDULE_MAX_TASKS} task records`,
+      );
+    }
+
+    const model = await Model.getByIdOrName(context, {
+      id: view.fk_model_id,
+    });
+    if (!model) NcError.get(context).tableNotFound(view.fk_model_id);
+    const columns = await model.getColumns(context);
+    const startColumn = columns.find(
+      (column) => column.id === gantt.fk_start_column_id,
+    );
+    const endColumn = columns.find(
+      (column) => column.id === gantt.fk_end_column_id,
+    );
+    const titleColumn = columns.find(
+      (column) => column.id === gantt.fk_title_column_id,
+    );
+    if (!startColumn || !endColumn) {
+      NcError.get(context).badRequest(
+        'Gantt critical-path fields no longer exist',
+      );
+    }
+
+    const source = await Source.get(context, model.source_id);
+    const baseModel = await Model.getBaseModelSQL(context, {
+      model,
+      source,
+      dbDriver: await NcConnectionMgrv2.get(source),
+    });
+    const records = await baseModel.chunkList({ pks: recordIds });
+    const recordById = new Map<string, Record<string, any>>();
+    for (const record of records) {
+      recordById.set(String(baseModel.extractPksValues(record, true)), record);
+    }
+
+    const taskTitles = new Map<string, string>();
+    const taskInputs = recordIds.map((recordId) => {
+      const record = recordById.get(recordId);
+      if (!record) {
+        NcError.get(context).badRequest(
+          `Gantt critical-path task does not exist: ${recordId}`,
+        );
+      }
+      const start = this.dateValue(
+        context,
+        recordId,
+        this.value(record, startColumn),
+        startColumn,
+      );
+      if (!start) {
+        NcError.get(context).badRequest(
+          `Gantt critical-path task has no start value: ${recordId}`,
+        );
+      }
+      const end = this.dateValue(
+        context,
+        recordId,
+        this.value(record, endColumn),
+        endColumn,
+      );
+      const finish = end
+        ? end.timestamp +
+          (endColumn.uidt === UITypes.Date ? GANTT_SCHEDULE_DAY_MS : 0)
+        : start.timestamp;
+      if (finish < start.timestamp) {
+        NcError.get(context).badRequest(
+          `Gantt critical-path task ends before it starts: ${recordId}`,
+        );
+      }
+      if (titleColumn) {
+        taskTitles.set(
+          recordId,
+          String(this.value(record, titleColumn) ?? recordId),
+        );
+      }
+      return { id: recordId, duration: finish - start.timestamp };
+    });
+
+    let analysis;
+    try {
+      analysis = buildGanttCriticalPath(taskInputs, dependencies);
+    } catch (error) {
+      NcError.get(context).badRequest((error as Error).message);
+    }
+    const toDays = (value: number) =>
+      Math.round((value / GANTT_SCHEDULE_DAY_MS) * 1_000_000) / 1_000_000;
+    const tasks = analysis!.tasks.map((task) => ({
+      record_id: task.record_id,
+      ...(taskTitles.has(task.record_id)
+        ? { title: taskTitles.get(task.record_id) }
+        : {}),
+      duration_days: toDays(task.duration),
+      earliest_start_days: toDays(task.earliest_start),
+      latest_start_days: toDays(task.latest_start),
+      total_float_days: toDays(task.total_float),
+      critical: task.critical,
+    }));
+    return {
+      analyzed_record_count: tasks.length,
+      component_count: analysis!.components.length,
+      critical_record_ids: tasks
+        .filter((task) => task.critical)
+        .map((task) => task.record_id),
+      critical_dependency_ids: analysis!.critical_dependency_ids,
+      tasks,
+      components: analysis!.components.map((component) => ({
+        record_ids: component.record_ids,
+        project_duration_days: toDays(component.project_duration),
+      })),
     };
   }
 

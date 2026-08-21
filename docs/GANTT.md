@@ -26,11 +26,14 @@ first slice provides:
 - whole-day lead/lag values, acyclic graph enforcement, and serialized edge
   create/update/delete operations; and
 - bounded dependency queries, virtualized SVG link rendering, and an
-  accessible dependency editor.
+  accessible dependency editor;
+- read-only, component-local critical-path analysis with total float; and
+- permission-aware critical task/link highlighting and an accessible analysis
+  summary.
 
-Schedule propagation is explicit and preview-first. Critical-path analysis,
-working calendars, and calendar-aware duration remain outside this slice.
-Dependency edges never silently mutate task dates.
+Schedule propagation is explicit and preview-first. Working calendars and
+calendar-aware duration remain outside this slice. Dependency edges and
+critical-path analysis never silently mutate task dates.
 
 ## Dependency graph contract
 
@@ -110,6 +113,7 @@ Dependency endpoints are available under both v1 and v2 metadata prefixes:
 
 Schedule endpoints are also available under both prefixes:
 
+- `GET /api/v1/db/meta/gantts/{viewId}/schedule/critical-path`
 - `POST /api/v1/db/meta/gantts/{viewId}/schedule/preview`
 - `POST /api/v1/db/meta/gantts/{viewId}/schedule/apply`
 
@@ -162,6 +166,34 @@ interval between recomputation and the shared bulk update, so callers should
 reload after a rejected apply and integrations should avoid concurrent writes
 to the same scheduled date fields.
 
+## Critical-path contract
+
+Critical-path analysis is a read-only projection over the saved dependency
+graph. Only records that are dependency endpoints participate; unrelated table
+records are not incorrectly labelled critical. One analysis is bounded to
+1,000 endpoint records and the view's existing 10,000-edge limit. Missing
+endpoints, missing or invalid dates, negative durations, and cycles are
+rejected without changing records or graph metadata.
+
+Each weakly connected dependency network is analyzed separately. This avoids
+giving every task in a shorter, unrelated project misleading float relative to
+the longest network in the view. The forward and backward passes use the four
+dependency kinds as generalized start constraints:
+
+- finish-to-start: predecessor duration plus lag;
+- start-to-start: lag;
+- finish-to-finish: predecessor duration minus successor duration plus lag;
+- start-to-finish: negative successor duration plus lag.
+
+Task duration follows the mapped field semantics used by scheduling: a Date
+end is inclusive, a DateTime end is exact, and a blank end is a zero-duration
+point. The response reports duration, earliest start, latest start, and total
+float in days, plus critical record and binding dependency identities. A task
+with effectively zero float is critical. Analysis uses elapsed duration and
+does not yet model weekends, holidays, per-project calendars, or resources.
+Actual saved task placement is not mutated or persisted as part of the
+analysis.
+
 ## Frontend behavior
 
 `components/smartsheet/Gantt.vue` owns presentation and interaction state. It
@@ -186,15 +218,24 @@ only when record updates are allowed. The preview is cleared whenever the
 loaded task window or anchor selection changes, and the server hash remains the
 authoritative stale-plan guard.
 
+The same panel exposes an explicit critical-path toggle to every user allowed
+to read the loaded Gantt data. The result summarizes dependency networks and
+task float, highlights critical task bars and binding links, and can be hidden
+without another request. Any task reload, dependency mutation, or applied
+schedule clears the result so stale analysis is never presented as current.
+
 ## Verification
 
 Pure unit tests cover stable task ordering, progress/milestone normalization,
 dependency anchor geometry, identity hashing, cycle detection, all four
 schedule constraints, cascades, strongest-predecessor selection, negative lag,
-and forward-only behavior. Community Playwright acceptance covers metadata
+forward-only behavior, generalized critical-path offsets, disconnected
+networks, float, deterministic critical edges, and cycle rejection. Community
+Playwright acceptance covers metadata
 lifecycle, invalid mappings, bounded range validation, required field
 projection, dependency CRUD and invalid-graph rejection, stale schedule
-rejection, preview/apply persistence, UI creation,
+rejection, preview/apply persistence, critical-path API projection and empty
+graphs, UI analysis and highlighting, UI creation,
 progress/milestone/link rendering, navigation, keyboard rescheduling,
 virtualization, restart persistence, and generic view deletion. The workflow
 runs against SQLite, PostgreSQL, and MySQL.
