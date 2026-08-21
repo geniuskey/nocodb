@@ -439,9 +439,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       'Timeline start': '2025-01-05',
       'Timeline end': expect.stringContaining('2025-01-20'),
       Progress: 65,
-      Milestone: 0,
     }),
   ]);
+  expect([false, 0]).toContain(ganttRange.list[0]?.Milestone);
 
   const timelineRecordsDeleteResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,

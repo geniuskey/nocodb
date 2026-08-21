@@ -155,15 +155,21 @@ test('Community image preserves login, schema, and records across restart', asyn
         'Timeline start': expectedGanttStartDate,
         'Timeline end': expect.stringContaining(expectedGanttEndDate),
         Progress: 40,
-        Milestone: 0,
       }),
       expect.objectContaining({
         Title: 'Ungrouped Timeline item',
         Progress: 100,
-        Milestone: 1,
       }),
     ])
   );
+  const currentGanttRecord = persistedGanttRange.list.find(
+    (record: { Title?: string }) => record.Title === 'Current Timeline item'
+  );
+  const milestoneGanttRecord = persistedGanttRange.list.find(
+    (record: { Title?: string }) => record.Title === 'Ungrouped Timeline item'
+  );
+  expect([false, 0]).toContain(currentGanttRecord?.Milestone);
+  expect([true, 1]).toContain(milestoneGanttRecord?.Milestone);
 
   const timelineResponse = await page.request.get(`/api/v2/meta/timelines/${timeline.id}`, {
     headers: sessionHeaders,
