@@ -29,6 +29,7 @@ import { ThumbnailGeneratorProcessor } from '~/modules/jobs/jobs/thumbnail-gener
 import { AttachmentCleanUpProcessor } from '~/modules/jobs/jobs/attachment-clean-up/attachment-clean-up';
 import { UseWorkerProcessor } from '~/modules/jobs/jobs/use-worker/use-worker.processor';
 import { AttachmentUrlUploadProcessor } from '~/modules/jobs/jobs/attachment-url-upload/attachment-url-upload.processor';
+import { RecordTrashCleanUpProcessor } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
 
 // Job Processor
 import { JobsProcessor } from '~/modules/jobs/jobs.processor';
@@ -120,6 +121,7 @@ export const JobsModuleMetadata = {
     AttachmentCleanUpProcessor,
     UseWorkerProcessor,
     AttachmentUrlUploadProcessor,
+    RecordTrashCleanUpProcessor,
 
     // Migration Jobs
     InitMigrationJobs,

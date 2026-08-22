@@ -49,6 +49,23 @@ semantics while the server snapshots and deletes matching records in bounded
 100-record batches. Explicit bulk deletes no longer register the older
 insert-based Undo; recovery is available from the table Trash dialog.
 
+## Automatic expiry cleanup
+
+The Community jobs service permanently removes snapshots after their stored
+`expires_at` timestamp. A repeatable cleanup runs at minute 15 of every hour,
+using the metadata index on `expires_at`. It selects at most 500 composite
+`base_id`/`id` identifiers at a time and processes at most 10,000 candidates in
+one run. The delete query checks the same fixed cutoff again, so overlapping
+workers and concurrent manual deletion are safe and idempotent. A backlog over
+the per-run limit is left for the next scheduled run.
+
+The primary application schedules the repeatable job. With Redis workers, Bull
+deduplicates the fixed job identifier and a worker consumes it; without Redis,
+the in-process fallback queue uses the same cron expression. Set
+`NC_RECORD_TRASH_CLEANUP_DISABLED=true` before startup only when an operator
+needs to suspend automatic permanent deletion. Expired snapshots remain
+non-restorable while cleanup is disabled.
+
 ## Compatible delete opt-in
 
 Existing delete APIs remain permanently deleting by default. Clients can opt a
@@ -102,8 +119,8 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Automated expiry cleanup, table/base
-metadata trash, and richer conflict resolution are subsequent Phase 5 slices.
+Expired snapshots are not restorable. Table/base metadata trash and richer
+conflict resolution are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no
