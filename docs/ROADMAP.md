@@ -202,8 +202,10 @@ restore/permanent-delete operations, and failure ordering that favors
 recoverable duplicates over data loss across separate metadata/user databases.
 A second slice adds a permission-aware table Trash UI with previews, pagination,
 multi-selection, restore, and confirmed permanent deletion. The expiry worker,
-richer conflict handling, routing ordinary deletes through Trash, and supported
-metadata deletion lifecycles remain before Phase 5 is complete.
+richer conflict handling, and supported metadata deletion lifecycles remain
+before Phase 5 is complete. A compatibility bridge now lets bounded v1/v2
+record deletes opt into Trash without changing the default response or deletion
+semantics; GUI delete surfaces will adopt that bridge incrementally.
 
 ## Phase 6 — Snapshot
 

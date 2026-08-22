@@ -190,9 +190,9 @@ export class DatasService {
     );
   }
 
-  async dataDelete(
+  private async getDataDeleteResources(
     context: NcContext,
-    param: PathParams & { rowId: string; cookie: any },
+    param: PathParams & { rowId: string },
   ) {
     const { model, view } = await getViewAndModelByAliasOrId(context, param);
     const source = await Source.get(context, model.source_id);
@@ -210,6 +210,23 @@ export class DatasService {
         NcError.get(context).badRequest(message);
       }
     }
+
+    return { model, view, baseModel };
+  }
+
+  async validateDataDelete(
+    context: NcContext,
+    param: PathParams & { rowId: string },
+  ) {
+    const { model, view } = await this.getDataDeleteResources(context, param);
+    return { model, view };
+  }
+
+  async dataDelete(
+    context: NcContext,
+    param: PathParams & { rowId: string; cookie: any },
+  ) {
+    const { baseModel } = await this.getDataDeleteResources(context, param);
 
     return await baseModel.delByPk(param.rowId, null, param.cookie);
   }

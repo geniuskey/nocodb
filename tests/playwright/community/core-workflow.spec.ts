@@ -849,14 +849,21 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   const trashCandidates = await trashCandidatesResponse.json();
   expect(trashCandidatesResponse.ok(), JSON.stringify(trashCandidates)).toBeTruthy();
-  const trashCreateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash`, {
+  const trashOptInDeleteResponse = await page.request.delete(
+    `/api/v2/tables/${createdTableBody.id}/records?trash=true`,
+    {
+      headers: sessionHeaders,
+      data: trashCandidates.map((record: { Id: number }) => ({ Id: record.Id })),
+    }
+  );
+  const trashDeleteResult = await trashOptInDeleteResponse.json();
+  expect(trashOptInDeleteResponse.ok(), JSON.stringify(trashDeleteResult)).toBeTruthy();
+  expect(trashDeleteResult).toEqual([{ Id: trashCandidates[0].Id }]);
+  const createdTrashResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash`, {
     headers: sessionHeaders,
-    data: {
-      records: trashCandidates.map((record: { Id: number }) => ({ Id: record.Id })),
-    },
   });
-  const createdTrash = await trashCreateResponse.json();
-  expect(trashCreateResponse.ok(), JSON.stringify(createdTrash)).toBeTruthy();
+  const createdTrash = await createdTrashResponse.json();
+  expect(createdTrashResponse.ok(), JSON.stringify(createdTrash)).toBeTruthy();
   expect(createdTrash.list).toEqual([
     expect.objectContaining({
       record_id: String(trashCandidates[0].Id),
@@ -908,6 +915,38 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     data: [{ Id: trashCandidates[0].Id }],
   });
   expect(roundTripCleanupResponse.ok(), await roundTripCleanupResponse.text()).toBeTruthy();
+
+  const legacyTrashCandidateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Legacy route trash opt-in', Status: 'Blocked' },
+  });
+  const legacyTrashCandidate = await legacyTrashCandidateResponse.json();
+  expect(legacyTrashCandidateResponse.ok(), JSON.stringify(legacyTrashCandidate)).toBeTruthy();
+  const legacyTrashDeleteResponse = await page.request.delete(
+    `/api/v1/db/data/noco/${createdBaseBody.id}/${createdTableBody.id}/views/${createdList.id}/${legacyTrashCandidate.Id}?trash=true`,
+    { headers: sessionHeaders }
+  );
+  expect(legacyTrashDeleteResponse.ok(), await legacyTrashDeleteResponse.text()).toBeTruthy();
+  expect(await legacyTrashDeleteResponse.json()).toBe(1);
+  const legacyTrashListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const legacyTrashList = await legacyTrashListResponse.json();
+  expect(legacyTrashListResponse.ok(), JSON.stringify(legacyTrashList)).toBeTruthy();
+  const legacyTrashSnapshot = legacyTrashList.list.find(
+    (record: { row_data?: { Title?: string } }) => record.row_data?.Title === 'Legacy route trash opt-in'
+  );
+  expect(legacyTrashSnapshot?.id).toEqual(expect.any(String));
+  const legacyTrashRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [legacyTrashSnapshot.id] },
+  });
+  expect(legacyTrashRestoreResponse.ok(), await legacyTrashRestoreResponse.text()).toBeTruthy();
+  const legacyTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Id: legacyTrashCandidate.Id },
+  });
+  expect(legacyTrashCleanupResponse.ok(), await legacyTrashCleanupResponse.text()).toBeTruthy();
 
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 
