@@ -170,7 +170,7 @@ export class QueueService {
           const recurringJobId = `${id}-${Date.now()}`;
           const childJob = { ...job, id: recurringJobId };
 
-          setTimeout(() => {
+          const timeout = setTimeout(() => {
             this.queueMemory.push(childJob);
             // Execute the current job
             this.queue
@@ -188,6 +188,7 @@ export class QueueService {
                 this.queue.add(() => scheduleNextExecution());
               });
           }, delayMs);
+          timeout.unref();
         } catch (error) {
           console.error(`Invalid cron expression for job ${name}:`, error);
         }

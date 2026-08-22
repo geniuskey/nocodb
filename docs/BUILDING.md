@@ -74,6 +74,11 @@ NC_TOOL_DIR="$PWD/.data" pnpm start:backend
 
 The default bootstrap, backend build, development server, and Community Playwright entry points do not set Enterprise flags or load Enterprise build configurations. Enterprise-labelled source trees and their dedicated build/test entry points have been physically removed from the fork.
 
+Record Trash expiry cleanup is scheduled automatically at minute 15 of every
+hour. For maintenance only, set `NC_RECORD_TRASH_CLEANUP_DISABLED=true` before
+starting the backend to suspend permanent removal of expired snapshots. See
+[TRASH_RESTORE.md](./TRASH_RESTORE.md) for retention and batch limits.
+
 ## Production build
 
 ```sh

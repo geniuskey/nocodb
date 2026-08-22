@@ -201,14 +201,14 @@ bounded list/write requests, shared CRUD hooks and permissions, explicit
 restore/permanent-delete operations, and failure ordering that favors
 recoverable duplicates over data loss across separate metadata/user databases.
 A second slice adds a permission-aware table Trash UI with previews, pagination,
-multi-selection, restore, and confirmed permanent deletion. The expiry worker,
-richer conflict handling, and supported metadata deletion lifecycles remain
-before Phase 5 is complete. A compatibility bridge now lets bounded v1/v2
-record deletes opt into Trash without changing the default response or deletion
-semantics; GUI delete surfaces will adopt that bridge incrementally.
-Community single-record actions now adopt Trash across Grid, grouped Grid,
-Gallery, Kanban, expanded forms, and related-record dialogs. Bulk delete paths
-remain explicit follow-up work.
+multi-selection, restore, and confirmed permanent deletion. A compatibility
+bridge lets bounded v1/v2 record deletes opt into Trash without changing the
+default response or deletion semantics. Community record actions now use that
+bridge across Grid, grouped Grid, List, Gallery, Kanban, expanded forms, and
+related-record dialogs, including selected, range, and filtered bulk deletes.
+An hourly bounded cleanup job now permanently removes expired snapshots in both
+Redis-worker and in-process queue deployments. Richer conflict handling and
+supported metadata deletion lifecycles remain before Phase 5 is complete.
 
 ## Phase 6 — Snapshot
 

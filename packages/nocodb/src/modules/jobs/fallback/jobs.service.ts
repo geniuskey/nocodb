@@ -10,6 +10,10 @@ import {
 import { Job } from '~/models';
 import { MetaTable, RootScopes } from '~/utils/globals';
 import Noco from '~/Noco';
+import {
+  isRecordTrashCleanupEnabled,
+  RECORD_TRASH_CLEANUP_CRON,
+} from '~/helpers/recordTrash';
 
 @Injectable()
 export class JobsService implements OnModuleInit {
@@ -26,6 +30,20 @@ export class JobsService implements OnModuleInit {
     //   },
     // );
 
+    if (
+      process.env.NC_WORKER_CONTAINER !== 'true' &&
+      isRecordTrashCleanupEnabled()
+    ) {
+      await this.add(
+        JobTypes.RecordTrashCleanUp,
+        {},
+        {
+          jobId: JobTypes.RecordTrashCleanUp,
+          repeat: { cron: RECORD_TRASH_CLEANUP_CRON },
+        },
+      );
+    }
+
     await this.add(JobTypes.InitMigrationJobs, {});
   }
 
@@ -39,6 +57,7 @@ export class JobsService implements OnModuleInit {
     options?: {
       jobId?: string;
       delay?: number; // delay in ms
+      repeat?: { cron: string };
     },
   ) {
     const context = {

@@ -164,4 +164,50 @@ export default class RecordTrash implements RecordTrashType {
     );
     await query;
   }
+
+  static async deleteExpiredBatch(
+    cutoff: Date,
+    limit: number,
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<{ selected: number; deleted: number }> {
+    const formattedCutoff = ncMeta.formatDateTime(cutoff.toISOString());
+    const candidates: Array<{ base_id?: string; id: string }> = await ncMeta
+      .knex(MetaTable.RECORD_TRASH)
+      .select('base_id', 'id')
+      .where('expires_at', '<=', formattedCutoff)
+      .orderBy('expires_at', 'asc')
+      .orderBy('id', 'asc')
+      .limit(limit);
+
+    if (!candidates.length) return { selected: 0, deleted: 0 };
+
+    const idsByBase = candidates.reduce<Map<string | null, string[]>>(
+      (groups, record) => {
+        const baseId = record.base_id ?? null;
+        const ids = groups.get(baseId) ?? [];
+        ids.push(record.id);
+        groups.set(baseId, ids);
+        return groups;
+      },
+      new Map(),
+    );
+    const query = ncMeta
+      .knex(MetaTable.RECORD_TRASH)
+      .where('expires_at', '<=', formattedCutoff)
+      .where(function () {
+        for (const [baseId, ids] of idsByBase) {
+          this.orWhere(function () {
+            if (baseId === null) this.whereNull('base_id');
+            else this.where('base_id', baseId);
+            this.whereIn('id', ids);
+          });
+        }
+      })
+      .delete();
+
+    return {
+      selected: candidates.length,
+      deleted: Number(await query),
+    };
+  }
 }
