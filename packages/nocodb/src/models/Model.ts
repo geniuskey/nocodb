@@ -662,6 +662,12 @@ export default class Model implements TableType {
       MetaTable.RECORD_TRASH,
       { fk_model_id: this.id },
     );
+    await ncMeta.metaDelete(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.BASE_TRASH,
+      { resource_type: 'records', resource_id: this.id },
+    );
 
     for (const view of await this.getViews(context, true, ncMeta)) {
       await view.delete(context, ncMeta);
