@@ -1006,7 +1006,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(bulkTrashLiveResponse.ok(), JSON.stringify(bulkTrashLive)).toBeTruthy();
   expect(bulkTrashLive.list).toEqual([expect.objectContaining({ Title: 'Bulk trash excluded' })]);
 
-  const bulkTrashSnapshots: Array<{ id: string; row_data?: { Title?: string } }> = [];
+  const bulkTrashSnapshots: Array<{
+    id: string;
+    fk_trash_entry_id?: string;
+    row_data?: { Title?: string };
+  }> = [];
   for (const offset of [0, 100]) {
     const bulkTrashListResponse = await page.request.get(
       `/api/v2/tables/${createdTableBody.id}/trash?limit=100&offset=${offset}`,
@@ -1022,15 +1026,30 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       record.row_data?.Title?.startsWith('Bulk trash matching')
     )
   ).toBe(true);
-  for (let index = 0; index < bulkTrashSnapshots.length; index += 100) {
-    const bulkTrashRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
-      headers: sessionHeaders,
-      data: {
-        trash_ids: bulkTrashSnapshots.slice(index, index + 100).map((record: { id: string }) => record.id),
-      },
-    });
-    expect(bulkTrashRestoreResponse.ok(), await bulkTrashRestoreResponse.text()).toBeTruthy();
-  }
+  expect(new Set(bulkTrashSnapshots.map(record => record.fk_trash_entry_id)).size).toBe(1);
+  const baseTrashResponse = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const baseTrash = await baseTrashResponse.json();
+  expect(baseTrashResponse.ok(), JSON.stringify(baseTrash)).toBeTruthy();
+  expect(baseTrash.list).toEqual([
+    expect.objectContaining({
+      resource_type: 'records',
+      resource_id: createdTableBody.id,
+      resource_name: createdTableBody.title,
+      record_count: 101,
+      records: expect.arrayContaining([
+        expect.objectContaining({ row_data: expect.objectContaining({ Title: 'Bulk trash matching 1' }) }),
+      ]),
+    }),
+  ]);
+  expect(baseTrash.list[0].records).toHaveLength(8);
+  const bulkTrashRestoreResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${baseTrash.list[0].id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(bulkTrashRestoreResponse.ok(), await bulkTrashRestoreResponse.text()).toBeTruthy();
+  expect(await bulkTrashRestoreResponse.json()).toEqual({ restored: 101 });
   for (let index = 0; index < bulkTrashCandidates.length; index += 100) {
     const bulkTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
       headers: sessionHeaders,
@@ -1356,11 +1375,11 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       (record: { row_data?: { Title?: string } }) => record.row_data?.Title === 'Bulk updated task'
     )
   ).toHaveLength(28);
-  const listBulkTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/trash`, {
+  const listBulkTrashCleanupResponse = await page.request.delete(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
     headers: sessionHeaders,
-    data: { trash_ids: listBulkTrash.list.map((record: { id: string }) => record.id) },
   });
   expect(listBulkTrashCleanupResponse.ok(), await listBulkTrashCleanupResponse.text()).toBeTruthy();
+  expect(await listBulkTrashCleanupResponse.json()).toEqual({ deleted: 30 });
 
   const currentTimelineDate = new Date().toISOString().slice(0, 10);
   const currentTimelineEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();

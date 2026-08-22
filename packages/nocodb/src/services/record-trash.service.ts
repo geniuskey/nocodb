@@ -16,7 +16,7 @@ import {
   snapshotTrashRow,
   trashExpiryFrom,
 } from '~/helpers/recordTrash';
-import { Model, RecordTrash, Source } from '~/models';
+import { BaseTrashEntry, Model, RecordTrash, Source } from '~/models';
 import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { PagedResponseImpl } from '~/helpers/PagedResponse';
 import { DataTableService } from '~/services/data-table.service';
@@ -65,16 +65,16 @@ export class RecordTrashService {
       dbDriver: await NcConnectionMgrv2.get(source),
     });
     const columns = await model.getColumns(context);
-    return { model, baseModel, columns };
+    return { model, source, baseModel, columns };
   }
 
-  async list(
+  private pagination(
     context: NcContext,
-    param: { modelId: string; limit?: string; offset?: string },
+    limitValue?: string,
+    offsetValue?: string,
   ) {
-    await this.getModelResources(context, param.modelId);
-    const limit = param.limit === undefined ? 25 : Number(param.limit);
-    const offset = param.offset === undefined ? 0 : Number(param.offset);
+    const limit = limitValue === undefined ? 25 : Number(limitValue);
+    const offset = offsetValue === undefined ? 0 : Number(offsetValue);
     if (
       !Number.isInteger(limit) ||
       limit < 1 ||
@@ -87,11 +87,49 @@ export class RecordTrashService {
     if (!Number.isInteger(offset) || offset < 0) {
       NcError.get(context).badRequest('offset must be a non-negative integer');
     }
+    return { limit, offset };
+  }
+
+  async list(
+    context: NcContext,
+    param: { modelId: string; limit?: string; offset?: string },
+  ) {
+    await this.getModelResources(context, param.modelId);
+    const { limit, offset } = this.pagination(
+      context,
+      param.limit,
+      param.offset,
+    );
     const [records, count] = await Promise.all([
       RecordTrash.list(context, param.modelId, { limit, offset }),
       RecordTrash.count(context, param.modelId),
     ]);
     return new PagedResponseImpl(records, { limit, offset, count });
+  }
+
+  async listBaseTrash(
+    context: NcContext,
+    param: { limit?: string; offset?: string },
+  ) {
+    const { limit, offset } = this.pagination(
+      context,
+      param.limit,
+      param.offset,
+    );
+    const [entries, count] = await Promise.all([
+      BaseTrashEntry.list(context, { limit, offset }),
+      BaseTrashEntry.count(context),
+    ]);
+    const list = await Promise.all(
+      entries.map(async (entry) => {
+        const [recordCount, records] = await Promise.all([
+          RecordTrash.countByEntryId(context, entry.id),
+          RecordTrash.listByEntryId(context, entry.id, { limit: 8 }),
+        ]);
+        return { ...entry, record_count: recordCount, records };
+      }),
+    );
+    return new PagedResponseImpl(list, { limit, offset, count });
   }
 
   async trash(
@@ -103,7 +141,7 @@ export class RecordTrashService {
     } & (
       | { body: RecordTrashCreateReqType; recordIds?: never }
       | { body?: never; recordIds: string[] }
-    ),
+    ) & { trashEntryId?: string },
   ) {
     if (param.body) {
       validatePayload(
@@ -197,7 +235,41 @@ export class RecordTrashService {
       );
     }
 
-    const inserted = await RecordTrash.insertMany(context, snapshots);
+    let entry = param.trashEntryId
+      ? await BaseTrashEntry.get(context, param.trashEntryId)
+      : null;
+    if (param.trashEntryId && !entry) {
+      NcError.get(context).badRequest('Trash entry does not exist');
+    }
+    if (
+      entry &&
+      (entry.resource_type !== 'records' || entry.resource_id !== model.id)
+    ) {
+      NcError.get(context).badRequest(
+        'Trash entry does not belong to this table',
+      );
+    }
+    const createdEntry = !entry;
+    entry ??= await BaseTrashEntry.create(context, {
+      resource_type: 'records',
+      resource_id: model.id,
+      resource_name: model.title,
+      deleted_by: param.req.user?.id ?? context.user?.id,
+      deleted_at: deletedAt.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      source_id: model.source_id,
+    });
+    snapshots.forEach((snapshot) => {
+      snapshot.fk_trash_entry_id = entry.id;
+    });
+
+    let inserted: RecordTrash[];
+    try {
+      inserted = await RecordTrash.insertMany(context, snapshots);
+    } catch (error) {
+      if (createdEntry) await BaseTrashEntry.deleteIfEmpty(context, entry.id);
+      throw error;
+    }
     try {
       await this.dataTableService.dataDelete(context, {
         modelId: model.id,
@@ -211,6 +283,7 @@ export class RecordTrashService {
           context,
           inserted.map((record) => record.id),
         );
+        await BaseTrashEntry.deleteIfEmpty(context, entry.id);
       } catch (cleanupError) {
         this.logger.error(
           'Failed to remove trash snapshots after record deletion failed',
@@ -219,7 +292,7 @@ export class RecordTrashService {
       }
       throw error;
     }
-    return { list: inserted };
+    return { list: inserted, trash_entry_id: entry.id };
   }
 
   async trashAll(
@@ -244,6 +317,7 @@ export class RecordTrashService {
       cookie: param.req,
     });
     const deleted: Record<string, unknown>[] = [];
+    let trashEntryId: string | undefined;
 
     // Always query the first bounded page: each successful Trash operation
     // removes that page from the filtered live-record set.
@@ -270,7 +344,9 @@ export class RecordTrashService {
         viewId: param.viewId,
         req: param.req,
         body: { records },
+        trashEntryId,
       });
+      trashEntryId = result.trash_entry_id;
       deleted.push(
         ...result.list.map(
           (record) => record.row_data as Record<string, unknown>,
@@ -358,7 +434,17 @@ export class RecordTrashService {
         'Restored record primary keys did not match their trash snapshots',
       );
     }
+    const entryIds = [
+      ...new Set(
+        records
+          .map((record) => record.fk_trash_entry_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
     await RecordTrash.deleteMany(context, ids);
+    await Promise.all(
+      entryIds.map((entryId) => BaseTrashEntry.deleteIfEmpty(context, entryId)),
+    );
     return { restored: ids.length };
   }
 
@@ -378,7 +464,61 @@ export class RecordTrashService {
         'One or more trash snapshots do not exist for this table',
       );
     }
+    const entryIds = [
+      ...new Set(
+        records
+          .map((record) => record.fk_trash_entry_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
     await RecordTrash.deleteMany(context, ids);
+    await Promise.all(
+      entryIds.map((entryId) => BaseTrashEntry.deleteIfEmpty(context, entryId)),
+    );
     return { deleted: ids.length };
+  }
+
+  async restoreBaseTrashEntry(
+    context: NcContext,
+    param: { trashEntryId: string; req: NcRequest },
+  ) {
+    const entry = await BaseTrashEntry.get(context, param.trashEntryId);
+    if (!entry) NcError.get(context).notFound('Trash entry not found');
+    if (entry.resource_type !== 'records') {
+      NcError.get(context).unprocessableEntity(
+        `Restore is not supported for ${entry.resource_type}`,
+      );
+    }
+    if (new Date(entry.expires_at).getTime() <= Date.now()) {
+      NcError.get(context).badRequest(
+        'Expired trash entries cannot be restored',
+      );
+    }
+    const { source } = await this.getModelResources(context, entry.resource_id);
+    if (source.is_data_readonly) {
+      NcError.get(context).sourceDataReadOnly(source.alias);
+    }
+
+    let restored = 0;
+    // Each successful restore removes the first bounded page from the entry.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const records = await RecordTrash.listByEntryId(context, entry.id, {
+        limit: RECORD_TRASH_MAX_BATCH_SIZE,
+      });
+      if (!records.length) break;
+      const result = await this.restore(context, {
+        modelId: entry.resource_id,
+        body: { trash_ids: records.map((record) => record.id) },
+        req: param.req,
+      });
+      restored += result.restored;
+    }
+    await BaseTrashEntry.deleteIfEmpty(context, entry.id);
+    return { restored };
+  }
+
+  async emptyBaseTrash(context: NcContext) {
+    return BaseTrashEntry.empty(context);
   }
 }

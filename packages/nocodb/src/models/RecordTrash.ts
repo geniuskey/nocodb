@@ -9,6 +9,7 @@ import { MetaTable } from '~/utils/globals';
 export default class RecordTrash implements RecordTrashType {
   id: string;
   fk_model_id: string;
+  fk_trash_entry_id?: string;
   record_id: string;
   record_hash?: string;
   pk_data: Record<string, unknown>;
@@ -50,6 +51,7 @@ export default class RecordTrash implements RecordTrashType {
     const rows = records.map((record) => {
       const insertObj = extractProps(record, [
         'fk_model_id',
+        'fk_trash_entry_id',
         'record_id',
         'pk_data',
         'row_data',
@@ -146,6 +148,38 @@ export default class RecordTrash implements RecordTrashType {
     return records.map((record) => this.fromDb(record)!);
   }
 
+  static async listByEntryId(
+    context: NcContext,
+    entryId: string,
+    args: { limit?: number } = {},
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<RecordTrash[]> {
+    const records = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.RECORD_TRASH,
+      {
+        condition: { fk_trash_entry_id: entryId },
+        limit: args.limit,
+        orderBy: { deleted_at: 'asc' },
+      },
+    );
+    return records.map((record) => this.fromDb(record)!);
+  }
+
+  static async countByEntryId(
+    context: NcContext,
+    entryId: string,
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<number> {
+    return ncMeta.metaCount(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.RECORD_TRASH,
+      { condition: { fk_trash_entry_id: entryId } },
+    );
+  }
+
   static async deleteMany(
     context: NcContext,
     ids: string[],
@@ -171,9 +205,13 @@ export default class RecordTrash implements RecordTrashType {
     ncMeta: MetaService = Noco.ncMeta,
   ): Promise<{ selected: number; deleted: number }> {
     const formattedCutoff = ncMeta.formatDateTime(cutoff.toISOString());
-    const candidates: Array<{ base_id?: string; id: string }> = await ncMeta
+    const candidates: Array<{
+      base_id?: string;
+      id: string;
+      fk_trash_entry_id?: string;
+    }> = await ncMeta
       .knex(MetaTable.RECORD_TRASH)
-      .select('base_id', 'id')
+      .select('base_id', 'id', 'fk_trash_entry_id')
       .where('expires_at', '<=', formattedCutoff)
       .orderBy('expires_at', 'asc')
       .orderBy('id', 'asc')
@@ -204,10 +242,67 @@ export default class RecordTrash implements RecordTrashType {
         }
       })
       .delete();
+    const deleted = Number(await query);
+
+    const entryIdsByBase = candidates.reduce<Map<string | null, string[]>>(
+      (groups, record) => {
+        if (!record.fk_trash_entry_id) return groups;
+        const baseId = record.base_id ?? null;
+        const ids = groups.get(baseId) ?? [];
+        ids.push(record.fk_trash_entry_id);
+        groups.set(baseId, ids);
+        return groups;
+      },
+      new Map(),
+    );
+    if (entryIdsByBase.size) {
+      const remainingEntries: Array<{
+        base_id?: string;
+        fk_trash_entry_id: string;
+      }> = await ncMeta
+        .knex(MetaTable.RECORD_TRASH)
+        .select('base_id', 'fk_trash_entry_id')
+        .where(function () {
+          for (const [baseId, ids] of entryIdsByBase) {
+            this.orWhere(function () {
+              if (baseId === null) this.whereNull('base_id');
+              else this.where('base_id', baseId);
+              this.whereIn('fk_trash_entry_id', [...new Set(ids)]);
+            });
+          }
+        });
+      const remainingKeys = new Set(
+        remainingEntries.map(
+          (entry) => `${entry.base_id ?? ''}:${entry.fk_trash_entry_id}`,
+        ),
+      );
+      const orphanIdsByBase = new Map<string | null, string[]>();
+      for (const [baseId, ids] of entryIdsByBase) {
+        const orphanIds = [...new Set(ids)].filter(
+          (id) => !remainingKeys.has(`${baseId ?? ''}:${id}`),
+        );
+        if (orphanIds.length) orphanIdsByBase.set(baseId, orphanIds);
+      }
+
+      if (orphanIdsByBase.size)
+        await ncMeta
+          .knex(MetaTable.BASE_TRASH)
+          .where('resource_type', 'records')
+          .where(function () {
+            for (const [baseId, ids] of orphanIdsByBase) {
+              this.orWhere(function () {
+                if (baseId === null) this.whereNull('base_id');
+                else this.where('base_id', baseId);
+                this.whereIn('id', ids);
+              });
+            }
+          })
+          .delete();
+    }
 
     return {
       selected: candidates.length,
-      deleted: Number(await query),
+      deleted,
     };
   }
 }

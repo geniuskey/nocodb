@@ -57,6 +57,7 @@ import { GanttsController } from '~/controllers/gantts.controller';
 import { GanttDependenciesController } from '~/controllers/gantt-dependencies.controller';
 import { GanttSchedulesController } from '~/controllers/gantt-schedules.controller';
 import { RecordTrashController } from '~/controllers/record-trash.controller';
+import { BaseTrashController } from '~/controllers/base-trash.controller';
 import { MapsController } from '~/controllers/maps.controller';
 import { ModelVisibilitiesController } from '~/controllers/model-visibilities.controller';
 import { NotificationsController } from '~/controllers/notifications.controller';
@@ -230,6 +231,7 @@ export const nocoModuleMetadata = {
           GanttDependenciesController,
           GanttSchedulesController,
           RecordTrashController,
+          BaseTrashController,
           MapsController,
           ModelVisibilitiesController,
           OrgLcenseController,

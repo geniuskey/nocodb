@@ -19,11 +19,43 @@ to 100 snapshot IDs through the shared record insertion path. The snapshot is
 removed only after the insertion succeeds. `DELETE
 /api/v2/tables/{modelId}/trash` permanently removes selected snapshots.
 
+Every new delete operation also creates one base-scoped trash entry. Its record
+snapshots carry `fk_trash_entry_id`, and filtered delete-all operations reuse
+that entry across their bounded 100-record batches. This preserves the existing
+table API while representing one user operation as one recoverable unit.
+
 The ACL boundary intentionally reuses existing table-data permissions:
 
 - listing requires `dataList`;
 - trash and permanent deletion require `dataDelete`;
 - restore requires `dataInsert`.
+
+## Base Trash API
+
+The independently defined Base Trash API provides a single base-scoped index:
+
+- `GET /api/v2/meta/bases/{baseId}/trash?limit=25&offset=0` returns deletion
+  entries newest first. Each record entry includes its table ID and saved name,
+  total record count, and at most eight record previews.
+- `POST /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore` restores all
+  remaining records in that operation in bounded batches.
+- `DELETE /api/v2/meta/bases/{baseId}/trash` permanently empties the base's
+  record Trash in one metadata transaction.
+
+Editors, creators, and owners can list and restore record entries. Emptying the
+whole base Trash is owner-only. A data-read-only source may be listed but not
+restored. The older table-level endpoints remain available for compatible,
+fine-grained record recovery.
+
+Pre-existing record snapshots are migrated to one-entry groups, so an upgrade
+does not discard restorable data. New multi-record requests and filtered
+delete-all operations are grouped. Client-side selections larger than the
+100-record request limit still form one group per request.
+
+The behavior boundary was derived from NocoDB's public
+[Base Trash documentation](https://nocodb.com/docs/product-docs/bases/base-trash)
+and [Trash settings documentation](https://nocodb.com/docs/product-docs/bases/trash-settings).
+No post-transition or Enterprise source implementation was used.
 
 ## Table Trash UI
 
@@ -52,7 +84,8 @@ insert-based Undo; recovery is available from the table Trash dialog.
 ## Automatic expiry cleanup
 
 The Community jobs service permanently removes snapshots after their stored
-`expires_at` timestamp. A repeatable cleanup runs at minute 15 of every hour,
+`expires_at` timestamp and removes a group after its last snapshot. A repeatable
+cleanup runs at minute 15 of every hour,
 using the metadata index on `expires_at`. It selects at most 500 composite
 `base_id`/`id` identifiers at a time and processes at most 10,000 candidates in
 one run. The delete query checks the same fixed cutoff again, so overlapping
@@ -119,8 +152,8 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Table/base metadata trash and richer
-conflict resolution are subsequent Phase 5 slices.
+Expired snapshots are not restorable. Structural table/view/field trash and
+richer conflict resolution are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no
@@ -141,4 +174,10 @@ curl -X POST "$NC_URL/api/v2/tables/$TABLE_ID/trash/restore" \
   -H "xc-token: $NC_TOKEN" \
   -H "content-type: application/json" \
   --data '{"trash_ids":["TRASH_ID"]}'
+
+curl "$NC_URL/api/v2/meta/bases/$BASE_ID/trash?limit=25&offset=0" \
+  -H "xc-token: $NC_TOKEN"
+
+curl -X POST "$NC_URL/api/v2/meta/bases/$BASE_ID/trash/$TRASH_ENTRY_ID/restore" \
+  -H "xc-token: $NC_TOKEN"
 ```

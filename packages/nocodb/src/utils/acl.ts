@@ -87,6 +87,9 @@ const permissionScopes = {
     'nestedDataListCopyPasteOrDeleteAll',
     'formViewGet',
     'baseGet',
+    'baseTrashList',
+    'baseTrashRestore',
+    'baseTrashEmpty',
     'tableGet',
     'dataList',
     'dataRead',
@@ -298,6 +301,8 @@ const rolePermissions:
       dataUpdate: true,
       dataDelete: true,
       dataInsert: true,
+      baseTrashList: true,
+      baseTrashRestore: true,
       bulkDataUpsert: true,
       nestedDataListCopyPasteOrDeleteAll: true,
       viewColumnUpdate: true,
@@ -346,6 +351,7 @@ const rolePermissions:
   [ProjectRoles.CREATOR]: {
     exclude: {
       baseDelete: true,
+      baseTrashEmpty: true,
     },
   },
   [ProjectRoles.OWNER]: {
@@ -648,6 +654,9 @@ const permissionDescriptions: Record<string, string> = {
   // base permissions
   formViewGet: 'view forms',
   baseGet: 'view base details',
+  baseTrashList: 'view base trash',
+  baseTrashRestore: 'restore base trash entries',
+  baseTrashEmpty: 'permanently empty base trash',
   tableGet: 'view table details',
   dataList: 'view data',
   dataRead: 'read data',

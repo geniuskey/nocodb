@@ -185,6 +185,7 @@ async function verify(connection: Knex, sourceTag: string) {
     MetaTable.GANTT_VIEW,
     MetaTable.GANTT_VIEW_COLUMNS,
     MetaTable.GANTT_DEPENDENCIES,
+    MetaTable.BASE_TRASH,
     MetaTable.RECORD_TRASH,
   ]) {
     if (!(await connection.schema.hasTable(table))) {
@@ -199,6 +200,15 @@ async function verify(connection: Knex, sourceTag: string) {
         `expected migrated column ${MetaTable.SYNC_CONFIGS}.${column} is absent.`,
       );
     }
+  }
+
+  const recordTrashColumns = await connection(
+    MetaTable.RECORD_TRASH,
+  ).columnInfo();
+  if (!recordTrashColumns.fk_trash_entry_id) {
+    fail(
+      `expected migrated column ${MetaTable.RECORD_TRASH}.fk_trash_entry_id is absent.`,
+    );
   }
 
   const orderColumn = await connection(

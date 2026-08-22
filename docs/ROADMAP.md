@@ -207,8 +207,11 @@ default response or deletion semantics. Community record actions now use that
 bridge across Grid, grouped Grid, List, Gallery, Kanban, expanded forms, and
 related-record dialogs, including selected, range, and filtered bulk deletes.
 An hourly bounded cleanup job now permanently removes expired snapshots in both
-Redis-worker and in-process queue deployments. Richer conflict handling and
-supported metadata deletion lifecycles remain before Phase 5 is complete.
+Redis-worker and in-process queue deployments. A base-scoped entry layer groups
+record deletion operations, exposes a unified bounded list and group restore
+API, and provides owner-only empty Trash while retaining the table-level
+compatibility API. Richer conflict handling and structural table/view/field
+trash remain before Phase 5 is complete.
 
 ## Phase 6 — Snapshot
 

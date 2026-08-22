@@ -140,6 +140,110 @@
           "400": { "$ref": "#/components/responses/BadRequest" }
         }
       }
+    },
+    "/api/v2/meta/bases/{baseId}/trash": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Base Trash Entries",
+        "operationId": "db-base-trash-list",
+        "description": "List grouped trash operations for one base",
+        "tags": ["DB Base Trash"],
+        "parameters": [
+          { "$ref": "#/components/parameters/xc-auth" },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BaseTrashList" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "delete": {
+        "summary": "Empty Base Trash",
+        "operationId": "db-base-trash-empty",
+        "description": "Permanently remove all record trash entries in one base",
+        "tags": ["DB Base Trash"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTrashDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "trashEntryId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base Trash Entry ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Restore Base Trash Entry",
+        "operationId": "db-base-trash-restore",
+        "description": "Restore every remaining record snapshot in a grouped trash operation",
+        "tags": ["DB Base Trash"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTrashRestoreResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
     }
   },
   "components": {
@@ -159,6 +263,7 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/Id" },
           "fk_model_id": { "$ref": "#/components/schemas/Id" },
+          "fk_trash_entry_id": { "$ref": "#/components/schemas/Id" },
           "record_id": { "type": "string", "maxLength": 2048 },
           "pk_data": { "type": "object", "additionalProperties": true },
           "row_data": { "type": "object", "additionalProperties": true },
@@ -219,8 +324,9 @@
       "RecordTrashCreateResponse": {
         "title": "Record Trash Create Response",
         "type": "object",
-        "required": ["list"],
+        "required": ["list", "trash_entry_id"],
         "properties": {
+          "trash_entry_id": { "$ref": "#/components/schemas/Id" },
           "list": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/RecordTrash" }
@@ -238,6 +344,48 @@
         "type": "object",
         "required": ["deleted"],
         "properties": { "deleted": { "type": "integer", "minimum": 0 } }
+      },
+      "BaseTrashEntry": {
+        "title": "Base Trash Entry",
+        "type": "object",
+        "required": [
+          "id",
+          "resource_type",
+          "resource_id",
+          "deleted_at",
+          "expires_at",
+          "record_count",
+          "records"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "resource_type": { "type": "string", "enum": ["records"] },
+          "resource_id": { "$ref": "#/components/schemas/Id" },
+          "resource_name": { "type": "string", "maxLength": 255 },
+          "deleted_by": { "$ref": "#/components/schemas/Id" },
+          "deleted_at": { "type": "string", "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "source_id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "record_count": { "type": "integer", "minimum": 0 },
+          "records": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "$ref": "#/components/schemas/RecordTrash" }
+          }
+        }
+      },
+      "BaseTrashList": {
+        "title": "Base Trash List",
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BaseTrashEntry" }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
       }
     }
   }
