@@ -38,6 +38,23 @@ This UI manages records created through the opt-in trash API. Ordinary record
 delete actions still use their baseline permanent-delete route until the next
 Phase 5 compatibility slice deliberately changes that behavior.
 
+## Compatible delete opt-in
+
+Existing delete APIs remain permanently deleting by default. Clients can opt a
+bounded delete into the same Trash lifecycle without changing the successful
+response shape:
+
+- `DELETE /api/v2/tables/{tableId}/records?trash=true` snapshots up to 100
+  primary-key selectors before deletion;
+- `DELETE /api/v1/db/data/{org}/{base}/{table}/{rowId}?trash=true` does the
+  same for a single row;
+- the equivalent v1 view-row route also accepts `trash=true`.
+
+This explicit compatibility switch lets the Community GUI migrate its delete
+surfaces independently while existing API integrations retain their current
+permanent-delete semantics. Filtered “delete all” APIs are not yet routed
+through Trash because the current snapshot contract is deliberately bounded.
+
 ## Snapshot contents
 
 The snapshot retains primary keys and stored, writable table columns, including

@@ -20,11 +20,15 @@ import { DatasService } from '~/services/datas.service';
 import { DataApiLimiterGuard } from '~/guards/data-api-limiter.guard';
 import { TenantContext } from '~/decorators/tenant-context.decorator';
 import { NcContext, NcRequest } from '~/interface/config';
+import { RecordTrashService } from '~/services/record-trash.service';
 
 @Controller()
 @UseGuards(DataApiLimiterGuard, GlobalGuard)
 export class DataAliasController {
-  constructor(private readonly datasService: DatasService) {}
+  constructor(
+    private readonly datasService: DatasService,
+    private readonly recordTrashService: RecordTrashService,
+  ) {}
 
   // todo: Handle the error case where view doesnt belong to model
   @Get([
@@ -221,7 +225,27 @@ export class DataAliasController {
     @Param('tableName') tableName: string,
     @Param('viewName') viewName: string,
     @Param('rowId') rowId: string,
+    @Query('trash') trash: string,
   ) {
+    if (trash === 'true') {
+      const { model, view } = await this.datasService.validateDataDelete(
+        context,
+        {
+          baseName,
+          tableName,
+          viewName,
+          rowId,
+        },
+      );
+      await this.recordTrashService.trash(context, {
+        modelId: model.id,
+        viewId: view?.id,
+        recordIds: [rowId],
+        req,
+      });
+      return 1;
+    }
+
     return await this.datasService.dataDelete(context, {
       baseName: baseName,
       tableName: tableName,

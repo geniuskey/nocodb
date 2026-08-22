@@ -15,6 +15,7 @@ import {
 import { Response } from 'express';
 import { Acl } from '~/middlewares/extract-ids/extract-ids.middleware';
 import { DataTableService } from '~/services/data-table.service';
+import { RecordTrashService } from '~/services/record-trash.service';
 import { parseHrtimeToMilliSeconds } from '~/helpers';
 import { DataApiLimiterGuard } from '~/guards/data-api-limiter.guard';
 import { GlobalGuard } from '~/guards/global/global.guard';
@@ -24,7 +25,10 @@ import { NcContext, NcRequest } from '~/interface/config';
 @Controller()
 @UseGuards(DataApiLimiterGuard, GlobalGuard)
 export class DataTableController {
-  constructor(protected readonly dataTableService: DataTableService) {}
+  constructor(
+    protected readonly dataTableService: DataTableService,
+    protected readonly recordTrashService: RecordTrashService,
+  ) {}
 
   // todo: Handle the error case where view doesnt belong to model
   @Get('/api/v2/tables/:modelId/records')
@@ -114,8 +118,22 @@ export class DataTableController {
     @Req() req: NcRequest,
     @Param('modelId') modelId: string,
     @Query('viewId') viewId: string,
+    @Query('trash') trash: string,
     @Param('rowId') _rowId: string,
   ) {
+    if (trash === 'true') {
+      await this.dataTableService.getModelAndView(context, { modelId, viewId });
+      const isBulk = Array.isArray(req.body);
+      const result = await this.recordTrashService.trash(context, {
+        modelId,
+        viewId,
+        req,
+        body: { records: isBulk ? req.body : [req.body] },
+      });
+      const deleted = result.list.map((record) => record.pk_data);
+      return isBulk ? deleted : deleted[0];
+    }
+
     return await this.dataTableService.dataDelete(context, {
       modelId: modelId,
       cookie: req,

@@ -97,15 +97,21 @@ export class RecordTrashService {
     context: NcContext,
     param: {
       modelId: string;
-      body: RecordTrashCreateReqType;
       req: NcRequest;
-    },
+      viewId?: string;
+    } & (
+      | { body: RecordTrashCreateReqType; recordIds?: never }
+      | { body?: never; recordIds: string[] }
+    ),
   ) {
-    validatePayload(
-      'swagger.json#/components/schemas/RecordTrashCreateReq',
-      param.body,
-    );
-    this.validateBatch(context, param.body.records, 'records');
+    if (param.body) {
+      validatePayload(
+        'swagger.json#/components/schemas/RecordTrashCreateReq',
+        param.body,
+      );
+    }
+    const selectors = param.body?.records ?? param.recordIds;
+    this.validateBatch(context, selectors, 'records');
     const { model, baseModel, columns } = await this.getModelResources(
       context,
       param.modelId,
@@ -116,8 +122,11 @@ export class RecordTrashService {
     const recordIds = new Set<string>();
     let batchBytes = 0;
 
-    for (const selector of param.body.records) {
-      const requestedId = String(baseModel.extractPksValues(selector, true));
+    for (const selector of selectors) {
+      const requestedId =
+        typeof selector === 'string'
+          ? selector
+          : String(baseModel.extractPksValues(selector, true));
       const row = await baseModel.readByPk(
         requestedId,
         false,
@@ -191,7 +200,8 @@ export class RecordTrashService {
     try {
       await this.dataTableService.dataDelete(context, {
         modelId: model.id,
-        body: param.body.records,
+        viewId: param.viewId,
+        body: snapshots.map((snapshot) => snapshot.pk_data),
         cookie: param.req,
       });
     } catch (error) {

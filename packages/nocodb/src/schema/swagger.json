@@ -11894,6 +11894,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-auth"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Create a restorable trash snapshot before deleting the record",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       }
@@ -12150,6 +12159,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-auth"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Create a restorable trash snapshot before deleting the record",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       }
@@ -18419,6 +18437,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-auth"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Create restorable trash snapshots before deleting up to 100 records",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       }
