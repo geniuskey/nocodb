@@ -413,7 +413,7 @@ const [useProvideKanbanViewStore, useKanbanViewStore] = useInjectionState(
             },
             undo: {
               fn: async function undo(this: UndoRedoAction, id: string) {
-                await deleteRowById(id)
+                await deleteRowById(id, false)
                 const row = findRowInState(insertedData)
                 if (row) removeRowFromTargetStack(row)
               },
@@ -694,29 +694,8 @@ const [useProvideKanbanViewStore, useKanbanViewStore] = useInjectionState(
       countByStack.value.set(null, countByStack.value.get(null)! - 1)
     }
 
-    async function deleteRow(row: Row, undo = false) {
+    async function deleteRow(row: Row, _undo = false) {
       try {
-        if (!undo) {
-          addUndo({
-            redo: {
-              fn: async function redo(this: UndoRedoAction, r: Row) {
-                await deleteRow(r, true)
-              },
-              args: [clone(row)],
-            },
-            undo: {
-              fn: async function undo(this: UndoRedoAction, row: Row) {
-                const pkData = rowPkData(row.row, meta.value?.columns as ColumnType[])
-                row.row = { ...pkData, ...row.row }
-                await insertRow(row.row, undefined, true)
-                addOrEditStackRow(row, true)
-              },
-              args: [clone(row)],
-            },
-            scope: defineViewScope({ view: viewMeta.value as ViewType }),
-          })
-        }
-
         if (!row.rowMeta.new) {
           const id = extractPkFromRow(row.row, meta?.value?.columns)
 
@@ -724,6 +703,10 @@ const [useProvideKanbanViewStore, useKanbanViewStore] = useInjectionState(
           if (!deleted) {
             return
           }
+
+          // Trash is the durable recovery path for explicit record deletion.
+          // Reinserting through the old undo flow would leave the snapshot
+          // behind and collide with a later restore or redo.
         }
 
         // remove deleted row from state
@@ -733,7 +716,7 @@ const [useProvideKanbanViewStore, useKanbanViewStore] = useInjectionState(
       }
     }
 
-    async function deleteRowById(id: string) {
+    async function deleteRowById(id: string, trash = true) {
       if (!id) {
         throw new Error("Delete not allowed for table which doesn't have primary Key")
       }
@@ -744,6 +727,7 @@ const [useProvideKanbanViewStore, useKanbanViewStore] = useInjectionState(
         meta.value?.id as string,
         viewMeta.value?.id as string,
         encodeURIComponent(id),
+        { trash },
       )
 
       if (res.message) {

@@ -206,9 +206,9 @@ richer conflict handling, and supported metadata deletion lifecycles remain
 before Phase 5 is complete. A compatibility bridge now lets bounded v1/v2
 record deletes opt into Trash without changing the default response or deletion
 semantics; GUI delete surfaces will adopt that bridge incrementally.
-The Grid's single-record action is the first adopter across its standard and
-grouped data paths; bulk and other view-specific delete paths remain explicit
-follow-up work.
+Community single-record actions now adopt Trash across Grid, grouped Grid,
+Gallery, Kanban, expanded forms, and related-record dialogs. Bulk delete paths
+remain explicit follow-up work.
 
 ## Phase 6 — Snapshot
 

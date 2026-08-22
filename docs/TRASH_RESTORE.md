@@ -34,12 +34,15 @@ and an explicit irreversible-action confirmation. Expired snapshots remain
 visible but cannot be selected for restore. Read-only sources do not expose
 mutation actions.
 
-The Grid's single-record delete action opts into Trash in both its standard and
-grouped data paths. It does not register the older insert-based transient undo
-because that would leave the durable snapshot behind and create restore/redo
-primary-key conflicts. Restore is available from the table Trash dialog
-instead. Bulk, Kanban, expanded-form, and relationship delete surfaces remain
-on their baseline route until each can adopt the same lifecycle deliberately.
+Community single-record delete actions opt into Trash across Grid, grouped
+Grid, Gallery, Kanban, expanded forms, and related-record dialogs. Grid,
+Gallery, and Kanban no longer register the older insert-based transient undo
+for an explicit delete because that would leave the durable snapshot behind and
+create restore/redo primary-key conflicts. Restore is available from the table
+Trash dialog instead. Undoing the creation of a new record remains a permanent
+delete so it returns to the pre-insert state without polluting Trash. Bulk
+delete surfaces remain on their baseline route until they can adopt the same
+lifecycle deliberately.
 
 ## Compatible delete opt-in
 

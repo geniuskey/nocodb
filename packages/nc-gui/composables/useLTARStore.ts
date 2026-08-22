@@ -649,6 +649,7 @@ const [useProvideLTARStore, useLTARStore] = useInjectionState(
               relatedTableMeta.value?.base_id ?? baseId,
               relatedTableMeta.value.id as string,
               encodeURIComponent(id as string),
+              { trash: true },
             )
 
             if (res.message) {
