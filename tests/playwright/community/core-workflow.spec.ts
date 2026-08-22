@@ -820,8 +820,25 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     response => isDataRequest(response.url()) && response.request().method() === 'DELETE'
   );
   await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Delete record' }).click();
-  expect((await deleteRecordResponse).ok()).toBeTruthy();
+  const deletedRecordResponse = await deleteRecordResponse;
+  expect(deletedRecordResponse.ok()).toBeTruthy();
+  expect(new URL(deletedRecordResponse.url()).searchParams.get('trash')).toBe('true');
   await expect(titleCell).toHaveCount(0);
+
+  const deletedRecordTrashResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const deletedRecordTrash = await deletedRecordTrashResponse.json();
+  expect(deletedRecordTrashResponse.ok(), JSON.stringify(deletedRecordTrash)).toBeTruthy();
+  const deletedRecordSnapshot = deletedRecordTrash.list.find(
+    (record: { row_data?: { Title?: string } }) => record.row_data?.Title === 'Updated task'
+  );
+  expect(deletedRecordSnapshot?.id).toEqual(expect.any(String));
+  const deletedRecordTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [deletedRecordSnapshot.id] },
+  });
+  expect(deletedRecordTrashCleanupResponse.ok(), await deletedRecordTrashCleanupResponse.text()).toBeTruthy();
 
   const persistenceResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,

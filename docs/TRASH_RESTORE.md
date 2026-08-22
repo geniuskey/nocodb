@@ -34,9 +34,12 @@ and an explicit irreversible-action confirmation. Expired snapshots remain
 visible but cannot be selected for restore. Read-only sources do not expose
 mutation actions.
 
-This UI manages records created through the opt-in trash API. Ordinary record
-delete actions still use their baseline permanent-delete route until the next
-Phase 5 compatibility slice deliberately changes that behavior.
+The Grid's single-record delete action opts into Trash in both its standard and
+grouped data paths. It does not register the older insert-based transient undo
+because that would leave the durable snapshot behind and create restore/redo
+primary-key conflicts. Restore is available from the table Trash dialog
+instead. Bulk, Kanban, expanded-form, and relationship delete surfaces remain
+on their baseline route until each can adopt the same lifecycle deliberately.
 
 ## Compatible delete opt-in
 
@@ -88,7 +91,7 @@ There is therefore no claimed distributed transaction:
 This ordering favors a recoverable duplicate over irreversible data loss.
 Expired snapshots are not restorable. Automated expiry cleanup, table/base
 metadata trash, richer conflict resolution, and routing ordinary record delete
-actions through Trash are subsequent Phase 5 slices.
+surfaces through Trash are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no

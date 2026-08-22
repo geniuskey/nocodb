@@ -1247,7 +1247,7 @@ export function useInfiniteData(args: {
     callbacks?.syncVisibleData?.()
   }
 
-  async function deleteRow(rowIndex: number, undo = false, path: Array<number> = []) {
+  async function deleteRow(rowIndex: number, _undo = false, path: Array<number> = []) {
     const dataCache = getDataCache(path)
     try {
       const row = dataCache.cachedRows.value.get(rowIndex)
@@ -1259,55 +1259,14 @@ export function useInfiniteData(args: {
           .map((c) => row.row[c.title!])
           .join('___')
 
-        const fullRecord = await $api.dbTableRow.read(
-          NOCO,
-          meta.value?.base_id ?? (base?.value.id as string),
-          meta.value?.id as string,
-          encodeURIComponent(id as string),
-          {
-            getHiddenColumn: true,
-          },
-        )
-
         const deleted = await deleteRowById(id as string, undefined, path)
         if (!deleted) {
           return
         }
 
-        row.row = fullRecord
-
-        if (!undo) {
-          addUndo({
-            undo: {
-              fn: async (row: Row, ltarState: Record<string, any>, path: Array<number>) => {
-                const pkData = rowPkData(row.row, meta?.value?.columns as ColumnType[])
-
-                row.row = { ...pkData, ...row.row }
-
-                await insertRow(row, ltarState, {}, true, undefined, undefined, path)
-                // refreshing the view
-                dataCache.cachedRows.value.clear()
-                dataCache.chunkStates.value = []
-
-                try {
-                  await recoverLTARRefs(row.row, undefined, { suppressError: true })
-                } catch (ex) {
-                  // expected and silenced
-                  // the relation should already exists on above operation (insertRow)
-                  // this is left to keep things unchanged
-                }
-              },
-              args: [clone(row), {}, clone(path)],
-            },
-            redo: {
-              fn: async (rowIndex: number, path) => {
-                await deleteRow(rowIndex, false, path)
-              },
-              args: [rowIndex, clone(path)],
-            },
-            scope: defineViewScope({ view: viewMeta.value }),
-          })
-        }
+        // Trash is the durable recovery path for explicit record deletion.
+        // The legacy insert-based undo would leave the snapshot behind and
+        // collide with a later restore or redo.
       }
 
       dataCache.cachedRows.value.delete(rowIndex)
@@ -1424,7 +1383,7 @@ export function useInfiniteData(args: {
               dataCache.actualTotalRows.value = tempActualTotalRows
               dataCache.chunkStates.value = tempChunkStates
 
-              await deleteRowById(id, undefined, path)
+              await deleteRowById(id, undefined, path, false)
               dataCache.cachedRows.value.delete(insertIndex)
 
               for (const [index, row] of dataCache.cachedRows.value) {
@@ -1841,6 +1800,7 @@ export function useInfiniteData(args: {
       viewMetaValue?: ViewType
     } = {},
     path: Array<number> = [],
+    trash = true,
   ): Promise<boolean> {
     if (!id) {
       throw new Error("Delete not allowed for table which doesn't have primary Key")
@@ -1853,6 +1813,7 @@ export function useInfiniteData(args: {
         metaValue?.id as string,
         viewMetaValue?.id as string,
         encodeURIComponent(id),
+        { trash },
       )
 
       callbacks?.reloadAggregate?.({ path })
