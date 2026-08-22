@@ -32,6 +32,7 @@ const expectedMigrations = [
   'nc_008_gantt_view',
   'nc_009_gantt_dependencies',
   'nc_010_record_trash',
+  'nc_011_base_trash_entries',
 ];
 
 class HistoricalV0MigrationSource {
