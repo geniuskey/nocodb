@@ -124,7 +124,7 @@ export function useData(args: {
           },
           undo: {
             fn: async function undo(this: UndoRedoAction, id: string) {
-              await deleteRowById(id)
+              await deleteRowById(id, undefined, false)
               if (rowIndex !== -1) formattedData.value.splice(rowIndex, 1)
               paginationData.value.totalRows = paginationData.value.totalRows! - 1
             },
@@ -521,6 +521,7 @@ export function useData(args: {
   async function deleteRowById(
     id: string,
     { metaValue = meta.value, viewMetaValue = viewMeta.value }: { metaValue?: TableType; viewMetaValue?: ViewType } = {},
+    trash = true,
   ) {
     if (!id) {
       throw new Error("Delete not allowed for table which doesn't have primary Key")
@@ -532,6 +533,7 @@ export function useData(args: {
       metaValue?.id as string,
       viewMetaValue?.id as string,
       encodeURIComponent(id),
+      { trash },
     )
 
     await reloadAggregate?.trigger()
@@ -547,69 +549,20 @@ export function useData(args: {
     return true
   }
 
-  async function deleteRow(rowIndex: number, undo?: boolean) {
+  async function deleteRow(rowIndex: number, _undo?: boolean) {
     try {
       const row = formattedData.value[rowIndex]
       if (!row.rowMeta.new) {
         const id = extractPkFromRow(row.row, meta?.value?.columns)
-
-        const fullRecord = await $api.dbTableRow.read(
-          NOCO,
-          // todo: base_id missing on view type
-          meta.value?.base_id ?? (base?.value.id as string),
-          meta.value?.id as string,
-          encodeURIComponent(id as string),
-          {
-            getHiddenColumn: true,
-          },
-        )
-
-        row.row = fullRecord
 
         const deleted = await deleteRowById(id as string)
         if (!deleted) {
           return
         }
 
-        if (!undo) {
-          addUndo({
-            redo: {
-              fn: async function redo(this: UndoRedoAction, id: string) {
-                await deleteRowById(id)
-                const pk: Record<string, string> = rowPkData(row.row, meta?.value?.columns as ColumnType[])
-                const rowIndex = findIndexByPk(pk, formattedData.value)
-                if (rowIndex !== -1) formattedData.value.splice(rowIndex, 1)
-                paginationData.value.totalRows = paginationData.value.totalRows! - 1
-              },
-              args: [id],
-            },
-            undo: {
-              fn: async function undo(
-                this: UndoRedoAction,
-                row: Row,
-                ltarState: Record<string, any>,
-                pg: { page: number; pageSize: number },
-              ) {
-                const pkData = rowPkData(row.row, meta.value?.columns as ColumnType[])
-
-                row.row = { ...pkData, ...row.row }
-                await insertRow(row, ltarState, {}, true)
-                recoverLTARRefs(row.row)
-                if (rowIndex !== -1 && pg.pageSize === paginationData.value.pageSize) {
-                  if (pg.page === paginationData.value.page) {
-                    formattedData.value.splice(rowIndex, 0, row)
-                  } else {
-                    await callbacks?.changePage?.(pg.page)
-                  }
-                } else {
-                  await callbacks?.loadData?.()
-                }
-              },
-              args: [clone(row), {}, { page: paginationData.value.page, pageSize: paginationData.value.pageSize }],
-            },
-            scope: defineViewScope({ view: viewMeta.value }),
-          })
-        }
+        // Trash is the durable recovery path for explicit record deletion.
+        // The legacy insert-based undo would leave the snapshot behind and
+        // collide with a later restore or redo.
       }
 
       formattedData.value.splice(rowIndex, 1)
