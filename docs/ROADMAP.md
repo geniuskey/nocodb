@@ -200,7 +200,9 @@ existing permanent-delete route. It uses append-only metadata, a 30-day expiry,
 bounded list/write requests, shared CRUD hooks and permissions, explicit
 restore/permanent-delete operations, and failure ordering that favors
 recoverable duplicates over data loss across separate metadata/user databases.
-The table Trash UI, expiry worker, richer conflict handling, and supported
+A second slice adds a permission-aware table Trash UI with previews, pagination,
+multi-selection, restore, and confirmed permanent deletion. The expiry worker,
+richer conflict handling, routing ordinary deletes through Trash, and supported
 metadata deletion lifecycles remain before Phase 5 is complete.
 
 ## Phase 6 — Snapshot

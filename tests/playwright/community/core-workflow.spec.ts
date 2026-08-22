@@ -5,6 +5,7 @@ import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } fro
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
 test('Community image supports signup, base, table, and record CRUD', async ({ page }) => {
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     (window as Window & { isPlaywright?: boolean }).isPlaywright = true;
   });
@@ -1674,6 +1675,70 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     ).toISOString(),
   });
   await expect(page.getByTestId('nc-gantt-announcement')).toContainText('moved 1 day');
+
+  const trashUiRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [
+      { Title: 'Restore from trash UI', Status: 'Ready' },
+      { Title: 'Permanently delete from trash UI', Status: 'Blocked' },
+    ],
+  });
+  const trashUiRecords = await trashUiRecordsResponse.json();
+  expect(trashUiRecordsResponse.ok(), JSON.stringify(trashUiRecords)).toBeTruthy();
+  const trashUiCreateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: { records: trashUiRecords.map((record: { Id: number }) => ({ Id: record.Id })) },
+  });
+  const trashUiSnapshots = await trashUiCreateResponse.json();
+  expect(trashUiCreateResponse.ok(), JSON.stringify(trashUiSnapshots)).toBeTruthy();
+  expect(trashUiSnapshots.list).toHaveLength(2);
+
+  const tableContextMenu = page.getByTestId('nc-sidebar-table-context-menu').first();
+  await tableContextMenu.locator('xpath=ancestor::*[contains(@class,"nc-sidebar-node")][1]').hover();
+  await tableContextMenu.click();
+  await page.getByTestId('nc-sidebar-table-trash').click();
+  const trashDialog = page.getByTestId('nc-record-trash-dialog');
+  await expect(trashDialog).toBeVisible();
+  await expect(trashDialog).toContainText('Restore from trash UI');
+  await expect(trashDialog).toContainText('Permanently delete from trash UI');
+
+  const uiRestoreResponsePromise = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/tables/${createdTableBody.id}/trash/restore`) && response.request().method() === 'POST'
+  );
+  await page.getByTestId(`nc-record-trash-restore-${trashUiSnapshots.list[0].id}`).click();
+  const uiRestoreResponse = await uiRestoreResponsePromise;
+  expect(uiRestoreResponse.ok(), await uiRestoreResponse.text()).toBeTruthy();
+  await expect(page.getByTestId(`nc-record-trash-row-${trashUiSnapshots.list[0].id}`)).toHaveCount(0);
+
+  await page.getByTestId(`nc-record-trash-delete-${trashUiSnapshots.list[1].id}`).click();
+  await expect(page.locator('.ant-modal-confirm')).toContainText('This cannot be undone.');
+  const uiPermanentDeleteResponsePromise = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/tables/${createdTableBody.id}/trash`) && response.request().method() === 'DELETE'
+  );
+  await page.locator('.ant-modal-confirm').getByRole('button', { name: 'Delete permanently' }).click();
+  const uiPermanentDeleteResponse = await uiPermanentDeleteResponsePromise;
+  expect(uiPermanentDeleteResponse.ok(), await uiPermanentDeleteResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-record-trash-empty')).toBeVisible();
+  await page.getByTestId('nc-record-trash-close').click();
+
+  const trashUiLiveRecordsResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const trashUiLiveRecords = await trashUiLiveRecordsResponse.json();
+  expect(trashUiLiveRecordsResponse.ok(), JSON.stringify(trashUiLiveRecords)).toBeTruthy();
+  expect(trashUiLiveRecords.list).toEqual(
+    expect.arrayContaining([expect.objectContaining({ Title: 'Restore from trash UI', Status: 'Ready' })])
+  );
+  const restoredTrashUiRecord = trashUiLiveRecords.list.find(
+    (record: { Id: number; Title?: string }) => record.Title === 'Restore from trash UI'
+  );
+  const trashUiCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Id: restoredTrashUiRecord.Id }],
+  });
+  expect(trashUiCleanupResponse.ok(), await trashUiCleanupResponse.text()).toBeTruthy();
 
   const restartTrashRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
