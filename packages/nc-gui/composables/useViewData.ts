@@ -383,8 +383,12 @@ export function useViewData(
   async function deleteRowsByPk(rows: Record<string, string>[]) {
     if (!rows.length) return false
 
-    const deletedRows = await bulkDeleteRows(rows)
-    if (!deletedRows) return false
+    try {
+      await bulkDeleteRows(rows)
+    } catch (error: any) {
+      message.error(await extractSdkResponseErrorMsg(error))
+      return false
+    }
 
     await syncCount()
     await syncPagination()
@@ -399,6 +403,7 @@ export function useViewData(
         where: where?.value,
         viewId: viewMeta.value.id,
         skipPks: skipPks.join(','),
+        trash: true,
       })
       await syncCount()
       await syncPagination()

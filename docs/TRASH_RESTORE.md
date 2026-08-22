@@ -40,9 +40,14 @@ Gallery, and Kanban no longer register the older insert-based transient undo
 for an explicit delete because that would leave the durable snapshot behind and
 create restore/redo primary-key conflicts. Restore is available from the table
 Trash dialog instead. Undoing the creation of a new record remains a permanent
-delete so it returns to the pre-insert state without polluting Trash. Bulk
-delete surfaces remain on their baseline route until they can adopt the same
-lifecycle deliberately.
+delete so it returns to the pre-insert state without polluting Trash.
+
+Community bulk delete actions also opt into Trash. Selected and range deletes
+send at most 100 primary-key selectors per request. Grid and List “select all
+matching” deletes use the existing view, filter, and excluded-primary-key
+semantics while the server snapshots and deletes matching records in bounded
+100-record batches. Explicit bulk deletes no longer register the older
+insert-based Undo; recovery is available from the table Trash dialog.
 
 ## Compatible delete opt-in
 
@@ -55,11 +60,13 @@ response shape:
 - `DELETE /api/v1/db/data/{org}/{base}/{table}/{rowId}?trash=true` does the
   same for a single row;
 - the equivalent v1 view-row route also accepts `trash=true`.
+- `DELETE /api/v1/db/data/bulk/{org}/{base}/{table}/all?trash=true` snapshots
+  every record matching `where` and `viewId`, except `skipPks`, in bounded
+  batches before deleting it.
 
-This explicit compatibility switch lets the Community GUI migrate its delete
-surfaces independently while existing API integrations retain their current
-permanent-delete semantics. Filtered “delete all” APIs are not yet routed
-through Trash because the current snapshot contract is deliberately bounded.
+This explicit compatibility switch lets the Community GUI use durable Trash
+while existing API integrations retain their current permanent-delete
+semantics.
 
 ## Snapshot contents
 
@@ -87,14 +94,16 @@ There is therefore no claimed distributed transaction:
    removes the newly written snapshots. A process crash between systems can
    leave both a live row and a snapshot, which is recoverable by permanently
    deleting the snapshot.
-2. Restore inserts records, then removes snapshots. A process crash between
+2. A filtered bulk Trash operation commits one bounded batch at a time. If a
+   later batch fails, earlier batches remain recoverable in Trash and unmatched
+   live rows remain untouched.
+3. Restore inserts records, then removes snapshots. A process crash between
    systems can likewise leave both copies. A retry fails safely on the existing
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
 Expired snapshots are not restorable. Automated expiry cleanup, table/base
-metadata trash, richer conflict resolution, and routing ordinary record delete
-surfaces through Trash are subsequent Phase 5 slices.
+metadata trash, and richer conflict resolution are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no

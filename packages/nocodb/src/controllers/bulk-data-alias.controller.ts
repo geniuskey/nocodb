@@ -18,11 +18,15 @@ import { Acl } from '~/middlewares/extract-ids/extract-ids.middleware';
 import { DataApiLimiterGuard } from '~/guards/data-api-limiter.guard';
 import { TenantContext } from '~/decorators/tenant-context.decorator';
 import { NcContext, NcRequest } from '~/interface/config';
+import { RecordTrashService } from '~/services/record-trash.service';
 
 @Controller()
 @UseGuards(DataApiLimiterGuard, GlobalGuard)
 export class BulkDataAliasController {
-  constructor(protected bulkDataAliasService: BulkDataAliasService) {}
+  constructor(
+    protected bulkDataAliasService: BulkDataAliasService,
+    protected recordTrashService: RecordTrashService,
+  ) {}
 
   @Post(['/api/v1/db/data/bulk/:orgs/:baseName/:tableName'])
   @HttpCode(200)
@@ -109,7 +113,28 @@ export class BulkDataAliasController {
     @Req() req: NcRequest,
     @Param('baseName') baseName: string,
     @Param('tableName') tableName: string,
+    @Query('trash') trash: string,
   ) {
+    if (trash === 'true') {
+      const { model, view } = await this.bulkDataAliasService.getModelViewBase(
+        context,
+        {
+          baseName,
+          tableName,
+          viewName: req.query.viewId,
+        },
+      );
+      return await this.recordTrashService.trashAll(context, {
+        modelId: model.id,
+        viewId: view?.id,
+        query: {
+          where: req.query.where as string,
+          skipPks: req.query.skipPks as string,
+        },
+        req,
+      });
+    }
+
     return await this.bulkDataAliasService.bulkDataDeleteAll(context, {
       // cookie: req,
       baseName: baseName,

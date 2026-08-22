@@ -12926,6 +12926,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-auth"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Create restorable trash snapshots before deleting the matching records",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       }

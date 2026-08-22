@@ -20,6 +20,7 @@ import { Model, RecordTrash, Source } from '~/models';
 import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { PagedResponseImpl } from '~/helpers/PagedResponse';
 import { DataTableService } from '~/services/data-table.service';
+import { BaseModelDelete } from '~/db/BaseModelSqlv2/delete';
 
 @Injectable()
 export class RecordTrashService {
@@ -219,6 +220,65 @@ export class RecordTrashService {
       throw error;
     }
     return { list: inserted };
+  }
+
+  async trashAll(
+    context: NcContext,
+    param: {
+      modelId: string;
+      viewId?: string;
+      query: { where?: string; skipPks?: string };
+      req: NcRequest;
+    },
+  ) {
+    const { model, baseModel } = await this.getModelResources(
+      context,
+      param.modelId,
+    );
+    const { qb } = await new BaseModelDelete(baseModel).prepareBulkDeleteAll({
+      args: {
+        where: param.query.where,
+        viewId: param.viewId,
+        skipPks: param.query.skipPks,
+      },
+      cookie: param.req,
+    });
+    const deleted: Record<string, unknown>[] = [];
+
+    // Always query the first bounded page: each successful Trash operation
+    // removes that page from the filtered live-record set.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const rows = await baseModel.execAndParse(
+        qb
+          .clone()
+          .select(model.primaryKeys.map((column) => column.column_name))
+          .limit(RECORD_TRASH_MAX_BATCH_SIZE),
+        null,
+        { raw: true },
+      );
+      if (!rows.length) break;
+
+      const records = rows.map((row) =>
+        model.primaryKeys.reduce<Record<string, unknown>>((primary, column) => {
+          primary[column.title] = row[column.column_name];
+          return primary;
+        }, {}),
+      );
+      const result = await this.trash(context, {
+        modelId: model.id,
+        viewId: param.viewId,
+        req: param.req,
+        body: { records },
+      });
+      deleted.push(
+        ...result.list.map(
+          (record) => record.row_data as Record<string, unknown>,
+        ),
+      );
+    }
+
+    return deleted;
   }
 
   async restore(
