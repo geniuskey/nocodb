@@ -1038,12 +1038,12 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       resource_id: createdTableBody.id,
       resource_name: createdTableBody.title,
       record_count: 101,
-      records: expect.arrayContaining([
-        expect.objectContaining({ row_data: expect.objectContaining({ Title: 'Bulk trash matching 1' }) }),
-      ]),
     }),
   ]);
   expect(baseTrash.list[0].records).toHaveLength(8);
+  for (const record of baseTrash.list[0].records) {
+    expect(record.row_data.Title).toMatch(/^Bulk trash matching \d+$/);
+  }
   const bulkTrashRestoreResponse = await page.request.post(
     `/api/v2/meta/bases/${createdBaseBody.id}/trash/${baseTrash.list[0].id}/restore`,
     { headers: sessionHeaders }

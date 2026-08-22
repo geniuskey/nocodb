@@ -161,7 +161,7 @@ export default class RecordTrash implements RecordTrashType {
       {
         condition: { fk_trash_entry_id: entryId },
         limit: args.limit,
-        orderBy: { deleted_at: 'asc' },
+        orderBy: { deleted_at: 'asc', id: 'asc' },
       },
     );
     return records.map((record) => this.fromDb(record)!);
