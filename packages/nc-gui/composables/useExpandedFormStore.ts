@@ -409,6 +409,7 @@ const [useProvideExpandedFormStore, useExpandedFormStore] = useInjectionState(
                   meta.value?.id as string,
                   activeView.value?.id as string,
                   encodeURIComponent(id),
+                  { trash: false },
                 )
                 if (res.message) {
                   throw new Error(res.message)
@@ -570,6 +571,7 @@ const [useProvideExpandedFormStore, useExpandedFormStore] = useInjectionState(
           meta.value?.base_id ?? (base.value.id as string),
           meta.value.id as string,
           encodeURIComponent(recordId),
+          { trash: true },
         )
 
         if (res.message) {
