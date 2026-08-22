@@ -1,4 +1,4 @@
-import type { ColumnType, LinkToAnotherRecordType, PaginatedType, RelationTypes, TableType, ViewType } from 'nocodb-sdk'
+import type { ColumnType, PaginatedType, TableType, ViewType } from 'nocodb-sdk'
 import { UITypes, isAIPromptCol, isCreatedOrLastModifiedByCol, isCreatedOrLastModifiedTimeCol } from 'nocodb-sdk'
 import type { ComputedRef, Ref } from 'vue'
 import type { CellRange } from '#imports'
@@ -20,7 +20,7 @@ export function useData(args: {
 
   const { t } = useI18n()
 
-  const { getMeta, metas } = useMetas()
+  const { getMeta } = useMetas()
 
   const { addUndo, clone, defineViewScope } = useUndoRedo()
 
@@ -462,62 +462,6 @@ export function useData(args: {
     await callbacks?.globalCallback?.()
   }
 
-  const linkRecord = async (
-    rowId: string,
-    relatedRowId: string,
-    column: ColumnType,
-    type: RelationTypes,
-    { metaValue = meta.value }: { metaValue?: TableType } = {},
-  ) => {
-    try {
-      await $api.dbTableRow.nestedAdd(
-        NOCO,
-        metaValue?.base_id ?? (base.value.id as string),
-        metaValue?.id as string,
-        encodeURIComponent(rowId),
-        type as RelationTypes,
-        column.title as string,
-        encodeURIComponent(relatedRowId),
-      )
-    } catch (e: any) {
-      message.error(await extractSdkResponseErrorMsg(e))
-    }
-  }
-
-  // Recover LTAR relations for a row using the row data
-  const recoverLTARRefs = async (row: Record<string, any>, { metaValue = meta.value }: { metaValue?: TableType } = {}) => {
-    const id = extractPkFromRow(row, metaValue?.columns as ColumnType[])
-    for (const column of metaValue?.columns ?? []) {
-      if (column.uidt !== UITypes.LinkToAnotherRecord) continue
-
-      const colOptions = column.colOptions as LinkToAnotherRecordType
-
-      const relatedTableMeta = metas.value?.[colOptions?.fk_related_model_id as string]
-
-      if (isHm(column) || isMm(column)) {
-        const relatedRows = (row[column.title!] ?? []) as Record<string, any>[]
-
-        for (const relatedRow of relatedRows) {
-          await linkRecord(
-            id,
-            extractPkFromRow(relatedRow, relatedTableMeta.columns as ColumnType[]),
-            column,
-            colOptions.type as RelationTypes,
-            { metaValue },
-          )
-        }
-      } else if (isBt(column) && row[column.title!]) {
-        await linkRecord(
-          id,
-          extractPkFromRow(row[column.title!] as Record<string, any>, relatedTableMeta.columns as ColumnType[]),
-          column,
-          colOptions.type as RelationTypes,
-          { metaValue },
-        )
-      }
-    }
-  }
-
   async function deleteRowById(
     id: string,
     { metaValue = meta.value, viewMetaValue = viewMeta.value }: { metaValue?: TableType; viewMetaValue?: ViewType } = {},
@@ -631,69 +575,6 @@ export function useData(args: {
       return
     }
 
-    addUndo({
-      redo: {
-        fn: async function redo(this: UndoRedoAction, removedRowsData: Record<string, any>[]) {
-          isPaginationLoading.value = true
-
-          const removedRowIds = await bulkDeleteRows(removedRowsData.map((row) => row.pkData))
-
-          if (Array.isArray(removedRowIds)) {
-            for (const { row } of removedRowsData) {
-              const primaryKey: Record<string, string> = rowPkData(row.row, meta?.value?.columns as ColumnType[])
-              const rowIndex = findIndexByPk(primaryKey, formattedData.value)
-              if (rowIndex !== -1) formattedData.value.splice(rowIndex, 1)
-              paginationData.value.totalRows = paginationData.value.totalRows! - 1
-            }
-          }
-
-          await callbacks?.syncCount?.()
-          await callbacks?.syncPagination?.()
-          await callbacks?.globalCallback?.()
-        },
-        args: [removedRowsData],
-      },
-      undo: {
-        fn: async function undo(
-          this: UndoRedoAction,
-          removedRowsData: Record<string, any>[],
-          pg: { page: number; pageSize: number },
-        ) {
-          const rowsToInsert = removedRowsData
-            .map((row) => {
-              const pkData = rowPkData(row.row, meta.value?.columns as ColumnType[])
-              row.row = { ...pkData, ...row.row }
-              return row
-            })
-            .reverse()
-
-          const insertedRowIds = await bulkInsertRows(
-            rowsToInsert.map((row) => row.row),
-            undefined,
-            true,
-          )
-
-          if (Array.isArray(insertedRowIds)) {
-            for (const { row, rowIndex } of rowsToInsert) {
-              recoverLTARRefs(row.row)
-
-              if (rowIndex !== -1 && pg.pageSize === paginationData.value.pageSize) {
-                if (pg.page === paginationData.value.page) {
-                  formattedData.value.splice(rowIndex, 0, row)
-                } else {
-                  await callbacks?.changePage?.(pg.page)
-                }
-              } else {
-                await callbacks?.loadData?.()
-              }
-            }
-          }
-        },
-        args: [removedRowsData, { page: paginationData.value.page, pageSize: paginationData.value.pageSize }],
-      },
-      scope: defineViewScope({ view: viewMeta.value }),
-    })
-
     await callbacks?.syncCount?.()
     await callbacks?.syncPagination?.()
     await callbacks?.globalCallback?.()
@@ -765,69 +646,6 @@ export function useData(args: {
       return
     }
 
-    addUndo({
-      redo: {
-        fn: async function redo(this: UndoRedoAction, removedRowsData: Record<string, any>[]) {
-          isPaginationLoading.value = true
-
-          const removedRowIds = await bulkDeleteRows(removedRowsData.map((row) => row.pkData))
-
-          if (Array.isArray(removedRowIds)) {
-            for (const { row } of removedRowsData) {
-              const primaryKey: Record<string, string> = rowPkData(row.row, meta?.value?.columns as ColumnType[])
-              const rowIndex = findIndexByPk(primaryKey, formattedData.value)
-              if (rowIndex !== -1) formattedData.value.splice(rowIndex, 1)
-              paginationData.value.totalRows = paginationData.value.totalRows! - 1
-            }
-          }
-
-          await callbacks?.syncCount?.()
-          await callbacks?.syncPagination?.()
-          await callbacks?.globalCallback?.()
-        },
-        args: [removedRowsData],
-      },
-      undo: {
-        fn: async function undo(
-          this: UndoRedoAction,
-          removedRowsData: Record<string, any>[],
-          pg: { page: number; pageSize: number },
-        ) {
-          const rowsToInsert = removedRowsData
-            .map((row) => {
-              const pkData = rowPkData(row.row, meta.value?.columns as ColumnType[])
-              row.row = { ...pkData, ...row.row }
-              return row
-            })
-            .reverse()
-
-          const insertedRowIds = await bulkInsertRows(
-            rowsToInsert.map((row) => row.row),
-            undefined,
-            true,
-          )
-
-          if (Array.isArray(insertedRowIds)) {
-            for (const { row, rowIndex } of rowsToInsert) {
-              recoverLTARRefs(row.row)
-
-              if (rowIndex !== -1 && pg.pageSize === paginationData.value.pageSize) {
-                if (pg.page === paginationData.value.page) {
-                  formattedData.value.splice(rowIndex, 0, row)
-                } else {
-                  await callbacks?.changePage?.(pg.page)
-                }
-              } else {
-                await callbacks?.loadData?.()
-              }
-            }
-          }
-        },
-        args: [removedRowsData, { page: paginationData.value.page, pageSize: paginationData.value.pageSize }],
-      },
-      scope: defineViewScope({ view: viewMeta.value }),
-    })
-
     await callbacks?.syncCount?.()
     await callbacks?.syncPagination?.()
     await callbacks?.globalCallback?.()
@@ -836,17 +654,20 @@ export function useData(args: {
   async function bulkDeleteRows(
     rows: Record<string, string>[],
     { metaValue = meta.value, viewMetaValue = viewMeta.value }: { metaValue?: TableType; viewMetaValue?: ViewType } = {},
+    trash = true,
   ) {
-    try {
-      const bulkDeletedRowsData = await $api.dbDataTableRow.delete(metaValue?.id as string, rows.length === 1 ? rows[0] : rows, {
+    const bulkDeletedRowsData = []
+    for (let index = 0; index < rows.length; index += 100) {
+      const batch = rows.slice(index, index + 100)
+      const deleted = await $api.dbDataTableRow.delete(metaValue?.id as string, batch.length === 1 ? batch[0] : batch, {
         viewId: viewMetaValue?.id as string,
+        trash,
       })
-      await reloadAggregate?.trigger()
-
-      return rows.length === 1 && bulkDeletedRowsData ? [bulkDeletedRowsData] : bulkDeletedRowsData
-    } catch (error: any) {
-      message.error(await extractSdkResponseErrorMsg(error))
+      bulkDeletedRowsData.push(...(Array.isArray(deleted) ? deleted : [deleted]))
     }
+    await reloadAggregate?.trigger()
+
+    return bulkDeletedRowsData
   }
 
   const removeRowIfNew = (row: Row) => {

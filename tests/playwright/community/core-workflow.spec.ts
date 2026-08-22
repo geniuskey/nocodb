@@ -965,6 +965,80 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(legacyTrashCleanupResponse.ok(), await legacyTrashCleanupResponse.text()).toBeTruthy();
 
+  const bulkTrashCandidatesResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [
+      ...Array.from({ length: 101 }, (_, index) => ({
+        Title: `Bulk trash matching ${index + 1}`,
+        Status: 'Ready',
+      })),
+      { Title: 'Bulk trash excluded', Status: 'Ready' },
+    ],
+  });
+  const bulkTrashCandidates = await bulkTrashCandidatesResponse.json();
+  expect(bulkTrashCandidatesResponse.ok(), JSON.stringify(bulkTrashCandidates)).toBeTruthy();
+  const bulkTrashQuery = new URLSearchParams({
+    where: '(Title,like,Bulk trash)',
+    viewId: createdList.id,
+    skipPks: String(bulkTrashCandidates[101].Id),
+    trash: 'true',
+  });
+  const bulkTrashDeleteResponse = await page.request.delete(
+    `/api/v1/db/data/bulk/noco/${createdBaseBody.id}/${createdTableBody.id}/all?${bulkTrashQuery}`,
+    { headers: sessionHeaders }
+  );
+  const bulkTrashDeleted = await bulkTrashDeleteResponse.json();
+  expect(bulkTrashDeleteResponse.ok(), JSON.stringify(bulkTrashDeleted)).toBeTruthy();
+  expect(bulkTrashDeleted).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ Title: 'Bulk trash matching 1' }),
+      expect.objectContaining({ Title: 'Bulk trash matching 101' }),
+    ])
+  );
+  expect(bulkTrashDeleted).toHaveLength(101);
+
+  const bulkTrashLiveQuery = new URLSearchParams({ where: '(Title,like,Bulk trash)', limit: '100' });
+  const bulkTrashLiveResponse = await page.request.get(
+    `/api/v2/tables/${createdTableBody.id}/records?${bulkTrashLiveQuery}`,
+    { headers: sessionHeaders }
+  );
+  const bulkTrashLive = await bulkTrashLiveResponse.json();
+  expect(bulkTrashLiveResponse.ok(), JSON.stringify(bulkTrashLive)).toBeTruthy();
+  expect(bulkTrashLive.list).toEqual([expect.objectContaining({ Title: 'Bulk trash excluded' })]);
+
+  const bulkTrashSnapshots: Array<{ id: string; row_data?: { Title?: string } }> = [];
+  for (const offset of [0, 100]) {
+    const bulkTrashListResponse = await page.request.get(
+      `/api/v2/tables/${createdTableBody.id}/trash?limit=100&offset=${offset}`,
+      { headers: sessionHeaders }
+    );
+    const bulkTrashList = await bulkTrashListResponse.json();
+    expect(bulkTrashListResponse.ok(), JSON.stringify(bulkTrashList)).toBeTruthy();
+    bulkTrashSnapshots.push(...bulkTrashList.list);
+  }
+  expect(bulkTrashSnapshots).toHaveLength(101);
+  expect(
+    bulkTrashSnapshots.every((record: { row_data?: { Title?: string } }) =>
+      record.row_data?.Title?.startsWith('Bulk trash matching')
+    )
+  ).toBe(true);
+  for (let index = 0; index < bulkTrashSnapshots.length; index += 100) {
+    const bulkTrashRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+      headers: sessionHeaders,
+      data: {
+        trash_ids: bulkTrashSnapshots.slice(index, index + 100).map((record: { id: string }) => record.id),
+      },
+    });
+    expect(bulkTrashRestoreResponse.ok(), await bulkTrashRestoreResponse.text()).toBeTruthy();
+  }
+  for (let index = 0; index < bulkTrashCandidates.length; index += 100) {
+    const bulkTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+      headers: sessionHeaders,
+      data: bulkTrashCandidates.slice(index, index + 100).map((record: { Id: number }) => ({ Id: record.Id })),
+    });
+    expect(bulkTrashCleanupResponse.ok(), await bulkTrashCleanupResponse.text()).toBeTruthy();
+  }
+
   await expectPublicApiRuntimeCrud(page, createdBaseBody.id, createdTableBody.id);
 
   const bulkListRecordsResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
@@ -1167,7 +1241,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   await page.getByTestId('nc-list-delete-selected').click();
   await page.getByTestId('nc-record-delete-all').click();
-  expect((await bulkDeleteResponse).ok()).toBeTruthy();
+  const bulkDelete = await bulkDeleteResponse;
+  expect(bulkDelete.ok()).toBeTruthy();
+  expect(new URL(bulkDelete.url()).searchParams.get('trash')).toBe('true');
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
 
   const firstListRow = listView.getByTestId('nc-list-row-0');
@@ -1249,7 +1325,9 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   await page.getByTestId('nc-list-delete-selected').click();
   await page.getByTestId('nc-record-delete-all').click();
-  expect((await deleteAllMatchingResponse).ok()).toBeTruthy();
+  const deleteAllMatching = await deleteAllMatchingResponse;
+  expect(deleteAllMatching.ok()).toBeTruthy();
+  expect(new URL(deleteAllMatching.url()).searchParams.get('trash')).toBe('true');
 
   await expect(listView.getByTestId('nc-list-row-0')).toContainText('Persists across restart');
   await expect(page.getByTestId('nc-list-delete-selected')).toHaveCount(0);
@@ -1266,6 +1344,23 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     .filter(record => record.Title?.startsWith('Virtualized task '))
     .map(record => ({ Id: record.Id }));
   expect(temporaryRecords).toEqual([]);
+
+  const listBulkTrashResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const listBulkTrash = await listBulkTrashResponse.json();
+  expect(listBulkTrashResponse.ok(), JSON.stringify(listBulkTrash)).toBeTruthy();
+  expect(listBulkTrash.list).toHaveLength(30);
+  expect(
+    listBulkTrash.list.filter(
+      (record: { row_data?: { Title?: string } }) => record.row_data?.Title === 'Bulk updated task'
+    )
+  ).toHaveLength(28);
+  const listBulkTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: { trash_ids: listBulkTrash.list.map((record: { id: string }) => record.id) },
+  });
+  expect(listBulkTrashCleanupResponse.ok(), await listBulkTrashCleanupResponse.text()).toBeTruthy();
 
   const currentTimelineDate = new Date().toISOString().slice(0, 10);
   const currentTimelineEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
