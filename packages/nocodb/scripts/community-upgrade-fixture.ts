@@ -36,6 +36,7 @@ const expectedMigrations = [
   'nc_012_view_trash',
   'nc_013_record_trash_field_map',
   'nc_014_table_trash',
+  'nc_015_field_trash',
 ];
 
 class HistoricalV0MigrationSource {
@@ -223,7 +224,7 @@ async function verify(connection: Knex, sourceTag: string) {
   }
 
   const baseTrashColumns = await connection(MetaTable.BASE_TRASH).columnInfo();
-  for (const column of ['storage_name', 'original_type']) {
+  for (const column of ['storage_name', 'original_type', 'parent_id']) {
     if (!baseTrashColumns[column]) {
       fail(
         `expected migrated column ${MetaTable.BASE_TRASH}.${column} is absent.`,

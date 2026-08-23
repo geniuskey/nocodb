@@ -42,6 +42,44 @@ test('Community image preserves login, schema, and records across restart', asyn
   });
   const baseTrash = await baseTrashResponse.json();
   expect(baseTrashResponse.ok(), JSON.stringify(baseTrash)).toBeTruthy();
+  const fieldTrashEntry = baseTrash.list.find(
+    (entry: { resource_type?: string; resource_name?: string }) =>
+      entry.resource_type === 'field' && entry.resource_name === 'Field survives restart'
+  );
+  expect(fieldTrashEntry).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      resource_id: expect.any(String),
+      parent_id: tasksTableMeta.id,
+    })
+  );
+  const hiddenFieldTableResponse = await page.request.get(`/api/v2/meta/tables/${tasksTableMeta.id}`, {
+    headers: sessionHeaders,
+  });
+  const hiddenFieldTable = await hiddenFieldTableResponse.json();
+  expect(hiddenFieldTableResponse.ok(), JSON.stringify(hiddenFieldTable)).toBeTruthy();
+  expect(
+    hiddenFieldTable.columns.find((field: { id?: string }) => field.id === fieldTrashEntry.resource_id)
+  ).toBeUndefined();
+  const restoreFieldResponse = await page.request.post(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/trash/${fieldTrashEntry.id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(restoreFieldResponse.ok(), await restoreFieldResponse.text()).toBeTruthy();
+  expect(await restoreFieldResponse.json()).toEqual({
+    restored: 1,
+    resource_type: 'field',
+    resource_id: fieldTrashEntry.resource_id,
+    parent_id: tasksTableMeta.id,
+  });
+  const restoredFieldRecordsResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const restoredFieldRecords = await restoredFieldRecordsResponse.json();
+  expect(restoredFieldRecordsResponse.ok(), JSON.stringify(restoredFieldRecords)).toBeTruthy();
+  expect(
+    restoredFieldRecords.list.find((record: { Title?: string }) => record.Title === 'Field restart value fixture')
+  ).toEqual(expect.objectContaining({ 'Field survives restart': 'Persisted hidden value' }));
   const structuralTrashEntry = baseTrash.list.find(
     (entry: { resource_type?: string; resource_name?: string }) =>
       entry.resource_type === 'table' && entry.resource_name === 'Structural trash fixture'

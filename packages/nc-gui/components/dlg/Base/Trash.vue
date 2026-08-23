@@ -26,6 +26,7 @@ const dialogVisible = useVModel(props, 'visible', emits)
 const { $api } = useNuxtApp()
 const viewsStore = useViewsStore()
 const { loadTables } = useBase()
+const { getMeta } = useMetas()
 const { refreshCommandPalette } = useCommandPalette()
 
 const entries = ref<BaseTrashItem[]>([])
@@ -93,6 +94,13 @@ const performRestore = async (entry: BaseTrashItem, mode: RestoreMode) => {
     }
     refreshCommandPalette()
     message.success(`View “${entry.resource_name || 'Untitled'}” restored`)
+  } else if (entry.resource_type === 'field') {
+    const tableId = response.parent_id || entry.parent_id
+    if (tableId) {
+      await getMeta(tableId, true)
+      await viewsStore.loadViews({ tableId, force: true, ignoreLoading: true })
+    }
+    message.success(`Field “${entry.resource_name || 'Untitled'}” restored`)
   } else if (response.skipped) {
     message.warning(
       `${response.restored} record${response.restored === 1 ? '' : 's'} restored; ${response.skipped} remain in Trash`,
@@ -180,7 +188,7 @@ watch(
         <div class="min-w-0">
           <div class="truncate text-lg font-semibold text-nc-content-gray-emphasis">Base Trash</div>
           <div class="text-xs font-normal text-nc-content-gray-muted">
-            Deleted records, views, and tables remain available for 30 days.
+            Deleted records, views, fields, and tables remain available for 30 days.
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -240,7 +248,7 @@ watch(
         >
           <MdiHistory class="h-8 w-8" />
           <div class="font-medium text-nc-content-gray-subtle">Base Trash is empty</div>
-          <div class="text-xs">Deleted records, views, and tables will appear here.</div>
+          <div class="text-xs">Deleted records, views, fields, and tables will appear here.</div>
         </div>
         <div v-else class="divide-y divide-nc-border-gray-medium">
           <div
@@ -261,6 +269,8 @@ watch(
                       ? 'View'
                       : entry.resource_type === 'table'
                       ? 'Table'
+                      : entry.resource_type === 'field'
+                      ? 'Field'
                       : `${entry.record_count} records`
                   }}
                 </span>

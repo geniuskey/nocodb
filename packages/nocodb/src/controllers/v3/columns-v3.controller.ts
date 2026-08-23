@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -68,12 +69,14 @@ export class ColumnsV3Controller {
   async columnDelete(
     @TenantContext() context: NcContext,
     @Param('columnId') columnId: string,
+    @Query('trash') trash: string,
     @Req() req: NcRequest,
   ) {
     return await this.columnsV3Service.columnDelete(context, {
       columnId,
       req,
       user: req.user,
+      trash: trash === 'true',
     });
   }
 

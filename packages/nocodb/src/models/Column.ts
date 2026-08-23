@@ -56,6 +56,10 @@ const selectColors = enumColors.light;
 
 const logger = new Logger('Column');
 
+const activeColumnXcCondition = {
+  _or: [{ deleted: { eq: false } }, { deleted: { eq: null } }],
+};
+
 const requiredColumnsToRecreate = {
   [UITypes.LinkToAnotherRecord]: [
     'type',
@@ -120,6 +124,7 @@ export default class Column<T = any> implements ColumnType {
   public asId?: string;
 
   public readonly?: boolean;
+  public deleted?: boolean;
 
   // we create custom index when custom link created using the column
   public custom_index_name?: boolean;
@@ -685,6 +690,7 @@ export default class Column<T = any> implements ColumnType {
           condition: {
             fk_model_id,
           },
+          xcCondition: activeColumnXcCondition,
           orderBy: {
             order: 'asc',
           },
@@ -799,6 +805,7 @@ export default class Column<T = any> implements ColumnType {
       }
     }
     if (colData) {
+      if (colData.deleted) return null;
       const column = new Column(colData);
       await column.getColOptions(
         {
@@ -811,6 +818,59 @@ export default class Column<T = any> implements ColumnType {
       return column;
     }
     return null;
+  }
+
+  /**
+   * Reads a field without applying the active-field filter. This is reserved
+   * for structural Trash lifecycle operations; normal callers must use get().
+   */
+  public static async getIncludingDeleted<T = any>(
+    context: NcContext,
+    colId: string,
+    ncMeta = Noco.ncMeta,
+  ): Promise<Column<T> | null> {
+    const colData = await ncMeta.metaGet2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COLUMNS,
+      colId,
+    );
+    if (!colData) return null;
+    colData.meta = parseMetaProp(colData);
+    const column = new Column<T>(colData);
+    await column.getColOptions(
+      {
+        ...context,
+        workspace_id: column.fk_workspace_id,
+        base_id: column.base_id,
+      },
+      ncMeta,
+    );
+    return column;
+  }
+
+  public static async setDeleted(
+    context: NcContext,
+    column: Column,
+    deleted: boolean,
+    ncMeta = Noco.ncMeta,
+  ): Promise<void> {
+    await ncMeta.metaUpdate(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COLUMNS,
+      { deleted },
+      column.id,
+    );
+    await NocoCache.deepDel(
+      context,
+      `${CacheScope.COLUMN}:${column.fk_model_id}:list`,
+      CacheDelDirection.PARENT_TO_CHILD,
+    );
+    await View.clearSingleQueryCache(context, column.fk_model_id, null, ncMeta);
+    cleanBaseSchemaCacheForBase(context.base_id).catch(() => {
+      logger.error('Failed to clean base schema cache');
+    });
   }
 
   id: string;
@@ -847,7 +907,7 @@ export default class Column<T = any> implements ColumnType {
     },
     ncMeta = Noco.ncMeta,
   ) {
-    const col = await this.get(context, { colId: id }, ncMeta);
+    const col = await this.getIncludingDeleted(context, id, ncMeta);
 
     // if column is not found, return
     if (!col) {

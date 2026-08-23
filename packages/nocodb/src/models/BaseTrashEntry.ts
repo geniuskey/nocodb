@@ -6,7 +6,7 @@ import { MetaTable } from '~/utils/globals';
 
 export default class BaseTrashEntry {
   id: string;
-  resource_type: 'records' | 'view' | 'table';
+  resource_type: 'records' | 'view' | 'table' | 'field';
   resource_id: string;
   resource_name?: string;
   storage_name?: string;
@@ -15,6 +15,7 @@ export default class BaseTrashEntry {
   deleted_at: string;
   expires_at: string;
   source_id?: string;
+  parent_id?: string;
   base_id?: string;
   fk_workspace_id?: string;
   created_at?: string;
@@ -43,6 +44,7 @@ export default class BaseTrashEntry {
       'deleted_at',
       'expires_at',
       'source_id',
+      'parent_id',
     ]);
     return this.fromDb(
       await ncMeta.metaInsert2(
@@ -101,7 +103,12 @@ export default class BaseTrashEntry {
   static async listByType(
     context: NcContext,
     resourceType: BaseTrashEntry['resource_type'],
-    args: { limit?: number; offset?: number; sourceId?: string } = {},
+    args: {
+      limit?: number;
+      offset?: number;
+      sourceId?: string;
+      parentId?: string;
+    } = {},
     ncMeta: MetaService = Noco.ncMeta,
   ): Promise<BaseTrashEntry[]> {
     const entries = await ncMeta.metaList2(
@@ -112,6 +119,7 @@ export default class BaseTrashEntry {
         condition: {
           resource_type: resourceType,
           ...(args.sourceId ? { source_id: args.sourceId } : {}),
+          ...(args.parentId ? { parent_id: args.parentId } : {}),
         },
         orderBy: { expires_at: 'asc', id: 'asc' },
         ...(args.limit !== undefined ? { limit: args.limit } : {}),
@@ -129,6 +137,21 @@ export default class BaseTrashEntry {
     const rows = await ncMeta
       .knex(MetaTable.BASE_TRASH)
       .where('resource_type', 'table')
+      .where('expires_at', '<=', ncMeta.formatDateTime(cutoff.toISOString()))
+      .orderBy('expires_at', 'asc')
+      .orderBy('id', 'asc')
+      .limit(limit);
+    return rows.map((entry) => this.fromDb(entry)!);
+  }
+
+  static async listExpiredFields(
+    cutoff: Date,
+    limit: number,
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<BaseTrashEntry[]> {
+    const rows = await ncMeta
+      .knex(MetaTable.BASE_TRASH)
+      .where('resource_type', 'field')
       .where('expires_at', '<=', ncMeta.formatDateTime(cutoff.toISOString()))
       .orderBy('expires_at', 'asc')
       .orderBy('id', 'asc')

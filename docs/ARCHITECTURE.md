@@ -50,6 +50,15 @@ and removal-only.
 
 The default local metadata/data store is SQLite. Knex-backed connections support PostgreSQL and MySQL, while separate workspace packages contain Snowflake and Databricks dialects. Metadata schema changes are performed by the migrations under `src/meta/migrations`; never edit an already-released migration for new fork work.
 
+Recoverable structural deletion is coordinated by the Community services, not
+the SQL adapters themselves. `TablesService` and `ColumnsService` reserve and
+rename physical storage, `Model` and `Column` exclude inactive metadata from
+normal paths, and `RecordTrashService` exposes the base-scoped restore/empty
+contract. Database-specific DDL still flows through `SqlMgrv2`. Field Trash is
+conservative: it rejects semantic dependencies instead of mutating filters,
+views, formulas, hooks, relations, or automation configuration. See
+[TRASH_RESTORE.md](./TRASH_RESTORE.md).
+
 `docs/MIGRATION_MANIFEST.json` records the cross-platform normalized SHA-256
 digest of every retained metadata migration/support file and the exact order of
 the v0, v1, v2, and audit migration sources. The migration integrity check
@@ -160,7 +169,9 @@ not fetch a package manager or SDK generator during the sandboxed build.
   Enterprise flags or install Enterprise-only identity-provider fixtures.
   The fresh-instance workflow also validates the generated v1, v2, and v3
   public OpenAPI contract for the created base and table and executes a complete
-  record lifecycle through each public API version before the restart.
+  record lifecycle through each public API version before the restart. The same
+  workflow covers recoverable field hide/restore/purge, retained values and
+  identifiers, and a second restore after the application restart.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 

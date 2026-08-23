@@ -61,6 +61,10 @@
         {
           "name": "nc_014_table_trash",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_014_table_trash.ts"
+        },
+        {
+          "name": "nc_015_field_trash",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_015_field_trash.ts"
         }
       ]
     },
@@ -540,6 +544,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_014_table_trash.ts",
       "sha256": "1a35c77071944b8785c4272343fa4d435e435569ed2b7ae29a0f537a3068e0fc"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_015_field_trash.ts",
+      "sha256": "68ebde461110e99a2b26210534ad46ddd4aa89f43320d55e7e8d08316e255f7b"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

@@ -18,6 +18,7 @@ import { cleanExpiredRecordTrash } from '~/modules/jobs/jobs/record-trash-clean-
 import { up as addBaseTrashEntries } from '~/meta/migrations/v0/nc_011_base_trash_entries';
 import { up as addRecordTrashFieldMap } from '~/meta/migrations/v0/nc_013_record_trash_field_map';
 import { up as addTableTrash } from '~/meta/migrations/v0/nc_014_table_trash';
+import { up as addFieldTrash } from '~/meta/migrations/v0/nc_015_field_trash';
 import { RecordTrashService } from '~/services/record-trash.service';
 
 describe('Record trash snapshots', () => {
@@ -161,7 +162,11 @@ describe('Record trash conflict analysis', () => {
       readByPk: jest.fn(async () => null),
       dbDriver: jest.fn(() => ({ select })),
     };
-    const service = new RecordTrashService({} as never, {} as never);
+    const service = new RecordTrashService(
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     const result = await (
       service as unknown as {
@@ -514,16 +519,19 @@ describe('Table trash migration', () => {
     try {
       await db.schema.createTable(MetaTable.BASE_TRASH, (table) => {
         table.string('id').primary();
+        table.string('base_id');
         table.string('resource_type').notNullable();
         table.timestamp('expires_at').notNullable();
       });
       await db(MetaTable.BASE_TRASH).insert({
         id: 'record-entry',
+        base_id: 'base-a',
         resource_type: 'records',
         expires_at: '2026-09-01T00:00:00.000Z',
       });
 
       await addTableTrash(db);
+      await addFieldTrash(db);
 
       expect(
         await db.schema.hasColumn(MetaTable.BASE_TRASH, 'storage_name'),
@@ -531,14 +539,18 @@ describe('Table trash migration', () => {
       expect(
         await db.schema.hasColumn(MetaTable.BASE_TRASH, 'original_type'),
       ).toBe(true);
+      expect(await db.schema.hasColumn(MetaTable.BASE_TRASH, 'parent_id')).toBe(
+        true,
+      );
       await expect(
         db(MetaTable.BASE_TRASH)
           .where('id', 'record-entry')
-          .first('resource_type', 'storage_name', 'original_type'),
+          .first('resource_type', 'storage_name', 'original_type', 'parent_id'),
       ).resolves.toEqual({
         resource_type: 'records',
         storage_name: null,
         original_type: null,
+        parent_id: null,
       });
     } finally {
       await db.destroy();

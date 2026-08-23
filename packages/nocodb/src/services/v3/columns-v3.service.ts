@@ -229,6 +229,7 @@ export class ColumnsV3Service {
       forceDeleteSystem?: boolean;
       reuse?: ReusableParams;
       columnWebhookManager?: ColumnWebhookManager;
+      trash?: boolean;
     },
     ncMeta = Noco.ncMeta,
   ) {

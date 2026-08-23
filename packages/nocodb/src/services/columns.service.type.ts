@@ -56,6 +56,7 @@ export interface IColumnsService {
       user: UserType;
       forceDeleteSystem?: boolean;
       reuse?: ReusableParams;
+      trash?: boolean;
     },
     ncMeta?: MetaService,
   ): Promise<Model>;
