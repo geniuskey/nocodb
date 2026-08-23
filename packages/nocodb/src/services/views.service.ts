@@ -23,6 +23,7 @@ import {
   ModelRoleVisibility,
   User,
   View,
+  ViewTrash,
 } from '~/models';
 import Noco from '~/Noco';
 import { AppHooksService } from '~/services/app-hooks/app-hooks.service';
@@ -378,6 +379,14 @@ export class ViewsService {
       ).withViewId(view.id)
     ).forDelete();
 
+    await ViewTrash.create(
+      context,
+      {
+        view,
+        deletedBy: param.req.user?.id ?? context.user?.id,
+      },
+      ncMeta,
+    );
     await View.delete(context, param.viewId, ncMeta);
 
     let deleteEvent = AppEvents.GRID_DELETE;

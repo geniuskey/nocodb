@@ -4,7 +4,7 @@ import {
   RECORD_TRASH_CLEANUP_BATCH_SIZE,
   RECORD_TRASH_CLEANUP_MAX_RECORDS,
 } from '~/helpers/recordTrash';
-import { RecordTrash } from '~/models';
+import { RecordTrash, ViewTrash } from '~/models';
 
 export type RecordTrashCleanupResult = {
   deleted: number;
@@ -52,10 +52,27 @@ export class RecordTrashCleanUpProcessor {
   private readonly logger = new Logger(RecordTrashCleanUpProcessor.name);
 
   async job(_job: Job): Promise<RecordTrashCleanupResult> {
-    const result = await cleanExpiredRecordTrash();
+    const cutoff = new Date();
+    const [recordResult, viewResult] = await Promise.all([
+      cleanExpiredRecordTrash(
+        (batchCutoff, limit) =>
+          RecordTrash.deleteExpiredBatch(batchCutoff, limit),
+        { cutoff },
+      ),
+      cleanExpiredRecordTrash(
+        (batchCutoff, limit) =>
+          ViewTrash.deleteExpiredBatch(batchCutoff, limit),
+        { cutoff },
+      ),
+    ]);
+    const result = {
+      deleted: recordResult.deleted + viewResult.deleted,
+      processed: recordResult.processed + viewResult.processed,
+      limitReached: recordResult.limitReached || viewResult.limitReached,
+    };
     if (result.deleted || result.limitReached) {
       this.logger.log(
-        `Deleted ${result.deleted} expired record trash snapshots${
+        `Deleted ${result.deleted} expired trash snapshots${
           result.limitReached ? '; per-run limit reached' : ''
         }`,
       );

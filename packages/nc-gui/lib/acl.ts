@@ -49,6 +49,7 @@ const rolePermissions = {
   [ProjectRoles.OWNER]: {
     include: {
       baseDelete: true,
+      baseTrashEmpty: true,
       manageSnapshot: true,
       migrateBase: true,
     },
@@ -87,6 +88,7 @@ const rolePermissions = {
       baseDuplicate: true,
       sourceCreate: true,
       baseAuditList: true,
+      baseTrashRestoreStructure: true,
 
       // Row colouring
       rowColourUpdate: true,
@@ -103,6 +105,8 @@ const rolePermissions = {
       dataInsert: true,
       dataEdit: true,
       dataDelete: true,
+      baseTrashList: true,
+      baseTrashRestoreRecords: true,
       sortSync: true,
       filterSync: true,
       filterChildrenRead: true,

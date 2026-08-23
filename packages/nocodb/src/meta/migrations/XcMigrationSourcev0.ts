@@ -9,6 +9,7 @@ import * as nc_008_gantt_view from './v0/nc_008_gantt_view';
 import * as nc_009_gantt_dependencies from './v0/nc_009_gantt_dependencies';
 import * as nc_010_record_trash from './v0/nc_010_record_trash';
 import * as nc_011_base_trash_entries from './v0/nc_011_base_trash_entries';
+import * as nc_012_view_trash from './v0/nc_012_view_trash';
 
 // Create a custom migration source class
 export default class XcMigrationSourcev0 {
@@ -29,6 +30,7 @@ export default class XcMigrationSourcev0 {
       'nc_009_gantt_dependencies',
       'nc_010_record_trash',
       'nc_011_base_trash_entries',
+      'nc_012_view_trash',
     ]);
   }
 
@@ -60,6 +62,8 @@ export default class XcMigrationSourcev0 {
         return nc_010_record_trash;
       case 'nc_011_base_trash_entries':
         return nc_011_base_trash_entries;
+      case 'nc_012_view_trash':
+        return nc_012_view_trash;
     }
   }
 }
