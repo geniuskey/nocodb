@@ -25,6 +25,7 @@ const emits = defineEmits(['update:visible'])
 const dialogVisible = useVModel(props, 'visible', emits)
 const { $api } = useNuxtApp()
 const viewsStore = useViewsStore()
+const { loadTables } = useBase()
 const { refreshCommandPalette } = useCommandPalette()
 
 const entries = ref<BaseTrashItem[]>([])
@@ -81,7 +82,11 @@ type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>
 const performRestore = async (entry: BaseTrashItem, mode: RestoreMode) => {
   const response = await $api.dbBaseTrash.restore(props.baseId, entry.id!, { mode })
   conflictState.value = undefined
-  if (entry.resource_type === 'view') {
+  if (entry.resource_type === 'table') {
+    await loadTables()
+    refreshCommandPalette()
+    message.success(`Table “${entry.resource_name || 'Untitled'}” restored`)
+  } else if (entry.resource_type === 'view') {
     const tableId = response.parent_id || entry.parent_id
     if (tableId) {
       await viewsStore.loadViews({ tableId, force: true, ignoreLoading: true })
@@ -175,7 +180,7 @@ watch(
         <div class="min-w-0">
           <div class="truncate text-lg font-semibold text-nc-content-gray-emphasis">Base Trash</div>
           <div class="text-xs font-normal text-nc-content-gray-muted">
-            Deleted records and views remain available for 30 days.
+            Deleted records, views, and tables remain available for 30 days.
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -235,7 +240,7 @@ watch(
         >
           <MdiHistory class="h-8 w-8" />
           <div class="font-medium text-nc-content-gray-subtle">Base Trash is empty</div>
-          <div class="text-xs">Deleted records and views will appear here.</div>
+          <div class="text-xs">Deleted records, views, and tables will appear here.</div>
         </div>
         <div v-else class="divide-y divide-nc-border-gray-medium">
           <div
@@ -251,7 +256,13 @@ watch(
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-nc-content-gray-emphasis">
-                  {{ entry.resource_type === 'view' ? 'View' : `${entry.record_count} records` }}
+                  {{
+                    entry.resource_type === 'view'
+                      ? 'View'
+                      : entry.resource_type === 'table'
+                      ? 'Table'
+                      : `${entry.record_count} records`
+                  }}
                 </span>
                 <span class="truncate text-sm text-nc-content-gray-subtle">{{ entry.resource_name }}</span>
                 <span v-if="isExpired(entry)" class="rounded bg-nc-bg-red-light px-1.5 py-0.5 text-xs text-nc-content-red-medium">

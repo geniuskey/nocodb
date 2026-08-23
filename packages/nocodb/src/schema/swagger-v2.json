@@ -3846,6 +3846,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-token"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Move the table to Base Trash instead of permanently deleting it",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       }

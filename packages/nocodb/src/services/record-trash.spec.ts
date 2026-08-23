@@ -17,6 +17,7 @@ import { MetaTable } from '~/utils/globals';
 import { cleanExpiredRecordTrash } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
 import { up as addBaseTrashEntries } from '~/meta/migrations/v0/nc_011_base_trash_entries';
 import { up as addRecordTrashFieldMap } from '~/meta/migrations/v0/nc_013_record_trash_field_map';
+import { up as addTableTrash } from '~/meta/migrations/v0/nc_014_table_trash';
 import { RecordTrashService } from '~/services/record-trash.service';
 
 describe('Record trash snapshots', () => {
@@ -160,7 +161,7 @@ describe('Record trash conflict analysis', () => {
       readByPk: jest.fn(async () => null),
       dbDriver: jest.fn(() => ({ select })),
     };
-    const service = new RecordTrashService({} as never);
+    const service = new RecordTrashService({} as never, {} as never);
 
     const result = await (
       service as unknown as {
@@ -344,6 +345,12 @@ describe('Record trash expiry cleanup', () => {
       {
         base_id: 'base-a',
         fk_workspace_id: 'workspace-a',
+        id: 'table-entry',
+        resource_type: 'table',
+      },
+      {
+        base_id: 'base-a',
+        fk_workspace_id: 'workspace-a',
         id: 'live-entry',
         resource_type: 'records',
       },
@@ -369,14 +376,23 @@ describe('Record trash expiry cleanup', () => {
     );
     await BaseTrashEntry.deleteIfEmpty(
       { workspace_id: 'workspace-a', base_id: 'base-a' },
+      'table-entry',
+      ncMeta,
+    );
+    await BaseTrashEntry.deleteIfEmpty(
+      { workspace_id: 'workspace-a', base_id: 'base-a' },
       'live-entry',
       ncMeta,
     );
 
     await expect(
-      db(MetaTable.BASE_TRASH).select('base_id', 'id').orderBy('base_id'),
+      db(MetaTable.BASE_TRASH)
+        .select('base_id', 'id')
+        .orderBy('base_id')
+        .orderBy('id'),
     ).resolves.toEqual([
       { base_id: 'base-a', id: 'live-entry' },
+      { base_id: 'base-a', id: 'table-entry' },
       { base_id: 'base-b', id: 'empty-entry' },
     ]);
   });
@@ -481,6 +497,48 @@ describe('Record trash field identity migration', () => {
       ).resolves.toEqual({
         row_data: JSON.stringify({ Title: 'kept' }),
         field_map: null,
+      });
+    } finally {
+      await db.destroy();
+    }
+  });
+});
+
+describe('Table trash migration', () => {
+  it('adds optional storage metadata without rewriting existing entries', async () => {
+    const db = knex({
+      client: 'sqlite3',
+      connection: { filename: ':memory:' },
+      useNullAsDefault: true,
+    });
+    try {
+      await db.schema.createTable(MetaTable.BASE_TRASH, (table) => {
+        table.string('id').primary();
+        table.string('resource_type').notNullable();
+        table.timestamp('expires_at').notNullable();
+      });
+      await db(MetaTable.BASE_TRASH).insert({
+        id: 'record-entry',
+        resource_type: 'records',
+        expires_at: '2026-09-01T00:00:00.000Z',
+      });
+
+      await addTableTrash(db);
+
+      expect(
+        await db.schema.hasColumn(MetaTable.BASE_TRASH, 'storage_name'),
+      ).toBe(true);
+      expect(
+        await db.schema.hasColumn(MetaTable.BASE_TRASH, 'original_type'),
+      ).toBe(true);
+      await expect(
+        db(MetaTable.BASE_TRASH)
+          .where('id', 'record-entry')
+          .first('resource_type', 'storage_name', 'original_type'),
+      ).resolves.toEqual({
+        resource_type: 'records',
+        storage_name: null,
+        original_type: null,
       });
     } finally {
       await db.destroy();

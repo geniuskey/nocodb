@@ -35,6 +35,51 @@ test('Community image preserves login, schema, and records across restart', asyn
   expect(tablesResponse.ok(), JSON.stringify(tables)).toBeTruthy();
   const tasksTableMeta = tables.list.find((table: { title?: string }) => table.title === 'Tasks');
   expect(tasksTableMeta?.id).toEqual(expect.any(String));
+  expect(tables.list.find((table: { title?: string }) => table.title === 'Structural trash fixture')).toBeUndefined();
+
+  const baseTrashResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const baseTrash = await baseTrashResponse.json();
+  expect(baseTrashResponse.ok(), JSON.stringify(baseTrash)).toBeTruthy();
+  const structuralTrashEntry = baseTrash.list.find(
+    (entry: { resource_type?: string; resource_name?: string }) =>
+      entry.resource_type === 'table' && entry.resource_name === 'Structural trash fixture'
+  );
+  expect(structuralTrashEntry).toEqual(
+    expect.objectContaining({ id: expect.any(String), resource_id: expect.any(String) })
+  );
+  const restoreStructuralTableResponse = await page.request.post(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/trash/${structuralTrashEntry.id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(restoreStructuralTableResponse.ok(), await restoreStructuralTableResponse.text()).toBeTruthy();
+  expect(await restoreStructuralTableResponse.json()).toEqual({
+    restored: 1,
+    resource_type: 'table',
+    resource_id: structuralTrashEntry.resource_id,
+  });
+  const restoredStructuralRecordsResponse = await page.request.get(
+    `/api/v2/tables/${structuralTrashEntry.resource_id}/records?limit=10`,
+    { headers: sessionHeaders }
+  );
+  const restoredStructuralRecords = await restoredStructuralRecordsResponse.json();
+  expect(restoredStructuralRecordsResponse.ok(), JSON.stringify(restoredStructuralRecords)).toBeTruthy();
+  expect(restoredStructuralRecords.list).toEqual([expect.objectContaining({ Title: 'Table data survives Trash' })]);
+  const restoredStructuralViewsResponse = await page.request.get(
+    `/api/v2/meta/tables/${structuralTrashEntry.resource_id}/views`,
+    { headers: sessionHeaders }
+  );
+  const restoredStructuralViews = await restoredStructuralViewsResponse.json();
+  expect(restoredStructuralViewsResponse.ok(), JSON.stringify(restoredStructuralViews)).toBeTruthy();
+  expect(restoredStructuralViews.list).toEqual([
+    expect.objectContaining({ id: expect.any(String), type: ViewTypes.GRID }),
+  ]);
+  const deleteRestoredStructuralTableResponse = await page.request.delete(
+    `/api/v2/meta/tables/${structuralTrashEntry.resource_id}`,
+    { headers: sessionHeaders }
+  );
+  expect(deleteRestoredStructuralTableResponse.ok(), await deleteRestoredStructuralTableResponse.text()).toBeTruthy();
 
   const persistedTrashResponse = await page.request.get(`/api/v2/tables/${tasksTableMeta.id}/trash`, {
     headers: sessionHeaders,

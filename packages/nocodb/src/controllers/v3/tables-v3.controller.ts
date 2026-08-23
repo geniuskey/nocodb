@@ -109,12 +109,14 @@ export class TablesV3Controller {
   async tableDelete(
     @TenantContext() context: NcContext,
     @Param('tableId') tableId: string,
+    @Query('trash') trash: string,
     @Request() req,
   ) {
     const result = await this.tablesV3Service.tableDelete(context, {
       tableId,
       user: (req as any).user,
       req,
+      trash: trash === 'true',
     });
 
     return result;

@@ -35,6 +35,7 @@ const expectedMigrations = [
   'nc_011_base_trash_entries',
   'nc_012_view_trash',
   'nc_013_record_trash_field_map',
+  'nc_014_table_trash',
 ];
 
 class HistoricalV0MigrationSource {
@@ -219,6 +220,15 @@ async function verify(connection: Knex, sourceTag: string) {
     fail(
       `expected migrated column ${MetaTable.RECORD_TRASH}.fk_trash_entry_id is absent.`,
     );
+  }
+
+  const baseTrashColumns = await connection(MetaTable.BASE_TRASH).columnInfo();
+  for (const column of ['storage_name', 'original_type']) {
+    if (!baseTrashColumns[column]) {
+      fail(
+        `expected migrated column ${MetaTable.BASE_TRASH}.${column} is absent.`,
+      );
+    }
   }
 
   const orderColumn = await connection(

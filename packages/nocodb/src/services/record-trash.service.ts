@@ -38,6 +38,7 @@ import { PagedResponseImpl } from '~/helpers/PagedResponse';
 import { DataTableService } from '~/services/data-table.service';
 import { BaseModelDelete } from '~/db/BaseModelSqlv2/delete';
 import { processConcurrently } from '~/utils';
+import { TablesService } from '~/services/tables.service';
 
 type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>;
 
@@ -63,7 +64,10 @@ type ConflictAnalysis = {
 export class RecordTrashService {
   private readonly logger = new Logger(RecordTrashService.name);
 
-  constructor(private readonly dataTableService: DataTableService) {}
+  constructor(
+    private readonly dataTableService: DataTableService,
+    private readonly tablesService: TablesService,
+  ) {}
 
   private validateBatch(context: NcContext, values: unknown[], label: string) {
     if (!Array.isArray(values) || values.length === 0) {
@@ -371,6 +375,9 @@ export class RecordTrashService {
     ]);
     const list = await Promise.all(
       entries.map(async (entry) => {
+        if (entry.resource_type === 'table') {
+          return { ...entry, record_count: 0, records: [] };
+        }
         if (entry.resource_type === 'view') {
           const viewTrash = await ViewTrash.getByEntryId(context, entry.id);
           return {
@@ -867,6 +874,25 @@ export class RecordTrashService {
         parent_id: restoredView.fk_model_id,
       };
     }
+    if (entry.resource_type === 'table') {
+      const roles = param.req.user?.base_roles ?? {};
+      if (!roles[ProjectRoles.OWNER] && !roles[ProjectRoles.CREATOR]) {
+        NcError.forbidden('Only base owners and creators can restore tables');
+      }
+      const restoredTable = await this.tablesService.restoreTableTrash(
+        context,
+        {
+          entry,
+          user: param.req.user,
+          req: param.req,
+        },
+      );
+      return {
+        restored: 1,
+        resource_type: 'table' as const,
+        resource_id: restoredTable.id,
+      };
+    }
     if (entry.resource_type !== 'records') {
       NcError.get(context).unprocessableEntity(
         `Restore is not supported for ${entry.resource_type}`,
@@ -919,6 +945,8 @@ export class RecordTrashService {
   }
 
   async emptyBaseTrash(context: NcContext) {
-    return BaseTrashEntry.empty(context);
+    const tableDeleted = await this.tablesService.emptyTableTrash(context);
+    const result = await BaseTrashEntry.empty(context);
+    return { deleted: result.deleted + tableDeleted };
   }
 }

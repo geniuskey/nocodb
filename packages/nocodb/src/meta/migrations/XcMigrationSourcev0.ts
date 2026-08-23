@@ -11,6 +11,7 @@ import * as nc_010_record_trash from './v0/nc_010_record_trash';
 import * as nc_011_base_trash_entries from './v0/nc_011_base_trash_entries';
 import * as nc_012_view_trash from './v0/nc_012_view_trash';
 import * as nc_013_record_trash_field_map from './v0/nc_013_record_trash_field_map';
+import * as nc_014_table_trash from './v0/nc_014_table_trash';
 
 // Create a custom migration source class
 export default class XcMigrationSourcev0 {
@@ -33,6 +34,7 @@ export default class XcMigrationSourcev0 {
       'nc_011_base_trash_entries',
       'nc_012_view_trash',
       'nc_013_record_trash_field_map',
+      'nc_014_table_trash',
     ]);
   }
 
@@ -68,6 +70,8 @@ export default class XcMigrationSourcev0 {
         return nc_012_view_trash;
       case 'nc_013_record_trash_field_map':
         return nc_013_record_trash_field_map;
+      case 'nc_014_table_trash':
+        return nc_014_table_trash;
     }
   }
 }

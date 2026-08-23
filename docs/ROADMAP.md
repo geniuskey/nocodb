@@ -220,7 +220,13 @@ identity after field renames, drops values for fields deleted in the interim,
 and provides read-only primary-key, unique-value, and current-format conflict
 analysis. Compatible strict restore plus partial clean and force-with-null
 resolution modes are available through both table/Base APIs and GUIs.
-Structural table/field trash remains before Phase 5 is complete.
+Structural table Trash now preserves ordinary relation-free physical tables by
+renaming their storage, retaining rows and complete model/view/field metadata,
+and exposing restore, permanent deletion, empty-Trash, expiry, GUI, restart,
+and cross-database lifecycle coverage. The compatible table-delete API remains
+permanent unless `trash=true`; schema-read-only, synced, junction, relational,
+and database-view cases are rejected in this first structural slice. Structural
+field Trash remains before Phase 5 is complete.
 
 ## Phase 6 — Snapshot
 
