@@ -1,9 +1,9 @@
 # Base Trash and Restore
 
-Phase 5 begins with recoverable record and view deletion. Existing record
-deletion routes keep their original permanent-delete behavior unless callers
-explicitly opt in, so this addition does not silently change API compatibility
-for existing clients.
+Phase 5 provides recoverable record, view, and physical-table deletion.
+Existing record and table deletion routes keep their original permanent-delete
+behavior unless callers explicitly opt in, so this addition does not silently
+change API compatibility for existing clients.
 
 ## Foundation contract
 
@@ -41,9 +41,9 @@ The ACL boundary intentionally reuses existing table-data permissions:
 
 The independently defined Base Trash API provides a single base-scoped index:
 
-- `GET /api/v2/meta/bases/{baseId}/trash?limit=25&offset=0` returns deletion
-  entries newest first. Each record entry includes its table ID and saved name,
-  total record count, and at most eight record previews.
+- `GET /api/v2/meta/bases/{baseId}/trash?limit=25&offset=0` returns record,
+  view, and table deletion entries newest first. Each record entry includes its
+  table ID and saved name, total record count, and at most eight previews.
 - `POST /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore` restores all
   remaining records in that operation in bounded batches, or restores the
   deleted view represented by the entry.
@@ -51,7 +51,8 @@ The independently defined Base Trash API provides a single base-scoped index:
   bounded, non-mutating preflight for a grouped record entry and returns at
   most the first 100 conflict details with complete summary counts.
 - `DELETE /api/v2/meta/bases/{baseId}/trash` permanently empties the base's
-  record and view Trash in one metadata transaction.
+  record, view, and table Trash. Physical table drops happen before the
+  corresponding metadata transaction.
 
 Editors, creators, and owners can list and restore record entries. Emptying the
 whole base Trash is owner-only. A data-read-only source may be listed but not
@@ -72,6 +73,37 @@ schema-read-only, or a referenced field was deleted while the view was in
 Trash. This avoids returning a partially configured view. Deleting the parent
 table permanently also removes its orphaned view snapshots. Empty Trash and the
 hourly bounded expiry job permanently remove both record and view snapshots.
+
+## Structural table Trash
+
+The Community table-delete dialog opts into structural Trash with `DELETE
+/api/v2/meta/tables/{tableId}?trash=true`. The compatible default remains a
+permanent delete. A recoverable delete renames the physical table to a reserved
+`nc_trash_<model-id>` name, marks its existing model metadata inactive, and
+adds a 30-day Base Trash entry. Rows, fields, views, hooks, and stable metadata
+identifiers remain in place. Normal table list/get/data paths exclude inactive
+models.
+
+Owners and creators can restore a table through the Base Trash API or dialog.
+Restore renames the physical table to its original name and reactivates the
+same metadata. It is rejected if an active table has reused the logical title
+or if another model reserves the original physical name. Physical names remain
+reserved while a table is in Trash because database engines may keep
+schema-wide index names when a table is renamed; callers may reuse the logical
+title with a different physical name.
+
+This first structural slice accepts ordinary physical tables with no incoming
+or outgoing relation fields. It rejects database views, many-to-many junctions,
+synced tables, schema-read-only sources, and tables participating in relations.
+This conservative boundary avoids partial graph recovery. A source cannot be
+detached while it owns trashed tables; restore or permanently delete those
+entries first.
+
+Permanent deletion drops the reserved physical table before removing the
+preserved metadata. Empty Trash and automatic expiry use the same path. The
+metadata and connected database cannot share a distributed transaction, so an
+unexpected metadata failure after a successful physical drop can leave an
+unrestorable entry that an operator must permanently remove after inspection.
 
 Pre-existing record snapshots are migrated to one-entry groups, so an upgrade
 does not discard restorable data. New multi-record requests and filtered
@@ -122,8 +154,8 @@ The primary application schedules the repeatable job. With Redis workers, Bull
 deduplicates the fixed job identifier and a worker consumes it; without Redis,
 the in-process fallback queue uses the same cron expression. Set
 `NC_RECORD_TRASH_CLEANUP_DISABLED=true` before startup only when an operator
-needs to suspend automatic permanent deletion. Expired snapshots remain
-non-restorable while cleanup is disabled.
+needs to suspend automatic permanent deletion. Expired snapshots and
+structural table entries remain non-restorable while cleanup is disabled.
 
 ## Compatible delete opt-in
 
@@ -204,7 +236,7 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Structural table/field trash remains a
+Expired snapshots are not restorable. Structural field Trash remains a
 subsequent Phase 5 slice.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
@@ -244,4 +276,7 @@ curl -X POST "$NC_URL/api/v2/meta/bases/$BASE_ID/trash/$TRASH_ENTRY_ID/restore" 
   -H "xc-token: $NC_TOKEN" \
   -H "content-type: application/json" \
   --data '{"mode":"clean"}'
+
+curl -X DELETE "$NC_URL/api/v2/meta/tables/$TABLE_ID?trash=true" \
+  -H "xc-token: $NC_TOKEN"
 ```

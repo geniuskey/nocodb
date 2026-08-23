@@ -57,6 +57,10 @@
         {
           "name": "nc_013_record_trash_field_map",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_013_record_trash_field_map.ts"
+        },
+        {
+          "name": "nc_014_table_trash",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_014_table_trash.ts"
         }
       ]
     },
@@ -532,6 +536,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_013_record_trash_field_map.ts",
       "sha256": "a141ed0ce2158c75727453f107b80fa4eb55399a2ba622a439760b572dfc875a"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_014_table_trash.ts",
+      "sha256": "1a35c77071944b8785c4272343fa4d435e435569ed2b7ae29a0f537a3068e0fc"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

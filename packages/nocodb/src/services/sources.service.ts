@@ -11,7 +11,7 @@ import { AppHooksService } from '~/services/app-hooks/app-hooks.service';
 import { populateMeta, validatePayload } from '~/helpers';
 import { populateRollupColumnAndHideLTAR } from '~/helpers/populateMeta';
 import { syncBaseMigration } from '~/helpers/syncMigration';
-import { Base, Integration, Source } from '~/models';
+import { Base, BaseTrashEntry, Integration, Source } from '~/models';
 import { NcError } from '~/helpers/catchError';
 import Noco from '~/Noco';
 import NocoSocket from '~/socket/NocoSocket';
@@ -104,6 +104,17 @@ export class SourcesService {
         context,
         source.fk_integration_id,
       );
+      const structuralTrash = await BaseTrashEntry.listByType(
+        context,
+        'table',
+        { limit: 1, sourceId: source.id },
+        ncMeta,
+      );
+      if (structuralTrash.length) {
+        NcError.get(context).badRequest(
+          'Restore or permanently delete trashed tables before deleting this source',
+        );
+      }
       await source.delete(context, ncMeta);
       this.appHooksService.emit(AppEvents.SOURCE_DELETE, {
         source: {

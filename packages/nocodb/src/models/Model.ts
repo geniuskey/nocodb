@@ -47,7 +47,7 @@ import { NcCache } from '~/decorators/nc-cache.decorator';
 
 const logger = new Logger('Model');
 
-const modelOrViewXcCondition = {
+const modelTypeXcCondition = {
   _or: [
     {
       type: {
@@ -58,6 +58,15 @@ const modelOrViewXcCondition = {
       type: {
         eq: ModelTypes.VIEW,
       },
+    },
+  ],
+};
+
+const modelOrViewXcCondition = {
+  _and: [
+    modelTypeXcCondition,
+    {
+      _or: [{ deleted: { eq: false } }, { deleted: { eq: null } }],
     },
   ],
 };
@@ -460,6 +469,59 @@ export default class Model implements TableType {
     return this.castType(modelData);
   }
 
+  /**
+   * Reads a model without applying the active-model filter. This is reserved
+   * for structural Trash lifecycle operations; normal callers must use get().
+   */
+  public static async getIncludingDeleted(
+    context: NcContext,
+    id: string,
+    ncMeta = Noco.ncMeta,
+  ): Promise<Model> {
+    const modelData = await ncMeta.metaGet2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.MODELS,
+      id,
+      undefined,
+      modelTypeXcCondition,
+    );
+    if (modelData) modelData.meta = parseMetaProp(modelData);
+    return this.castType(modelData);
+  }
+
+  public static async setDeleted(
+    context: NcContext,
+    model: Model,
+    deleted: boolean,
+    ncMeta = Noco.ncMeta,
+  ): Promise<void> {
+    await ncMeta.metaUpdate(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.MODELS,
+      { deleted },
+      model.id,
+      modelTypeXcCondition,
+    );
+
+    await Promise.all([
+      NocoCache.deepDel(
+        context,
+        `${CacheScope.MODEL}:${model.id}`,
+        CacheDelDirection.CHILD_TO_PARENT,
+      ),
+      NocoCache.del(context, [
+        `${CacheScope.MODEL_ALIAS}:${model.base_id}:${model.id}`,
+        `${CacheScope.MODEL_ALIAS}:${model.base_id}:${model.source_id}:${model.id}`,
+        `${CacheScope.MODEL_ALIAS}:${model.base_id}:${model.title}`,
+        `${CacheScope.MODEL_ALIAS}:${model.base_id}:${model.source_id}:${model.title}`,
+      ]),
+    ]);
+    cleanCommandPaletteCache(context.workspace_id).catch(() => undefined);
+    cleanBaseSchemaCacheForBase(context.base_id).catch(() => undefined);
+  }
+
   @NcCache({
     key: (args) =>
       `${
@@ -544,20 +606,7 @@ export default class Model implements TableType {
           table_name,
         },
         undefined,
-        {
-          _or: [
-            {
-              type: {
-                eq: ModelTypes.TABLE,
-              },
-            },
-            {
-              type: {
-                eq: ModelTypes.VIEW,
-              },
-            },
-          ],
-        },
+        modelOrViewXcCondition,
       );
       if (modelData) {
         modelData.meta = parseMetaProp(modelData);
@@ -1244,7 +1293,14 @@ export default class Model implements TableType {
       table_name,
       source_id,
       exclude_id,
-    }: { table_name; base_id; source_id; exclude_id? },
+      includeDeleted,
+    }: {
+      table_name;
+      base_id;
+      source_id;
+      exclude_id?;
+      includeDeleted?: boolean;
+    },
     ncMeta = Noco.ncMeta,
   ) {
     return !(await ncMeta.metaGet2(
@@ -1259,7 +1315,7 @@ export default class Model implements TableType {
       {
         _and: [
           {
-            ...modelOrViewXcCondition,
+            ...(includeDeleted ? modelTypeXcCondition : modelOrViewXcCondition),
             ...(exclude_id
               ? {
                   id: {

@@ -5,6 +5,7 @@ import {
   RECORD_TRASH_CLEANUP_MAX_RECORDS,
 } from '~/helpers/recordTrash';
 import { RecordTrash, ViewTrash } from '~/models';
+import { TablesService } from '~/services/tables.service';
 
 export type RecordTrashCleanupResult = {
   deleted: number;
@@ -51,9 +52,11 @@ export async function cleanExpiredRecordTrash(
 export class RecordTrashCleanUpProcessor {
   private readonly logger = new Logger(RecordTrashCleanUpProcessor.name);
 
+  constructor(private readonly tablesService: TablesService) {}
+
   async job(_job: Job): Promise<RecordTrashCleanupResult> {
     const cutoff = new Date();
-    const [recordResult, viewResult] = await Promise.all([
+    const [recordResult, viewResult, tableResult] = await Promise.all([
       cleanExpiredRecordTrash(
         (batchCutoff, limit) =>
           RecordTrash.deleteExpiredBatch(batchCutoff, limit),
@@ -64,11 +67,20 @@ export class RecordTrashCleanUpProcessor {
           ViewTrash.deleteExpiredBatch(batchCutoff, limit),
         { cutoff },
       ),
+      cleanExpiredRecordTrash(
+        (batchCutoff, limit) =>
+          this.tablesService.cleanExpiredTableTrash(batchCutoff, limit),
+        { cutoff },
+      ),
     ]);
     const result = {
-      deleted: recordResult.deleted + viewResult.deleted,
-      processed: recordResult.processed + viewResult.processed,
-      limitReached: recordResult.limitReached || viewResult.limitReached,
+      deleted: recordResult.deleted + viewResult.deleted + tableResult.deleted,
+      processed:
+        recordResult.processed + viewResult.processed + tableResult.processed,
+      limitReached:
+        recordResult.limitReached ||
+        viewResult.limitReached ||
+        tableResult.limitReached,
     };
     if (result.deleted || result.limitReached) {
       this.logger.log(

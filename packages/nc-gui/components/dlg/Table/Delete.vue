@@ -59,7 +59,7 @@ const onDelete = async () => {
       return
     }
 
-    await $api.dbTable.delete(toBeDeletedTable.id as string)
+    await $api.dbTable.delete(toBeDeletedTable.id as string, { trash: true })
 
     await loadTables()
 

@@ -6,9 +6,11 @@ import { MetaTable } from '~/utils/globals';
 
 export default class BaseTrashEntry {
   id: string;
-  resource_type: 'records' | 'view';
+  resource_type: 'records' | 'view' | 'table';
   resource_id: string;
   resource_name?: string;
+  storage_name?: string;
+  original_type?: string;
   deleted_by?: string;
   deleted_at: string;
   expires_at: string;
@@ -35,6 +37,8 @@ export default class BaseTrashEntry {
       'resource_type',
       'resource_id',
       'resource_name',
+      'storage_name',
+      'original_type',
       'deleted_by',
       'deleted_at',
       'expires_at',
@@ -94,6 +98,57 @@ export default class BaseTrashEntry {
     );
   }
 
+  static async listByType(
+    context: NcContext,
+    resourceType: BaseTrashEntry['resource_type'],
+    args: { limit?: number; offset?: number; sourceId?: string } = {},
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<BaseTrashEntry[]> {
+    const entries = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.BASE_TRASH,
+      {
+        condition: {
+          resource_type: resourceType,
+          ...(args.sourceId ? { source_id: args.sourceId } : {}),
+        },
+        orderBy: { expires_at: 'asc', id: 'asc' },
+        ...(args.limit !== undefined ? { limit: args.limit } : {}),
+        ...(args.offset !== undefined ? { offset: args.offset } : {}),
+      },
+    );
+    return entries.map((entry) => this.fromDb(entry)!);
+  }
+
+  static async listExpiredTables(
+    cutoff: Date,
+    limit: number,
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<BaseTrashEntry[]> {
+    const rows = await ncMeta
+      .knex(MetaTable.BASE_TRASH)
+      .where('resource_type', 'table')
+      .where('expires_at', '<=', ncMeta.formatDateTime(cutoff.toISOString()))
+      .orderBy('expires_at', 'asc')
+      .orderBy('id', 'asc')
+      .limit(limit);
+    return rows.map((entry) => this.fromDb(entry)!);
+  }
+
+  static async delete(
+    context: NcContext,
+    id: string,
+    ncMeta: MetaService = Noco.ncMeta,
+  ): Promise<void> {
+    await ncMeta.metaDelete(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.BASE_TRASH,
+      id,
+    );
+  }
+
   static async deleteIfEmpty(
     context: NcContext,
     id: string,
@@ -102,6 +157,7 @@ export default class BaseTrashEntry {
     const query = ncMeta
       .knex(MetaTable.BASE_TRASH)
       .where('id', id)
+      .whereIn('resource_type', ['records', 'view'])
       .whereNotExists(function () {
         this.select(1)
           .from(MetaTable.RECORD_TRASH)

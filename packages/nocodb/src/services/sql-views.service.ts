@@ -64,6 +64,7 @@ export class SqlViewsService {
         table_name: body.view_name,
         base_id: base.id,
         source_id: source.id,
+        includeDeleted: true,
       }))
     ) {
       NcError.badRequest('Duplicate table name');

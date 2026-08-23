@@ -2195,6 +2195,133 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(trashUiCleanupResponse.ok(), await trashUiCleanupResponse.text()).toBeTruthy();
 
+  const createStructuralTrashTable = (title = 'Structural trash fixture', tableName = title) =>
+    page.request.post(`/api/v2/meta/bases/${createdBaseBody.id}/${createdTableBody.source_id}/tables`, {
+      headers: sessionHeaders,
+      data: {
+        title,
+        table_name: tableName,
+        columns: [
+          { title: 'Id', column_name: 'Id', uidt: UITypes.ID, pk: true, ai: true },
+          { title: 'Title', column_name: 'Title', uidt: UITypes.SingleLineText, pv: true },
+        ],
+      },
+    });
+  const structuralTableResponse = await createStructuralTrashTable();
+  const structuralTable = await structuralTableResponse.json();
+  expect(structuralTableResponse.ok(), JSON.stringify(structuralTable)).toBeTruthy();
+  expect(structuralTable).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      source_id: createdTableBody.source_id,
+      title: 'Structural trash fixture',
+    })
+  );
+  const structuralViewResponse = await page.request.get(`/api/v2/meta/tables/${structuralTable.id}/views`, {
+    headers: sessionHeaders,
+  });
+  const structuralViews = await structuralViewResponse.json();
+  expect(structuralViewResponse.ok(), JSON.stringify(structuralViews)).toBeTruthy();
+  expect(structuralViews.list).toEqual([expect.objectContaining({ id: expect.any(String), type: ViewTypes.GRID })]);
+  const structuralRecordResponse = await page.request.post(`/api/v2/tables/${structuralTable.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Table data survives Trash' },
+  });
+  const structuralRecord = await structuralRecordResponse.json();
+  expect(structuralRecordResponse.ok(), JSON.stringify(structuralRecord)).toBeTruthy();
+
+  const structuralTrashResponse = await page.request.delete(`/api/v2/meta/tables/${structuralTable.id}?trash=true`, {
+    headers: sessionHeaders,
+  });
+  expect(structuralTrashResponse.ok(), await structuralTrashResponse.text()).toBeTruthy();
+  const hiddenStructuralTableResponse = await page.request.get(`/api/v2/meta/tables/${structuralTable.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(hiddenStructuralTableResponse.status()).toBe(404);
+  const structuralBaseTrashResponse = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const structuralBaseTrash = await structuralBaseTrashResponse.json();
+  expect(structuralBaseTrashResponse.ok(), JSON.stringify(structuralBaseTrash)).toBeTruthy();
+  const structuralTrashEntry = structuralBaseTrash.list.find(
+    (entry: { resource_type?: string; resource_id?: string }) =>
+      entry.resource_type === 'table' && entry.resource_id === structuralTable.id
+  );
+  expect(structuralTrashEntry).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      resource_name: 'Structural trash fixture',
+      record_count: 0,
+      records: [],
+    })
+  );
+
+  const replacementStructuralTableResponse = await createStructuralTrashTable(
+    'Structural trash fixture',
+    'Structural trash replacement'
+  );
+  const replacementStructuralTable = await replacementStructuralTableResponse.json();
+  expect(replacementStructuralTableResponse.ok(), JSON.stringify(replacementStructuralTable)).toBeTruthy();
+  const conflictedStructuralRestoreResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${structuralTrashEntry.id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(conflictedStructuralRestoreResponse.status()).toBe(400);
+  const replacementDeleteResponse = await page.request.delete(`/api/v2/meta/tables/${replacementStructuralTable.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(replacementDeleteResponse.ok(), await replacementDeleteResponse.text()).toBeTruthy();
+  const structuralRestoreResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${structuralTrashEntry.id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(structuralRestoreResponse.ok(), await structuralRestoreResponse.text()).toBeTruthy();
+  expect(await structuralRestoreResponse.json()).toEqual({
+    restored: 1,
+    resource_type: 'table',
+    resource_id: structuralTable.id,
+  });
+  const structuralRestoredRecordsResponse = await page.request.get(
+    `/api/v2/tables/${structuralTable.id}/records?limit=10`,
+    { headers: sessionHeaders }
+  );
+  const structuralRestoredRecords = await structuralRestoredRecordsResponse.json();
+  expect(structuralRestoredRecordsResponse.ok(), JSON.stringify(structuralRestoredRecords)).toBeTruthy();
+  expect(structuralRestoredRecords.list).toEqual([
+    expect.objectContaining({ Id: structuralRecord.Id, Title: 'Table data survives Trash' }),
+  ]);
+
+  const purgeTableResponse = await createStructuralTrashTable('Structural purge fixture');
+  const purgeTable = await purgeTableResponse.json();
+  expect(purgeTableResponse.ok(), JSON.stringify(purgeTable)).toBeTruthy();
+  const trashPurgeTableResponse = await page.request.delete(`/api/v2/meta/tables/${purgeTable.id}?trash=true`, {
+    headers: sessionHeaders,
+  });
+  expect(trashPurgeTableResponse.ok(), await trashPurgeTableResponse.text()).toBeTruthy();
+  const emptyStructuralTrashResponse = await page.request.delete(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const emptyStructuralTrash = await emptyStructuralTrashResponse.json();
+  expect(emptyStructuralTrashResponse.ok(), JSON.stringify(emptyStructuralTrash)).toBeTruthy();
+  expect(emptyStructuralTrash.deleted).toBeGreaterThanOrEqual(1);
+  const purgedTableResponse = await page.request.get(`/api/v2/meta/tables/${purgeTable.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(purgedTableResponse.status()).toBe(404);
+  const recreatePurgedTableResponse = await createStructuralTrashTable('Structural purge fixture');
+  const recreatedPurgeTable = await recreatePurgedTableResponse.json();
+  expect(recreatePurgedTableResponse.ok(), JSON.stringify(recreatedPurgeTable)).toBeTruthy();
+  const recreatedPurgeTableDeleteResponse = await page.request.delete(`/api/v2/meta/tables/${recreatedPurgeTable.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(recreatedPurgeTableDeleteResponse.ok(), await recreatedPurgeTableDeleteResponse.text()).toBeTruthy();
+
+  const retrashStructuralTableResponse = await page.request.delete(
+    `/api/v2/meta/tables/${structuralTable.id}?trash=true`,
+    { headers: sessionHeaders }
+  );
+  expect(retrashStructuralTableResponse.ok(), await retrashStructuralTableResponse.text()).toBeTruthy();
+
   const restartTrashRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
     data: { Title: 'Trash survives restart', Status: 'Blocked' },

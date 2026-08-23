@@ -29,7 +29,13 @@ import type { LinkToAnotherRecordColumn, User, View } from '~/models';
 import type { NcContext, NcRequest } from '~/interface/config';
 import { repopulateCreateTableSystemColumns } from '~/helpers/tableHelpers';
 import { ColumnWebhookManagerBuilder } from '~/utils/column-webhook-manager';
-import { Base, Column, Model, ModelRoleVisibility } from '~/models';
+import {
+  Base,
+  BaseTrashEntry,
+  Column,
+  Model,
+  ModelRoleVisibility,
+} from '~/models';
 import { AppHooksService } from '~/services/app-hooks/app-hooks.service';
 import ProjectMgrv2 from '~/db/sql-mgr/v2/ProjectMgrv2';
 import { NcError } from '~/helpers/catchError';
@@ -42,6 +48,7 @@ import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { sanitizeColumnName, validatePayload } from '~/helpers';
 import { MetaTable } from '~/utils/globals';
 import NocoSocket from '~/socket/NocoSocket';
+import { trashExpiryFrom } from '~/helpers/recordTrash';
 
 @Injectable()
 export class TablesService {
@@ -158,6 +165,7 @@ export class TablesService {
         table_name: param.table.table_name,
         base_id: base.id,
         source_id: source.id,
+        includeDeleted: true,
       }))
     ) {
       NcError.get(context).duplicateAlias({
@@ -288,6 +296,7 @@ export class TablesService {
       user: User;
       forceDeleteRelations?: boolean;
       forceDeleteSyncs?: boolean;
+      trash?: boolean;
       req?: any;
     },
   ) {
@@ -300,6 +309,14 @@ export class TablesService {
     }
 
     await table.getColumns(context);
+
+    if (param.trash) {
+      return this.tableTrash(context, {
+        table,
+        user: param.user,
+        req: param.req,
+      });
+    }
 
     if (table.mm) {
       const columns = await table.getColumns(context);
@@ -466,6 +483,306 @@ export class TablesService {
     }
 
     return result;
+  }
+
+  private async tableTrash(
+    context: NcContext,
+    param: { table: Model; user: User; req?: NcRequest },
+  ) {
+    const { table } = param;
+    if (table.type !== ModelTypes.TABLE) {
+      NcError.get(context).badRequest(
+        'Only physical tables can be moved to structural Trash',
+      );
+    }
+    if (table.mm) {
+      NcError.get(context).badRequest(
+        'Many-to-many junction tables cannot be moved to structural Trash',
+      );
+    }
+    if (table.columns.some((column) => isLinksOrLTAR(column))) {
+      NcError.get(context).badRequest(
+        'Remove relation fields before moving this table to Trash',
+      );
+    }
+
+    const incomingRelations = Noco.ncMeta
+      .knex(MetaTable.COL_RELATIONS)
+      .where((builder) =>
+        builder
+          .where('fk_related_model_id', table.id)
+          .orWhere('fk_mm_model_id', table.id),
+      );
+    Noco.ncMeta.contextCondition(
+      incomingRelations,
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COL_RELATIONS,
+    );
+    if ((await incomingRelations.first()) !== undefined) {
+      NcError.get(context).badRequest(
+        'Remove fields in other tables that reference this table before moving it to Trash',
+      );
+    }
+
+    const base = await Base.getWithInfo(context, table.base_id);
+    const source = base.sources.find(
+      (candidate) => candidate.id === table.source_id,
+    );
+    if (!source)
+      NcError.get(context).badRequest('Table source no longer exists');
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+
+    const deletedAt = new Date();
+    const storageName = `nc_trash_${table.id}`;
+    const entry = await BaseTrashEntry.create(context, {
+      resource_type: 'table',
+      resource_id: table.id,
+      resource_name: table.title,
+      storage_name: storageName,
+      original_type: table.type,
+      deleted_by: param.user?.id,
+      deleted_at: deletedAt.toISOString(),
+      expires_at: trashExpiryFrom(deletedAt).toISOString(),
+      source_id: table.source_id,
+    });
+
+    const sqlMgr = await ProjectMgrv2.getSqlMgr(context, base);
+    let renamed = false;
+    try {
+      await sqlMgr.sqlOpPlus(source, 'tableRename', {
+        tn: storageName,
+        tn_old: table.table_name,
+        schema: source.getConfig()?.schema,
+      });
+      renamed = true;
+      await Model.setDeleted(context, table, true);
+    } catch (error) {
+      if (renamed) {
+        try {
+          await sqlMgr.sqlOpPlus(source, 'tableRename', {
+            tn: table.table_name,
+            tn_old: storageName,
+            schema: source.getConfig()?.schema,
+          });
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to roll back structural Trash rename',
+            rollbackError,
+          );
+        }
+      }
+      await BaseTrashEntry.delete(context, entry.id);
+      throw error;
+    }
+
+    this.appHooksService.emit(AppEvents.TABLE_DELETE, {
+      table,
+      user: param.user,
+      req: param.req,
+      context,
+    });
+    NocoSocket.broadcastEvent(
+      context,
+      {
+        event: EventType.META_EVENT,
+        payload: { action: 'table_delete', payload: table },
+      },
+      context.socket_id,
+    );
+    return true;
+  }
+
+  async restoreTableTrash(
+    context: NcContext,
+    param: { entry: BaseTrashEntry; user: User; req?: NcRequest },
+  ) {
+    const { entry } = param;
+    if (entry.resource_type !== 'table' || !entry.storage_name) {
+      NcError.get(context).badRequest('Unsupported table Trash entry');
+    }
+    const table = await Model.getIncludingDeleted(context, entry.resource_id);
+    if (!table || !table.deleted) {
+      NcError.get(context).badRequest(
+        'Trashed table metadata no longer exists',
+      );
+    }
+    if (
+      entry.original_type !== ModelTypes.TABLE ||
+      table.type !== ModelTypes.TABLE
+    ) {
+      NcError.get(context).badRequest('Unsupported trashed table type');
+    }
+    if (
+      !(await Model.checkAliasAvailable(context, {
+        title: table.title,
+        base_id: table.base_id,
+        source_id: table.source_id,
+        exclude_id: table.id,
+      }))
+    ) {
+      NcError.get(context).badRequest(
+        `A table named "${table.title}" already exists`,
+      );
+    }
+    if (
+      !(await Model.checkTitleAvailable(context, {
+        table_name: table.table_name,
+        base_id: table.base_id,
+        source_id: table.source_id,
+        exclude_id: table.id,
+        includeDeleted: true,
+      }))
+    ) {
+      NcError.get(context).badRequest(
+        `A physical table named "${table.table_name}" already exists`,
+      );
+    }
+
+    const base = await Base.getWithInfo(context, table.base_id);
+    const source = base.sources.find(
+      (candidate) => candidate.id === table.source_id,
+    );
+    if (!source)
+      NcError.get(context).badRequest('Table source no longer exists');
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+    const sqlMgr = await ProjectMgrv2.getSqlMgr(context, base);
+    let renamed = false;
+    let activated = false;
+    try {
+      await sqlMgr.sqlOpPlus(source, 'tableRename', {
+        tn: table.table_name,
+        tn_old: entry.storage_name,
+        schema: source.getConfig()?.schema,
+      });
+      renamed = true;
+      await Model.setDeleted(context, table, false);
+      activated = true;
+      await BaseTrashEntry.delete(context, entry.id);
+    } catch (error) {
+      if (activated) {
+        try {
+          await Model.setDeleted(context, table, true);
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to hide table after restore rollback',
+            rollbackError,
+          );
+        }
+      }
+      if (renamed) {
+        try {
+          await sqlMgr.sqlOpPlus(source, 'tableRename', {
+            tn: entry.storage_name,
+            tn_old: table.table_name,
+            schema: source.getConfig()?.schema,
+          });
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to roll back structural Trash restore',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    }
+
+    const restored = await Model.getWithInfo(context, { id: table.id });
+    this.appHooksService.emit(AppEvents.TABLE_CREATE, {
+      table: restored,
+      source,
+      user: param.user,
+      req: param.req,
+      context,
+    });
+    NocoSocket.broadcastEvent(
+      context,
+      {
+        event: EventType.META_EVENT,
+        payload: { action: 'table_create', payload: restored },
+      },
+      context.socket_id,
+    );
+    return restored;
+  }
+
+  async permanentlyDeleteTableTrash(
+    context: NcContext,
+    entry: BaseTrashEntry,
+  ): Promise<number> {
+    if (entry.resource_type !== 'table' || !entry.storage_name) return 0;
+    const table = await Model.getIncludingDeleted(context, entry.resource_id);
+    if (!table) {
+      await BaseTrashEntry.delete(context, entry.id);
+      return 1;
+    }
+    if (!table.deleted) {
+      NcError.get(context).badRequest('Refusing to purge an active table');
+    }
+    await table.getColumns(context);
+    const base = await Base.getWithInfo(context, table.base_id);
+    const source = base.sources.find(
+      (candidate) => candidate.id === table.source_id,
+    );
+    if (!source)
+      NcError.get(context).badRequest('Table source no longer exists');
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+    const sqlMgr = await ProjectMgrv2.getSqlMgr(context, base);
+    await sqlMgr.sqlOpPlus(source, 'tableDelete', {
+      ...table,
+      tn: entry.storage_name,
+      table_name: entry.storage_name,
+      columns: table.columns.filter((column) => !isVirtualCol(column)),
+    });
+
+    const ncMeta = await (Noco.ncMeta as MetaService).startTransaction();
+    try {
+      await table.delete(context, ncMeta);
+      await BaseTrashEntry.delete(context, entry.id, ncMeta);
+      await ncMeta.commit();
+    } catch (error) {
+      await ncMeta.rollback();
+      throw error;
+    }
+    return 1;
+  }
+
+  async emptyTableTrash(context: NcContext): Promise<number> {
+    let deleted = 0;
+    // Deleting the first bounded page repeatedly avoids offset drift.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const entries = await BaseTrashEntry.listByType(context, 'table', {
+        limit: 100,
+      });
+      if (!entries.length) break;
+      for (const entry of entries) {
+        deleted += await this.permanentlyDeleteTableTrash(context, entry);
+      }
+    }
+    return deleted;
+  }
+
+  async cleanExpiredTableTrash(
+    cutoff: Date,
+    limit: number,
+  ): Promise<{ selected: number; deleted: number }> {
+    const entries = await BaseTrashEntry.listExpiredTables(cutoff, limit);
+    let deleted = 0;
+    for (const entry of entries) {
+      const context = {
+        workspace_id: entry.fk_workspace_id,
+        base_id: entry.base_id,
+      } as NcContext;
+      deleted += await this.permanentlyDeleteTableTrash(context, entry);
+    }
+    return { selected: entries.length, deleted };
   }
 
   async getTableWithAccessibleViews(
@@ -714,6 +1031,7 @@ export class TablesService {
         table_name: tableCreatePayLoad.table_name,
         base_id: base.id,
         source_id: source.id,
+        includeDeleted: true,
       }))
     ) {
       NcError.get(context).duplicateAlias({

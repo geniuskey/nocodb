@@ -75,6 +75,7 @@ export class TablesV3Service {
       tableId: string;
       user: User;
       forceDeleteRelations?: boolean;
+      trash?: boolean;
       req?: any;
     },
   ) {
