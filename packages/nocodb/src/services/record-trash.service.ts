@@ -1,19 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ProjectRoles } from 'nocodb-sdk';
+import { ProjectRoles, UITypes } from 'nocodb-sdk';
 import type {
+  RecordTrashConflictAnalysisType,
+  RecordTrashConflictIssueType,
   RecordTrashCreateReqType,
   RecordTrashIdsReqType,
+  RecordTrashRestoreModeReqType,
+  RecordTrashRestoreReqType,
 } from 'nocodb-sdk';
+import type { BaseModelSqlv2 } from '~/db/BaseModelSqlv2';
 import type { NcContext, NcRequest } from '~/interface/config';
+import type { Column } from '~/models';
 import { validatePayload } from '~/helpers';
+import { validateFuncOnColumn } from '~/helpers/dbHelpers';
 import { NcError } from '~/helpers/catchError';
 import {
   hashTrashRecordId,
+  projectTrashRow,
   RECORD_TRASH_MAX_BATCH_BYTES,
   RECORD_TRASH_MAX_BATCH_SIZE,
   RECORD_TRASH_MAX_RECORD_ID_BYTES,
   RECORD_TRASH_MAX_ROW_BYTES,
   serializedByteLength,
+  snapshotTrashFieldMap,
   snapshotTrashRow,
   trashExpiryFrom,
 } from '~/helpers/recordTrash';
@@ -28,6 +37,27 @@ import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { PagedResponseImpl } from '~/helpers/PagedResponse';
 import { DataTableService } from '~/services/data-table.service';
 import { BaseModelDelete } from '~/db/BaseModelSqlv2/delete';
+import { processConcurrently } from '~/utils';
+
+type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>;
+
+type ModelResources = {
+  model: Model;
+  source: Source;
+  baseModel: BaseModelSqlv2;
+  columns: Column[];
+};
+
+type PreparedTrashRecord = {
+  record: RecordTrash;
+  data: Record<string, unknown>;
+  issues: RecordTrashConflictIssueType[];
+};
+
+type ConflictAnalysis = {
+  analysis: RecordTrashConflictAnalysisType;
+  prepared: PreparedTrashRecord[];
+};
 
 @Injectable()
 export class RecordTrashService {
@@ -62,7 +92,23 @@ export class RecordTrashService {
     return normalized;
   }
 
-  private async getModelResources(context: NcContext, modelId: string) {
+  private validateRestoreMode(
+    context: NcContext,
+    mode?: RecordTrashRestoreModeReqType['mode'],
+  ): RestoreMode {
+    const normalized = mode ?? 'strict';
+    if (!['strict', 'clean', 'force'].includes(normalized)) {
+      NcError.get(context).badRequest(
+        'Restore mode must be strict, clean, or force',
+      );
+    }
+    return normalized;
+  }
+
+  private async getModelResources(
+    context: NcContext,
+    modelId: string,
+  ): Promise<ModelResources> {
     const model = await Model.get(context, modelId);
     if (!model) NcError.get(context).tableNotFound(modelId);
     const source = await Source.get(context, model.source_id);
@@ -73,6 +119,202 @@ export class RecordTrashService {
     });
     const columns = await model.getColumns(context);
     return { model, source, baseModel, columns };
+  }
+
+  private async getTrashRecords(
+    context: NcContext,
+    modelId: string,
+    ids: string[],
+  ): Promise<RecordTrash[]> {
+    const records = await RecordTrash.listByIds(context, modelId, ids);
+    if (records.length !== ids.length) {
+      NcError.get(context).badRequest(
+        'One or more trash snapshots do not exist for this table',
+      );
+    }
+    if (
+      records.some(
+        (record) => new Date(record.expires_at).getTime() <= Date.now(),
+      )
+    ) {
+      NcError.get(context).badRequest(
+        'Expired trash snapshots cannot be restored',
+      );
+    }
+    return records;
+  }
+
+  private addConflictIssue(
+    prepared: PreparedTrashRecord,
+    issue: RecordTrashConflictIssueType,
+  ) {
+    if (
+      !prepared.issues.some(
+        (candidate) =>
+          candidate.type === issue.type &&
+          candidate.column_id === issue.column_id,
+      )
+    ) {
+      prepared.issues.push(issue);
+    }
+  }
+
+  private isIssueClearable(column: Column): boolean {
+    return !column.pk && !column.rqd && !column.ai && !column.system;
+  }
+
+  private uniqueBatchKey(value: unknown, caseInsensitive: boolean): string {
+    if (value instanceof Date) return `date:${value.toISOString()}`;
+    if (Buffer.isBuffer(value)) return `buffer:${value.toString('base64')}`;
+    if (typeof value === 'string') {
+      return `string:${caseInsensitive ? value.toLocaleLowerCase() : value}`;
+    }
+    return `${typeof value}:${JSON.stringify(value)}`;
+  }
+
+  private toConflictAnalysis(
+    prepared: PreparedTrashRecord[],
+  ): RecordTrashConflictAnalysisType {
+    const conflicts = prepared
+      .filter((item) => item.issues.length)
+      .map((item) => ({
+        trash_id: item.record.id,
+        record_id: item.record.record_id,
+        issues: item.issues,
+      }));
+    return {
+      total: prepared.length,
+      clean: prepared.length - conflicts.length,
+      conflicted: conflicts.length,
+      truncated: conflicts.length > RECORD_TRASH_MAX_BATCH_SIZE,
+      conflicts: conflicts.slice(0, RECORD_TRASH_MAX_BATCH_SIZE),
+    };
+  }
+
+  private async analyzeRecords(
+    context: NcContext,
+    resources: ModelResources,
+    records: RecordTrash[],
+  ): Promise<ConflictAnalysis> {
+    const { baseModel, columns } = resources;
+    const prepared: PreparedTrashRecord[] = records.map((record) => ({
+      record,
+      data: projectTrashRow(columns, record.row_data, record.field_map),
+      issues: [],
+    }));
+
+    await processConcurrently(
+      prepared,
+      async (item) => {
+        const liveRecord = await baseModel.readByPk(
+          item.record.record_id,
+          false,
+          {},
+          {
+            ignoreView: true,
+            extractOnlyPrimaries: true,
+          },
+        );
+        if (liveRecord) {
+          this.addConflictIssue(item, {
+            type: 'primary_key',
+            message: 'The primary key is already used by an active record',
+            clearable: false,
+          });
+        }
+      },
+      10,
+    );
+
+    const validatedTypes = new Set([
+      UITypes.Email,
+      UITypes.URL,
+      UITypes.PhoneNumber,
+    ]);
+    for (const item of prepared) {
+      for (const column of columns) {
+        if (
+          !validatedTypes.has(column.uidt) ||
+          !column.meta?.validate ||
+          !column.validate ||
+          !Object.prototype.hasOwnProperty.call(item.data, column.title)
+        ) {
+          continue;
+        }
+        try {
+          await validateFuncOnColumn({
+            value: item.data[column.title],
+            column,
+            apiVersion: context.api_version,
+          });
+        } catch {
+          this.addConflictIssue(item, {
+            type: 'format',
+            column_id: column.id,
+            field: column.title,
+            message: `${column.title} no longer matches its validation rule`,
+            clearable: this.isIssueClearable(column),
+          });
+        }
+      }
+    }
+
+    const uniqueColumns = columns.filter((column) => column.unique);
+    const activeChecks: Array<{
+      item: PreparedTrashRecord;
+      column: Column;
+      value: unknown;
+    }> = [];
+    for (const column of uniqueColumns) {
+      const grouped = new Map<string, PreparedTrashRecord[]>();
+      for (const item of prepared) {
+        if (!Object.prototype.hasOwnProperty.call(item.data, column.title)) {
+          continue;
+        }
+        const value = item.data[column.title];
+        if (value === null || value === undefined || value === '') continue;
+        activeChecks.push({ item, column, value });
+        const key = this.uniqueBatchKey(value, baseModel.isMySQL);
+        const group = grouped.get(key) ?? [];
+        group.push(item);
+        grouped.set(key, group);
+      }
+      for (const group of grouped.values()) {
+        if (group.length < 2) continue;
+        for (const item of group) {
+          this.addConflictIssue(item, {
+            type: 'unique',
+            column_id: column.id,
+            field: column.title,
+            message: `${column.title} duplicates another selected Trash record`,
+            clearable: this.isIssueClearable(column),
+          });
+        }
+      }
+    }
+
+    await processConcurrently(
+      activeChecks,
+      async ({ item, column, value }) => {
+        const live = await baseModel
+          .dbDriver(baseModel.tnPath)
+          .select(column.column_name)
+          .where(column.column_name, value)
+          .first();
+        if (live) {
+          this.addConflictIssue(item, {
+            type: 'unique',
+            column_id: column.id,
+            field: column.title,
+            message: `${column.title} is already used by an active record`,
+            clearable: this.isIssueClearable(column),
+          });
+        }
+      },
+      10,
+    );
+
+    return { analysis: this.toConflictAnalysis(prepared), prepared };
   }
 
   private pagination(
@@ -218,12 +460,17 @@ export class RecordTrashService {
         {},
       );
       const rowData = snapshotTrashRow(columns, row);
-      if (serializedByteLength(rowData) > RECORD_TRASH_MAX_ROW_BYTES) {
+      const fieldMap = snapshotTrashFieldMap(columns, row);
+      const snapshotBytes = serializedByteLength({
+        row_data: rowData,
+        field_map: fieldMap,
+      });
+      if (snapshotBytes > RECORD_TRASH_MAX_ROW_BYTES) {
         NcError.get(context).badRequest(
           `A record trash snapshot must not exceed ${RECORD_TRASH_MAX_ROW_BYTES} bytes`,
         );
       }
-      batchBytes += serializedByteLength(rowData);
+      batchBytes += snapshotBytes;
       if (batchBytes > RECORD_TRASH_MAX_BATCH_BYTES) {
         NcError.get(context).badRequest(
           `A record trash batch must not exceed ${RECORD_TRASH_MAX_BATCH_BYTES} bytes`,
@@ -234,6 +481,7 @@ export class RecordTrashService {
         record_id: recordId,
         pk_data: pkData,
         row_data: rowData,
+        field_map: fieldMap,
         deleted_by: param.req.user?.id ?? context.user?.id,
         deleted_at: deletedAt.toISOString(),
         expires_at: expiresAt.toISOString(),
@@ -376,50 +624,55 @@ export class RecordTrashService {
 
   async restore(
     context: NcContext,
-    param: { modelId: string; body: RecordTrashIdsReqType; req: NcRequest },
+    param: { modelId: string; body: RecordTrashRestoreReqType; req: NcRequest },
   ) {
     validatePayload(
-      'swagger.json#/components/schemas/RecordTrashIdsReq',
+      'swagger.json#/components/schemas/RecordTrashRestoreReq',
       param.body,
     );
     const ids = this.validateTrashIds(context, param.body.trash_ids);
-    const { baseModel } = await this.getModelResources(context, param.modelId);
-    const records = await RecordTrash.listByIds(context, param.modelId, ids);
-    if (records.length !== ids.length) {
-      NcError.get(context).badRequest(
-        'One or more trash snapshots do not exist for this table',
-      );
-    }
-    if (
-      records.some(
-        (record) => new Date(record.expires_at).getTime() <= Date.now(),
-      )
-    ) {
-      NcError.get(context).badRequest(
-        'Expired trash snapshots cannot be restored',
+    const mode = this.validateRestoreMode(context, param.body.mode);
+    const resources = await this.getModelResources(context, param.modelId);
+    const records = await this.getTrashRecords(context, param.modelId, ids);
+    const { analysis, prepared } = await this.analyzeRecords(
+      context,
+      resources,
+      records,
+    );
+
+    if (mode === 'strict' && analysis.conflicted) {
+      NcError.get(context).unprocessableEntity(
+        `${analysis.conflicted} Trash record(s) have restore conflicts`,
       );
     }
 
-    for (const record of records) {
-      const liveRecord = await baseModel.readByPk(
-        record.record_id,
-        false,
-        {},
-        {
-          ignoreView: true,
-          extractOnlyPrimaries: true,
-        },
-      );
-      if (liveRecord) {
-        NcError.get(context).unprocessableEntity(
-          `Cannot restore record ${record.record_id}: its primary key is already in use`,
-        );
-      }
+    const selected = prepared
+      .filter((item) => {
+        if (!item.issues.length) return true;
+        if (mode !== 'force') return false;
+        return item.issues.every((issue) => issue.clearable);
+      })
+      .map((item) => {
+        const data = { ...item.data };
+        if (mode === 'force') {
+          for (const issue of item.issues) {
+            if (issue.clearable && issue.field) data[issue.field] = null;
+          }
+        }
+        return { ...item, data };
+      });
+
+    if (!selected.length) {
+      return {
+        restored: 0,
+        skipped: records.length,
+        conflicted: analysis.conflicted,
+      };
     }
 
     const restored = await this.dataTableService.dataInsert(context, {
       modelId: param.modelId,
-      body: records.map((record) => record.row_data),
+      body: selected.map((item) => item.data),
       cookie: param.req,
       // Trash restoration must preserve auto-increment primary keys. The
       // existing undo insertion path is the baseline's supported mechanism
@@ -429,11 +682,13 @@ export class RecordTrashService {
     });
     const restoredRows = Array.isArray(restored) ? restored : [restored];
     const restoredIds = restoredRows.map((row) =>
-      String(baseModel.extractPksValues(row, true)),
+      String(resources.baseModel.extractPksValues(row, true)),
     );
     if (
-      restoredIds.length !== records.length ||
-      records.some((record, index) => record.record_id !== restoredIds[index])
+      restoredIds.length !== selected.length ||
+      selected.some(
+        (item, index) => item.record.record_id !== restoredIds[index],
+      )
     ) {
       try {
         await this.dataTableService.dataDelete(context, {
@@ -451,18 +706,37 @@ export class RecordTrashService {
         'Restored record primary keys did not match their trash snapshots',
       );
     }
+    const restoredTrashIds = selected.map((item) => item.record.id);
     const entryIds = [
       ...new Set(
-        records
-          .map((record) => record.fk_trash_entry_id)
+        selected
+          .map((item) => item.record.fk_trash_entry_id)
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    await RecordTrash.deleteMany(context, ids);
+    await RecordTrash.deleteMany(context, restoredTrashIds);
     await Promise.all(
       entryIds.map((entryId) => BaseTrashEntry.deleteIfEmpty(context, entryId)),
     );
-    return { restored: ids.length };
+    return {
+      restored: restoredTrashIds.length,
+      skipped: records.length - restoredTrashIds.length,
+      conflicted: analysis.conflicted,
+    };
+  }
+
+  async analyze(
+    context: NcContext,
+    param: { modelId: string; body: RecordTrashIdsReqType },
+  ): Promise<RecordTrashConflictAnalysisType> {
+    validatePayload(
+      'swagger.json#/components/schemas/RecordTrashIdsReq',
+      param.body,
+    );
+    const ids = this.validateTrashIds(context, param.body.trash_ids);
+    const resources = await this.getModelResources(context, param.modelId);
+    const records = await this.getTrashRecords(context, param.modelId, ids);
+    return (await this.analyzeRecords(context, resources, records)).analysis;
   }
 
   async permanentlyDelete(
@@ -495,10 +769,70 @@ export class RecordTrashService {
     return { deleted: ids.length };
   }
 
+  async analyzeBaseTrashEntry(
+    context: NcContext,
+    param: { trashEntryId: string },
+  ): Promise<RecordTrashConflictAnalysisType> {
+    const entry = await BaseTrashEntry.get(context, param.trashEntryId);
+    if (!entry) NcError.get(context).notFound('Trash entry not found');
+    if (new Date(entry.expires_at).getTime() <= Date.now()) {
+      NcError.get(context).badRequest(
+        'Expired trash entries cannot be restored',
+      );
+    }
+    if (entry.resource_type !== 'records') {
+      NcError.get(context).unprocessableEntity(
+        `Conflict analysis is not supported for ${entry.resource_type}`,
+      );
+    }
+
+    const resources = await this.getModelResources(context, entry.resource_id);
+    const summary: RecordTrashConflictAnalysisType = {
+      total: 0,
+      clean: 0,
+      conflicted: 0,
+      truncated: false,
+      conflicts: [],
+    };
+    let offset = 0;
+
+    // Analyze bounded pages so a large grouped deletion does not need to be
+    // loaded into application memory at once.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const records = await RecordTrash.listByEntryId(context, entry.id, {
+        limit: RECORD_TRASH_MAX_BATCH_SIZE,
+        offset,
+      });
+      if (!records.length) break;
+      const page = (await this.analyzeRecords(context, resources, records))
+        .analysis;
+      summary.total += page.total;
+      summary.clean += page.clean;
+      summary.conflicted += page.conflicted;
+      const remaining = RECORD_TRASH_MAX_BATCH_SIZE - summary.conflicts.length;
+      if (remaining > 0) {
+        summary.conflicts.push(...page.conflicts.slice(0, remaining));
+      }
+      offset += records.length;
+    }
+    summary.truncated = summary.conflicted > summary.conflicts.length;
+    return summary;
+  }
+
   async restoreBaseTrashEntry(
     context: NcContext,
-    param: { trashEntryId: string; req: NcRequest },
+    param: {
+      trashEntryId: string;
+      req: NcRequest;
+      body?: RecordTrashRestoreModeReqType;
+    },
   ) {
+    validatePayload(
+      'swagger.json#/components/schemas/RecordTrashRestoreModeReq',
+      param.body ?? {},
+    );
+    const mode = this.validateRestoreMode(context, param.body?.mode);
     const entry = await BaseTrashEntry.get(context, param.trashEntryId);
     if (!entry) NcError.get(context).notFound('Trash entry not found');
     if (new Date(entry.expires_at).getTime() <= Date.now()) {
@@ -543,23 +877,45 @@ export class RecordTrashService {
       NcError.get(context).sourceDataReadOnly(source.alias);
     }
 
+    if (mode === 'strict') {
+      const analysis = await this.analyzeBaseTrashEntry(context, {
+        trashEntryId: entry.id,
+      });
+      if (analysis.conflicted) {
+        NcError.get(context).unprocessableEntity(
+          `${analysis.conflicted} Trash record(s) have restore conflicts`,
+        );
+      }
+    }
+
     let restored = 0;
-    // Each successful restore removes the first bounded page from the entry.
+    let skipped = 0;
+    let conflicted = 0;
+    let offset = 0;
+    // Restored rows are removed from Trash. Advancing only past skipped rows
+    // lets the next bounded query continue without missing shifted rows.
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const records = await RecordTrash.listByEntryId(context, entry.id, {
         limit: RECORD_TRASH_MAX_BATCH_SIZE,
+        offset,
       });
       if (!records.length) break;
       const result = await this.restore(context, {
         modelId: entry.resource_id,
-        body: { trash_ids: records.map((record) => record.id) },
+        body: {
+          trash_ids: records.map((record) => record.id),
+          mode,
+        },
         req: param.req,
       });
       restored += result.restored;
+      skipped += result.skipped;
+      conflicted += result.conflicted;
+      offset += result.skipped;
     }
     await BaseTrashEntry.deleteIfEmpty(context, entry.id);
-    return { restored };
+    return { restored, skipped, conflicted };
   }
 
   async emptyBaseTrash(context: NcContext) {

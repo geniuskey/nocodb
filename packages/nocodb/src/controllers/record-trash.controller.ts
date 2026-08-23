@@ -12,6 +12,7 @@ import {
 import type {
   RecordTrashCreateReqType,
   RecordTrashIdsReqType,
+  RecordTrashRestoreReqType,
 } from 'nocodb-sdk';
 import type { NcContext, NcRequest } from '~/interface/config';
 import { TenantContext } from '~/decorators/tenant-context.decorator';
@@ -60,13 +61,26 @@ export class RecordTrashController {
   async restore(
     @TenantContext() context: NcContext,
     @Param('modelId') modelId: string,
-    @Body() body: RecordTrashIdsReqType,
+    @Body() body: RecordTrashRestoreReqType,
     @Req() req: NcRequest,
   ) {
     return await this.recordTrashService.restore(context, {
       modelId,
       body,
       req,
+    });
+  }
+
+  @Post('/api/v2/tables/:modelId/trash/conflicts')
+  @Acl('dataInsert')
+  async analyze(
+    @TenantContext() context: NcContext,
+    @Param('modelId') modelId: string,
+    @Body() body: RecordTrashIdsReqType,
+  ) {
+    return await this.recordTrashService.analyze(context, {
+      modelId,
+      body,
     });
   }
 

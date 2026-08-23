@@ -34,6 +34,7 @@ const expectedMigrations = [
   'nc_010_record_trash',
   'nc_011_base_trash_entries',
   'nc_012_view_trash',
+  'nc_013_record_trash_field_map',
 ];
 
 class HistoricalV0MigrationSource {
@@ -194,6 +195,12 @@ async function verify(connection: Knex, sourceTag: string) {
     if (!(await connection.schema.hasTable(table))) {
       fail(`expected migrated table ${table} is absent.`);
     }
+  }
+
+  if (
+    !(await connection.schema.hasColumn(MetaTable.RECORD_TRASH, 'field_map'))
+  ) {
+    fail('expected record Trash field identity map is absent.');
   }
 
   const syncColumns = await connection(MetaTable.SYNC_CONFIGS).columnInfo();

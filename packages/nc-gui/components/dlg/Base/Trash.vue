@@ -1,6 +1,11 @@
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import type { BaseTrashEntryType, PaginatedType } from 'nocodb-sdk'
+import type {
+  BaseTrashEntryType,
+  PaginatedType,
+  RecordTrashConflictAnalysisType,
+  RecordTrashRestoreModeReqType,
+} from 'nocodb-sdk'
 
 type BaseTrashItem = BaseTrashEntryType & {
   parent_id?: string
@@ -29,6 +34,7 @@ const pageSize = 25
 const loading = ref(false)
 const restoringId = ref<string>()
 const emptying = ref(false)
+const conflictState = ref<{ entry: BaseTrashItem; analysis: RecordTrashConflictAnalysisType }>()
 
 const totalRows = computed(() => Number(pageInfo.value?.totalRows ?? 0))
 const formatTimestamp = (value: string) => dayjs(value).format('D MMM YYYY, HH:mm')
@@ -70,23 +76,54 @@ const loadTrash = async (page = currentPage.value) => {
   }
 }
 
+type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>
+
+const performRestore = async (entry: BaseTrashItem, mode: RestoreMode) => {
+  const response = await $api.dbBaseTrash.restore(props.baseId, entry.id!, { mode })
+  conflictState.value = undefined
+  if (entry.resource_type === 'view') {
+    const tableId = response.parent_id || entry.parent_id
+    if (tableId) {
+      await viewsStore.loadViews({ tableId, force: true, ignoreLoading: true })
+    }
+    refreshCommandPalette()
+    message.success(`View “${entry.resource_name || 'Untitled'}” restored`)
+  } else if (response.skipped) {
+    message.warning(
+      `${response.restored} record${response.restored === 1 ? '' : 's'} restored; ${response.skipped} remain in Trash`,
+    )
+  } else {
+    message.success(`${response.restored} record${response.restored === 1 ? '' : 's'} restored`)
+  }
+  await loadTrash(entries.value.length === 1 && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value)
+}
+
 const restore = async (entry: BaseTrashItem) => {
   if (!entry.id || !canRestore(entry)) return
 
   restoringId.value = String(entry.id)
   try {
-    const response = await $api.dbBaseTrash.restore(props.baseId, entry.id)
-    if (entry.resource_type === 'view') {
-      const tableId = response.parent_id || entry.parent_id
-      if (tableId) {
-        await viewsStore.loadViews({ tableId, force: true, ignoreLoading: true })
+    if (entry.resource_type === 'records') {
+      const analysis = await $api.dbBaseTrash.conflictList(props.baseId, entry.id)
+      if (analysis.conflicted) {
+        conflictState.value = { entry, analysis }
+        return
       }
-      refreshCommandPalette()
-      message.success(`View “${entry.resource_name || 'Untitled'}” restored`)
-    } else {
-      message.success(`${response.restored} record${response.restored === 1 ? '' : 's'} restored`)
     }
-    await loadTrash(entries.value.length === 1 && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value)
+    await performRestore(entry, 'strict')
+  } catch (error) {
+    message.error(`Unable to restore entry: ${await extractSdkResponseErrorMsg(error)}`)
+  } finally {
+    restoringId.value = undefined
+  }
+}
+
+const restoreConflicts = async (mode: RestoreMode) => {
+  if (!conflictState.value) return
+  const entry = conflictState.value.entry
+  restoringId.value = String(entry.id)
+  try {
+    await performRestore(entry, mode)
   } catch (error) {
     message.error(`Unable to restore entry: ${await extractSdkResponseErrorMsg(error)}`)
   } finally {
@@ -176,7 +213,15 @@ watch(
       </div>
     </template>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-3" data-testid="nc-base-trash-dialog">
+    <DlgRecordTrashConflict
+      v-if="conflictState"
+      :analysis="conflictState.analysis"
+      :loading="Boolean(restoringId)"
+      @cancel="conflictState = undefined"
+      @restore="restoreConflicts"
+    />
+
+    <div v-else class="flex min-h-0 flex-1 flex-col gap-3" data-testid="nc-base-trash-dialog">
       <div class="text-sm text-nc-content-gray-subtle">{{ totalRows }} trashed {{ totalRows === 1 ? 'item' : 'items' }}</div>
 
       <div class="min-h-72 flex-1 overflow-y-auto rounded-lg border border-nc-border-gray-medium">

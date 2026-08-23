@@ -34,10 +34,66 @@ export function snapshotTrashRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
   return columns.reduce<Record<string, unknown>>((snapshot, column) => {
-    if (isRestorableTrashColumn(column) && column.title in row) {
-      snapshot[column.title] = row[column.title];
+    const key = [column.title, column.column_name, column.id].find(
+      (candidate) =>
+        candidate && Object.prototype.hasOwnProperty.call(row, candidate),
+    );
+    if (isRestorableTrashColumn(column) && key) {
+      snapshot[column.title] = row[key];
     }
     return snapshot;
+  }, {});
+}
+
+export function snapshotTrashFieldMap(
+  columns: Column[],
+  row: Record<string, unknown>,
+): Record<string, string> {
+  return columns.reduce<Record<string, string>>((snapshot, column) => {
+    if (
+      column.id &&
+      isRestorableTrashColumn(column) &&
+      [column.title, column.column_name, column.id].some((key) =>
+        Object.prototype.hasOwnProperty.call(row, key),
+      )
+    ) {
+      snapshot[column.id] = column.title;
+    }
+    return snapshot;
+  }, {});
+}
+
+export function projectTrashRow(
+  columns: Column[],
+  rowData: Record<string, unknown>,
+  fieldMap?: Record<string, string>,
+): Record<string, unknown> {
+  const currentById = new Map(columns.map((column) => [column.id, column]));
+  if (fieldMap && Object.keys(fieldMap).length) {
+    return Object.entries(fieldMap).reduce<Record<string, unknown>>(
+      (projected, [columnId, oldTitle]) => {
+        const column = currentById.get(columnId);
+        if (
+          column &&
+          isRestorableTrashColumn(column) &&
+          Object.prototype.hasOwnProperty.call(rowData, oldTitle)
+        ) {
+          projected[column.title] = rowData[oldTitle];
+        }
+        return projected;
+      },
+      {},
+    );
+  }
+
+  return columns.reduce<Record<string, unknown>>((projected, column) => {
+    if (
+      isRestorableTrashColumn(column) &&
+      Object.prototype.hasOwnProperty.call(rowData, column.title)
+    ) {
+      projected[column.title] = rowData[column.title];
+    }
+    return projected;
   }, {});
 }
 

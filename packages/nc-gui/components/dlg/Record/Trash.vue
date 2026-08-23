@@ -1,6 +1,12 @@
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import type { PaginatedType, RecordTrashType, TableType } from 'nocodb-sdk'
+import type {
+  PaginatedType,
+  RecordTrashConflictAnalysisType,
+  RecordTrashRestoreModeReqType,
+  RecordTrashType,
+  TableType,
+} from 'nocodb-sdk'
 
 const props = defineProps<{
   visible: boolean
@@ -21,6 +27,7 @@ const pageSize = 25
 const selectedIds = ref<string[]>([])
 const loading = ref(false)
 const action = ref<{ type: 'restore' | 'delete'; ids: string[] }>()
+const conflictState = ref<{ ids: string[]; analysis: RecordTrashConflictAnalysisType }>()
 
 const isExpired = (record: RecordTrashType) => dayjs(record.expires_at).valueOf() <= Date.now()
 
@@ -80,14 +87,45 @@ const setAllSelected = (checked: boolean) => {
   selectedIds.value = checked ? records.value.map((record) => String(record.id)) : []
 }
 
+type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>
+
+const performRestore = async (ids: string[], mode: RestoreMode) => {
+  const response = await $api.dbRecordTrash.restore(props.table.id!, { trash_ids: ids, mode })
+  conflictState.value = undefined
+  if (response.skipped) {
+    message.warning(
+      `${response.restored} record${response.restored === 1 ? '' : 's'} restored; ${response.skipped} remain in Trash`,
+    )
+  } else {
+    message.success(`${response.restored} record${response.restored === 1 ? '' : 's'} restored`)
+  }
+  await loadTrash(records.value.length === ids.length && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value)
+}
+
 const restore = async (ids: string[]) => {
   if (!props.table.id || !ids.length || !props.canRestore) return
 
   action.value = { type: 'restore', ids }
   try {
-    const response = await $api.dbRecordTrash.restore(props.table.id, { trash_ids: ids })
-    message.success(`${response.restored} record${response.restored === 1 ? '' : 's'} restored`)
-    await loadTrash(records.value.length === ids.length && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value)
+    const analysis = await $api.dbRecordTrash.conflictList(props.table.id, { trash_ids: ids })
+    if (analysis.conflicted) {
+      conflictState.value = { ids, analysis }
+      return
+    }
+    await performRestore(ids, 'strict')
+  } catch (error) {
+    message.error(`Unable to restore records: ${await extractSdkResponseErrorMsg(error)}`)
+  } finally {
+    action.value = undefined
+  }
+}
+
+const restoreConflicts = async (mode: RestoreMode) => {
+  if (!conflictState.value || !props.table.id) return
+  const ids = conflictState.value.ids
+  action.value = { type: 'restore', ids }
+  try {
+    await performRestore(ids, mode)
   } catch (error) {
     message.error(`Unable to restore records: ${await extractSdkResponseErrorMsg(error)}`)
   } finally {
@@ -167,7 +205,15 @@ watch(
       </div>
     </template>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-3" data-testid="nc-record-trash-dialog">
+    <DlgRecordTrashConflict
+      v-if="conflictState"
+      :analysis="conflictState.analysis"
+      :loading="isActionLoading('restore')"
+      @cancel="conflictState = undefined"
+      @restore="restoreConflicts"
+    />
+
+    <div v-else class="flex min-h-0 flex-1 flex-col gap-3" data-testid="nc-record-trash-dialog">
       <div class="flex min-h-8 items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm text-nc-content-gray-subtle">
           <a-checkbox

@@ -14,6 +14,7 @@ export default class RecordTrash implements RecordTrashType {
   record_hash?: string;
   pk_data: Record<string, unknown>;
   row_data: Record<string, unknown>;
+  field_map?: Record<string, string>;
   deleted_by?: string;
   deleted_at: string;
   expires_at: string;
@@ -40,6 +41,10 @@ export default class RecordTrash implements RecordTrashType {
         typeof publicData.row_data === 'string'
           ? JSON.parse(publicData.row_data)
           : publicData.row_data,
+      field_map:
+        typeof publicData.field_map === 'string'
+          ? JSON.parse(publicData.field_map)
+          : publicData.field_map,
     });
   }
 
@@ -55,6 +60,7 @@ export default class RecordTrash implements RecordTrashType {
         'record_id',
         'pk_data',
         'row_data',
+        'field_map',
         'deleted_by',
         'deleted_at',
         'expires_at',
@@ -65,6 +71,9 @@ export default class RecordTrash implements RecordTrashType {
         record_hash: hashTrashRecordId(insertObj.record_id),
         pk_data: JSON.stringify(insertObj.pk_data),
         row_data: JSON.stringify(insertObj.row_data),
+        field_map: insertObj.field_map
+          ? JSON.stringify(insertObj.field_map)
+          : null,
       };
     });
     const inserted = await ncMeta.bulkMetaInsert(
@@ -151,7 +160,7 @@ export default class RecordTrash implements RecordTrashType {
   static async listByEntryId(
     context: NcContext,
     entryId: string,
-    args: { limit?: number } = {},
+    args: { limit?: number; offset?: number } = {},
     ncMeta: MetaService = Noco.ncMeta,
   ): Promise<RecordTrash[]> {
     const records = await ncMeta.metaList2(
@@ -161,6 +170,7 @@ export default class RecordTrash implements RecordTrashType {
       {
         condition: { fk_trash_entry_id: entryId },
         limit: args.limit,
+        offset: args.offset,
         orderBy: { deleted_at: 'asc', id: 'asc' },
       },
     );
