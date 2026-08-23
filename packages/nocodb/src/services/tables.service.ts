@@ -310,6 +310,16 @@ export class TablesService {
 
     await table.getColumns(context);
 
+    const trashedFields = await BaseTrashEntry.listByType(context, 'field', {
+      limit: 1,
+      parentId: table.id,
+    });
+    if (trashedFields.length) {
+      NcError.get(context).badRequest(
+        'Restore or permanently delete trashed fields before deleting this table',
+      );
+    }
+
     if (param.trash) {
       return this.tableTrash(context, {
         table,

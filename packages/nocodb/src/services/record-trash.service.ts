@@ -39,6 +39,7 @@ import { DataTableService } from '~/services/data-table.service';
 import { BaseModelDelete } from '~/db/BaseModelSqlv2/delete';
 import { processConcurrently } from '~/utils';
 import { TablesService } from '~/services/tables.service';
+import { ColumnsService } from '~/services/columns.service';
 
 type RestoreMode = NonNullable<RecordTrashRestoreModeReqType['mode']>;
 
@@ -67,6 +68,7 @@ export class RecordTrashService {
   constructor(
     private readonly dataTableService: DataTableService,
     private readonly tablesService: TablesService,
+    private readonly columnsService: ColumnsService,
   ) {}
 
   private validateBatch(context: NcContext, values: unknown[], label: string) {
@@ -375,7 +377,10 @@ export class RecordTrashService {
     ]);
     const list = await Promise.all(
       entries.map(async (entry) => {
-        if (entry.resource_type === 'table') {
+        if (
+          entry.resource_type === 'table' ||
+          entry.resource_type === 'field'
+        ) {
           return { ...entry, record_count: 0, records: [] };
         }
         if (entry.resource_type === 'view') {
@@ -893,6 +898,26 @@ export class RecordTrashService {
         resource_id: restoredTable.id,
       };
     }
+    if (entry.resource_type === 'field') {
+      const roles = param.req.user?.base_roles ?? {};
+      if (!roles[ProjectRoles.OWNER] && !roles[ProjectRoles.CREATOR]) {
+        NcError.forbidden('Only base owners and creators can restore fields');
+      }
+      const restoredField = await this.columnsService.restoreFieldTrash(
+        context,
+        {
+          entry,
+          user: param.req.user,
+          req: param.req,
+        },
+      );
+      return {
+        restored: 1,
+        resource_type: 'field' as const,
+        resource_id: restoredField.id,
+        parent_id: restoredField.fk_model_id,
+      };
+    }
     if (entry.resource_type !== 'records') {
       NcError.get(context).unprocessableEntity(
         `Restore is not supported for ${entry.resource_type}`,
@@ -945,8 +970,9 @@ export class RecordTrashService {
   }
 
   async emptyBaseTrash(context: NcContext) {
+    const fieldDeleted = await this.columnsService.emptyFieldTrash(context);
     const tableDeleted = await this.tablesService.emptyTableTrash(context);
     const result = await BaseTrashEntry.empty(context);
-    return { deleted: result.deleted + tableDeleted };
+    return { deleted: result.deleted + fieldDeleted + tableDeleted };
   }
 }

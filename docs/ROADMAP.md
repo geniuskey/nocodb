@@ -226,7 +226,12 @@ and exposing restore, permanent deletion, empty-Trash, expiry, GUI, restart,
 and cross-database lifecycle coverage. The compatible table-delete API remains
 permanent unless `trash=true`; schema-read-only, synced, junction, relational,
 and database-view cases are rejected in this first structural slice. Structural
-field Trash remains before Phase 5 is complete.
+field Trash now preserves ordinary writable physical fields by reserving their
+storage name, hiding the original metadata row, retaining values and stable
+identity, and restoring or purging them through Base Trash. Dependency-bearing,
+virtual, system, key, display, readonly, synced, and schema-read-only fields are
+rejected conservatively. GUI, API, expiry, empty-Trash, migration, restart, and
+value-preservation coverage complete Phase 5.
 
 ## Phase 6 — Snapshot
 

@@ -5690,6 +5690,15 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/xc-auth"
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "description": "Move a supported data field to recoverable Trash before deletion",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ]
       },

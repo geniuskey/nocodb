@@ -2195,6 +2195,123 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(trashUiCleanupResponse.ok(), await trashUiCleanupResponse.text()).toBeTruthy();
 
+  const dependentFieldTrashResponse = await page.request.delete(
+    `/api/v2/meta/columns/${timelineStartColumn.id}?trash=true`,
+    { headers: sessionHeaders }
+  );
+  expect(dependentFieldTrashResponse.status()).toBe(400);
+  const dependentFieldResponse = await page.request.get(`/api/v2/meta/columns/${timelineStartColumn.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(dependentFieldResponse.ok(), await dependentFieldResponse.text()).toBeTruthy();
+
+  const createTrashField = async (title: string, columnName = title) => {
+    const response = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/columns`, {
+      headers: sessionHeaders,
+      data: { title, column_name: columnName, uidt: UITypes.SingleLineText },
+    });
+    const model = await response.json();
+    expect(response.ok(), JSON.stringify(model)).toBeTruthy();
+    const field = model.columns.find((candidate: { title?: string }) => candidate.title === title);
+    expect(field?.id).toEqual(expect.any(String));
+    return field;
+  };
+
+  const recoverableField = await createTrashField('Recoverable field');
+  const recoverableFieldRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Field Trash value fixture', 'Recoverable field': 'Value survives field Trash' },
+  });
+  const recoverableFieldRecord = await recoverableFieldRecordResponse.json();
+  expect(recoverableFieldRecordResponse.ok(), JSON.stringify(recoverableFieldRecord)).toBeTruthy();
+
+  const fieldTrashResponse = await page.request.delete(`/api/v2/meta/columns/${recoverableField.id}?trash=true`, {
+    headers: sessionHeaders,
+  });
+  expect(fieldTrashResponse.ok(), await fieldTrashResponse.text()).toBeTruthy();
+  const hiddenFieldTableResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}`, {
+    headers: sessionHeaders,
+  });
+  const hiddenFieldTable = await hiddenFieldTableResponse.json();
+  expect(hiddenFieldTableResponse.ok(), JSON.stringify(hiddenFieldTable)).toBeTruthy();
+  expect(hiddenFieldTable.columns.find((field: { id?: string }) => field.id === recoverableField.id)).toBeUndefined();
+  const hiddenFieldRecordsResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/records?limit=100`, {
+    headers: sessionHeaders,
+  });
+  const hiddenFieldRecords = await hiddenFieldRecordsResponse.json();
+  expect(hiddenFieldRecordsResponse.ok(), JSON.stringify(hiddenFieldRecords)).toBeTruthy();
+  const hiddenFieldRecord = hiddenFieldRecords.list.find(
+    (record: { Title?: string }) => record.Title === 'Field Trash value fixture'
+  );
+  expect(hiddenFieldRecord).not.toHaveProperty('Recoverable field');
+
+  const fieldBaseTrashResponse = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const fieldBaseTrash = await fieldBaseTrashResponse.json();
+  expect(fieldBaseTrashResponse.ok(), JSON.stringify(fieldBaseTrash)).toBeTruthy();
+  const fieldTrashEntry = fieldBaseTrash.list.find(
+    (entry: { resource_type?: string; resource_id?: string }) =>
+      entry.resource_type === 'field' && entry.resource_id === recoverableField.id
+  );
+  expect(fieldTrashEntry).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      parent_id: createdTableBody.id,
+      resource_name: 'Recoverable field',
+      record_count: 0,
+      records: [],
+    })
+  );
+
+  const replacementFieldResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/columns`, {
+    headers: sessionHeaders,
+    data: {
+      title: 'Recoverable field',
+      column_name: 'recoverable_field_replacement',
+      uidt: UITypes.SingleLineText,
+    },
+  });
+  expect(replacementFieldResponse.status()).toBe(422);
+  const fieldRestoreResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${fieldTrashEntry.id}/restore`,
+    { headers: sessionHeaders }
+  );
+  expect(fieldRestoreResponse.ok(), await fieldRestoreResponse.text()).toBeTruthy();
+  expect(await fieldRestoreResponse.json()).toEqual({
+    restored: 1,
+    resource_type: 'field',
+    resource_id: recoverableField.id,
+    parent_id: createdTableBody.id,
+  });
+  const restoredFieldRecordsResponse = await page.request.get(
+    `/api/v2/tables/${createdTableBody.id}/records?limit=100`,
+    { headers: sessionHeaders }
+  );
+  const restoredFieldRecords = await restoredFieldRecordsResponse.json();
+  expect(restoredFieldRecordsResponse.ok(), JSON.stringify(restoredFieldRecords)).toBeTruthy();
+  expect(
+    restoredFieldRecords.list.find((record: { Title?: string }) => record.Title === 'Field Trash value fixture')
+  ).toEqual(expect.objectContaining({ 'Recoverable field': 'Value survives field Trash' }));
+
+  const purgeField = await createTrashField('Field purge fixture');
+  const purgeFieldTrashResponse = await page.request.delete(`/api/v2/meta/columns/${purgeField.id}?trash=true`, {
+    headers: sessionHeaders,
+  });
+  expect(purgeFieldTrashResponse.ok(), await purgeFieldTrashResponse.text()).toBeTruthy();
+  const emptyFieldTrashResponse = await page.request.delete(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const emptyFieldTrash = await emptyFieldTrashResponse.json();
+  expect(emptyFieldTrashResponse.ok(), JSON.stringify(emptyFieldTrash)).toBeTruthy();
+  expect(emptyFieldTrash.deleted).toBeGreaterThanOrEqual(1);
+  const recreatedPurgeField = await createTrashField('Field purge fixture');
+  const recreatedPurgeFieldDeleteResponse = await page.request.delete(
+    `/api/v2/meta/columns/${recreatedPurgeField.id}`,
+    { headers: sessionHeaders }
+  );
+  expect(recreatedPurgeFieldDeleteResponse.ok(), await recreatedPurgeFieldDeleteResponse.text()).toBeTruthy();
+
   const createStructuralTrashTable = (title = 'Structural trash fixture', tableName = title) =>
     page.request.post(`/api/v2/meta/bases/${createdBaseBody.id}/${createdTableBody.source_id}/tables`, {
       headers: sessionHeaders,
@@ -2321,6 +2438,18 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     { headers: sessionHeaders }
   );
   expect(retrashStructuralTableResponse.ok(), await retrashStructuralTableResponse.text()).toBeTruthy();
+
+  const restartField = await createTrashField('Field survives restart');
+  const restartFieldRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Field restart value fixture', 'Field survives restart': 'Persisted hidden value' },
+  });
+  const restartFieldRecord = await restartFieldRecordResponse.json();
+  expect(restartFieldRecordResponse.ok(), JSON.stringify(restartFieldRecord)).toBeTruthy();
+  const restartFieldTrashResponse = await page.request.delete(`/api/v2/meta/columns/${restartField.id}?trash=true`, {
+    headers: sessionHeaders,
+  });
+  expect(restartFieldTrashResponse.ok(), await restartFieldTrashResponse.text()).toBeTruthy();
 
   const restartTrashRecordResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,

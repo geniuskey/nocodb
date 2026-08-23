@@ -41,7 +41,7 @@ import type { BaseModelSqlv2 } from '~/db/BaseModelSqlv2';
 import type CustomKnex from '~/db/CustomKnex';
 import type SqlMgrv2 from '~/db/sql-mgr/v2/SqlMgrv2';
 import type { NcContext, NcRequest } from '~/interface/config';
-import type { Base, LinkToAnotherRecordColumn } from '~/models';
+import type { AIColumn, Base, LinkToAnotherRecordColumn } from '~/models';
 import type {
   IColumnsService,
   ReusableParams,
@@ -77,6 +77,7 @@ import mapDefaultDisplayValue from '~/helpers/mapDefaultDisplayValue';
 import validateParams from '~/helpers/validateParams';
 import { MetaService } from '~/meta/meta.service';
 import {
+  BaseTrashEntry,
   BaseUser,
   CalendarRange,
   Column,
@@ -105,6 +106,8 @@ import { parseMetaProp } from '~/utils/modelUtils';
 import NocoSocket from '~/socket/NocoSocket';
 import { DBErrorExtractor } from '~/helpers/db-error/extractor';
 import { MetaDependencyEventHandler } from '~/services/meta-dependency/event-handler.service';
+import { trashExpiryFrom } from '~/helpers/recordTrash';
+import { getFormulasReferredTheColumn } from '~/helpers/formulaHelpers';
 
 export type { ReusableParams } from '~/services/columns.service.type';
 
@@ -3012,6 +3015,597 @@ export class ColumnsService implements IColumnsService {
       : Model;
   }
 
+  private async hasFieldTrashReference(
+    context: NcContext,
+    columnId: string,
+    tableName: MetaTable,
+    fieldNames: string[],
+    ncMeta = this.metaService,
+  ): Promise<boolean> {
+    const query = ncMeta.knex(tableName).where(function () {
+      fieldNames.forEach((fieldName, index) => {
+        if (index === 0) this.where(fieldName, columnId);
+        else this.orWhere(fieldName, columnId);
+      });
+    });
+    ncMeta.contextCondition(
+      query,
+      context.workspace_id,
+      context.base_id,
+      tableName,
+    );
+    return Boolean(await query.first());
+  }
+
+  private async assertFieldCanBeTrashed(
+    context: NcContext,
+    column: Column,
+    table: Model,
+    source: Source,
+    ncMeta = this.metaService,
+  ): Promise<void> {
+    if (
+      isVirtualCol(column) ||
+      column.system ||
+      isSystemColumn(column) ||
+      column.pk ||
+      column.pv ||
+      column.readonly ||
+      table.synced
+    ) {
+      NcError.get(context).badRequest(
+        'Only ordinary writable data fields can be moved to Trash',
+      );
+    }
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+
+    const references: Array<{
+      table: MetaTable;
+      fields: string[];
+      label: string;
+    }> = [
+      {
+        table: MetaTable.FILTER_EXP,
+        fields: [
+          'fk_column_id',
+          'fk_link_col_id',
+          'fk_value_col_id',
+          'fk_parent_column_id',
+        ],
+        label: 'a filter or row-color rule',
+      },
+      {
+        table: MetaTable.SORT,
+        fields: ['fk_column_id'],
+        label: 'a sort',
+      },
+      {
+        table: MetaTable.HOOK_TRIGGER_FIELDS,
+        fields: ['fk_column_id'],
+        label: 'a webhook trigger',
+      },
+      {
+        table: MetaTable.CALENDAR_VIEW_RANGE,
+        fields: ['fk_from_column_id', 'fk_to_column_id'],
+        label: 'a Calendar range',
+      },
+      {
+        table: MetaTable.CALENDAR_VIEW,
+        fields: ['fk_cover_image_col_id'],
+        label: 'a Calendar cover image',
+      },
+      {
+        table: MetaTable.GALLERY_VIEW,
+        fields: ['fk_cover_image_col_id'],
+        label: 'a Gallery cover image',
+      },
+      {
+        table: MetaTable.KANBAN_VIEW,
+        fields: ['fk_grp_col_id', 'fk_cover_image_col_id'],
+        label: 'a Kanban setting',
+      },
+      {
+        table: MetaTable.MAP_VIEW,
+        fields: ['fk_geo_data_col_id'],
+        label: 'a Map setting',
+      },
+      {
+        table: MetaTable.LIST_VIEW,
+        fields: [
+          'fk_title_column_id',
+          'fk_subtitle_column_id',
+          'fk_image_column_id',
+        ],
+        label: 'a List setting',
+      },
+      {
+        table: MetaTable.TIMELINE_VIEW,
+        fields: [
+          'fk_title_column_id',
+          'fk_start_column_id',
+          'fk_end_column_id',
+        ],
+        label: 'a Timeline setting',
+      },
+      {
+        table: MetaTable.GANTT_VIEW,
+        fields: [
+          'fk_title_column_id',
+          'fk_start_column_id',
+          'fk_end_column_id',
+          'fk_progress_column_id',
+          'fk_milestone_column_id',
+        ],
+        label: 'a Gantt setting',
+      },
+      {
+        table: MetaTable.VIEWS,
+        fields: ['attachment_mode_column_id'],
+        label: 'an expanded-record setting',
+      },
+    ];
+
+    for (const reference of references) {
+      if (
+        await this.hasFieldTrashReference(
+          context,
+          column.id,
+          reference.table,
+          reference.fields,
+          ncMeta,
+        )
+      ) {
+        NcError.get(context).badRequest(
+          `The field '${column.title}' is used by ${reference.label}. Remove that reference first.`,
+        );
+      }
+    }
+
+    const timelineViews = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.TIMELINE_VIEW,
+    );
+    if (
+      timelineViews.some(
+        (timelineView) =>
+          parseMetaProp(timelineView)?.group_by_column_id === column.id,
+      )
+    ) {
+      NcError.get(context).badRequest(
+        `The field '${column.title}' is used by a Timeline group. Remove that reference first.`,
+      );
+    }
+
+    const columns = await table.getColumns(context, ncMeta);
+    const formulaReferences = await getFormulasReferredTheColumn(
+      context,
+      { column, columns },
+      ncMeta,
+    );
+    if (formulaReferences.length) {
+      NcError.get(context).badRequest(
+        `The field '${column.title}' is used by formula or button fields. Remove those references first.`,
+      );
+    }
+    for (const candidate of columns.filter((item) => isAIPromptCol(item))) {
+      const options = await candidate.getColOptions<AIColumn>(context, ncMeta);
+      if (options?.prompt?.includes(`{${column.id}}`)) {
+        NcError.get(context).badRequest(
+          `The field '${column.title}' is used by an AI prompt field. Remove that reference first.`,
+        );
+      }
+    }
+  }
+
+  private async columnTrash(
+    context: NcContext,
+    param: {
+      column: Column;
+      table: Model;
+      source: Source;
+      user: UserType;
+      req?: NcRequest;
+      sqlMgr: SqlMgrv2;
+    },
+    ncMeta = this.metaService,
+  ) {
+    const { column, table, source, sqlMgr } = param;
+    await this.assertFieldCanBeTrashed(context, column, table, source, ncMeta);
+    const storageName = `nc_trash_${column.id}`;
+    if (
+      table.columns.some(
+        (candidate) =>
+          candidate.id !== column.id &&
+          candidate.column_name.toLowerCase() === storageName.toLowerCase(),
+      )
+    ) {
+      NcError.get(context).badRequest(
+        `The internal Trash field name '${storageName}' is already in use`,
+      );
+    }
+
+    const deletedAt = new Date();
+    const entry = await BaseTrashEntry.create(
+      context,
+      {
+        resource_type: 'field',
+        resource_id: column.id,
+        resource_name: column.title,
+        storage_name: storageName,
+        original_type: column.uidt,
+        parent_id: table.id,
+        deleted_by: param.user?.id,
+        deleted_at: deletedAt.toISOString(),
+        expires_at: trashExpiryFrom(deletedAt).toISOString(),
+        source_id: table.source_id,
+      },
+      ncMeta,
+    );
+
+    const tableUpdateBody = {
+      ...table,
+      tn: table.table_name,
+      originalColumns: table.columns.map((candidate) => ({
+        ...candidate,
+        cn: candidate.column_name,
+        cno: candidate.column_name,
+      })),
+      columns: table.columns.map((candidate) =>
+        candidate.id === column.id
+          ? {
+              ...candidate,
+              cn: storageName,
+              cno: candidate.column_name,
+              altered: Altered.UPDATE_COLUMN,
+            }
+          : { ...candidate, cn: candidate.column_name },
+      ),
+    };
+
+    let renamed = false;
+    try {
+      await sqlMgr.sqlOpPlus(source, 'tableUpdate', tableUpdateBody);
+      renamed = true;
+      await Column.setDeleted(context, column, true, ncMeta);
+    } catch (error) {
+      if (renamed) {
+        try {
+          await sqlMgr.sqlOpPlus(source, 'tableUpdate', {
+            ...table,
+            tn: table.table_name,
+            originalColumns: table.columns.map((candidate) => ({
+              ...candidate,
+              cn:
+                candidate.id === column.id
+                  ? storageName
+                  : candidate.column_name,
+              cno:
+                candidate.id === column.id
+                  ? storageName
+                  : candidate.column_name,
+            })),
+            columns: table.columns.map((candidate) =>
+              candidate.id === column.id
+                ? {
+                    ...candidate,
+                    cn: candidate.column_name,
+                    cno: storageName,
+                    altered: Altered.UPDATE_COLUMN,
+                  }
+                : { ...candidate, cn: candidate.column_name },
+            ),
+          });
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to roll back structural field Trash rename',
+            rollbackError,
+          );
+        }
+      }
+      await BaseTrashEntry.delete(context, entry.id, ncMeta);
+      throw error;
+    }
+
+    await table.getColumns(context, ncMeta);
+    this.appHooksService.emit(AppEvents.COLUMN_DELETE, {
+      table,
+      column,
+      req: param.req,
+      context,
+      columnId: column.id,
+      columns: table.columns,
+    });
+    NocoSocket.broadcastEvent(
+      context,
+      {
+        event: EventType.META_EVENT,
+        payload: { action: 'column_delete', payload: { table, column } },
+      },
+      context.socket_id,
+    );
+    return table;
+  }
+
+  async restoreFieldTrash(
+    context: NcContext,
+    param: { entry: BaseTrashEntry; user: UserType; req?: NcRequest },
+    ncMeta = this.metaService,
+  ): Promise<Column> {
+    const { entry } = param;
+    if (
+      entry.resource_type !== 'field' ||
+      !entry.storage_name ||
+      !entry.parent_id
+    ) {
+      NcError.get(context).badRequest('Unsupported field Trash entry');
+    }
+    const column = await Column.getIncludingDeleted(
+      context,
+      entry.resource_id,
+      ncMeta,
+    );
+    if (!column?.deleted || column.fk_model_id !== entry.parent_id) {
+      NcError.get(context).badRequest(
+        'Trashed field metadata no longer exists',
+      );
+    }
+    const table = await Model.get(context, entry.parent_id, ncMeta);
+    if (!table) {
+      NcError.get(context).badRequest(
+        'The table that contained this field no longer exists',
+      );
+    }
+    const source = await Source.get(context, table.source_id, false, ncMeta);
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+    if (table.synced || column.readonly) {
+      NcError.get(context).badRequest(
+        'A synced or readonly field cannot be restored',
+      );
+    }
+
+    const conflictQuery = ncMeta
+      .knex(MetaTable.COLUMNS)
+      .where('fk_model_id', table.id)
+      .whereNot('id', column.id)
+      .where(function () {
+        this.where('deleted', false).orWhereNull('deleted');
+      })
+      .where(function () {
+        this.where('title', column.title).orWhere(
+          'column_name',
+          column.column_name,
+        );
+      });
+    ncMeta.contextCondition(
+      conflictQuery,
+      context.workspace_id,
+      context.base_id,
+      MetaTable.COLUMNS,
+    );
+    if (await conflictQuery.first()) {
+      NcError.get(context).badRequest(
+        `A field named '${column.title}' or physical column '${column.column_name}' already exists`,
+      );
+    }
+
+    await table.getColumns(context, ncMeta);
+    const physicalColumns = [
+      ...table.columns,
+      { ...column, column_name: entry.storage_name },
+    ];
+    const sqlMgr = await ProjectMgrv2.getSqlMgr(
+      context,
+      { id: source.base_id },
+      ncMeta,
+    );
+    let renamed = false;
+    let activated = false;
+    try {
+      await sqlMgr.sqlOpPlus(source, 'tableUpdate', {
+        ...table,
+        tn: table.table_name,
+        originalColumns: physicalColumns.map((candidate) => ({
+          ...candidate,
+          cn: candidate.column_name,
+          cno: candidate.column_name,
+        })),
+        columns: physicalColumns.map((candidate) =>
+          candidate.id === column.id
+            ? {
+                ...candidate,
+                cn: column.column_name,
+                cno: entry.storage_name,
+                altered: Altered.UPDATE_COLUMN,
+              }
+            : { ...candidate, cn: candidate.column_name },
+        ),
+      });
+      renamed = true;
+      await Column.setDeleted(context, column, false, ncMeta);
+      activated = true;
+      await BaseTrashEntry.delete(context, entry.id, ncMeta);
+    } catch (error) {
+      if (activated) {
+        try {
+          await Column.setDeleted(context, column, true, ncMeta);
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to hide field after restore rollback',
+            rollbackError,
+          );
+        }
+      }
+      if (renamed) {
+        try {
+          await sqlMgr.sqlOpPlus(source, 'tableUpdate', {
+            ...table,
+            tn: table.table_name,
+            originalColumns: physicalColumns.map((candidate) => ({
+              ...candidate,
+              cn:
+                candidate.id === column.id
+                  ? column.column_name
+                  : candidate.column_name,
+              cno:
+                candidate.id === column.id
+                  ? column.column_name
+                  : candidate.column_name,
+            })),
+            columns: physicalColumns.map((candidate) =>
+              candidate.id === column.id
+                ? {
+                    ...candidate,
+                    cn: entry.storage_name,
+                    cno: column.column_name,
+                    altered: Altered.UPDATE_COLUMN,
+                  }
+                : { ...candidate, cn: candidate.column_name },
+            ),
+          });
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to roll back structural field Trash restore',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    }
+
+    const restored = await Column.get(context, { colId: column.id }, ncMeta);
+    await table.getColumns(context, ncMeta);
+    this.appHooksService.emit(AppEvents.COLUMN_CREATE, {
+      table,
+      column: restored,
+      columnId: restored.id,
+      req: param.req,
+      context,
+      columns: table.columns,
+    });
+    NocoSocket.broadcastEvent(
+      context,
+      {
+        event: EventType.META_EVENT,
+        payload: { action: 'column_add', payload: { table, column: restored } },
+      },
+      context.socket_id,
+    );
+    return restored;
+  }
+
+  async permanentlyDeleteFieldTrash(
+    context: NcContext,
+    entry: BaseTrashEntry,
+    ncMeta = this.metaService,
+  ): Promise<number> {
+    if (
+      entry.resource_type !== 'field' ||
+      !entry.storage_name ||
+      !entry.parent_id
+    ) {
+      return 0;
+    }
+    const column = await Column.getIncludingDeleted(
+      context,
+      entry.resource_id,
+      ncMeta,
+    );
+    if (!column) {
+      await BaseTrashEntry.delete(context, entry.id, ncMeta);
+      return 1;
+    }
+    if (!column.deleted) {
+      NcError.get(context).badRequest('Refusing to purge an active field');
+    }
+    const table = await Model.get(context, entry.parent_id, ncMeta);
+    if (!table) {
+      NcError.get(context).badRequest(
+        'The table that contained this field no longer exists',
+      );
+    }
+    const source = await Source.get(context, table.source_id, false, ncMeta);
+    if (source.is_schema_readonly) {
+      NcError.get(context).sourceMetaReadOnly(source.alias);
+    }
+    await table.getColumns(context, ncMeta);
+    const physicalColumns = [
+      ...table.columns,
+      { ...column, column_name: entry.storage_name },
+    ];
+    const sqlMgr = await ProjectMgrv2.getSqlMgr(
+      context,
+      { id: source.base_id },
+      ncMeta,
+    );
+    await sqlMgr.sqlOpPlus(source, 'tableUpdate', {
+      ...table,
+      tn: table.table_name,
+      originalColumns: physicalColumns.map((candidate) => ({
+        ...candidate,
+        cn: candidate.column_name,
+        cno: candidate.column_name,
+      })),
+      columns: physicalColumns.map((candidate) =>
+        candidate.id === column.id
+          ? {
+              ...candidate,
+              cn: entry.storage_name,
+              cno: entry.storage_name,
+              altered: Altered.DELETE_COLUMN,
+            }
+          : { ...candidate, cn: candidate.column_name },
+      ),
+    });
+
+    const transaction = await (ncMeta as MetaService).startTransaction();
+    try {
+      await Column.delete2(context, { id: column.id }, transaction);
+      await BaseTrashEntry.delete(context, entry.id, transaction);
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+    return 1;
+  }
+
+  async emptyFieldTrash(context: NcContext): Promise<number> {
+    let deleted = 0;
+    // Deleting the first bounded page repeatedly avoids offset drift.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const entries = await BaseTrashEntry.listByType(context, 'field', {
+        limit: 100,
+      });
+      if (!entries.length) break;
+      for (const entry of entries) {
+        deleted += await this.permanentlyDeleteFieldTrash(context, entry);
+      }
+    }
+    return deleted;
+  }
+
+  async cleanExpiredFieldTrash(
+    cutoff: Date,
+    limit: number,
+  ): Promise<{ selected: number; deleted: number }> {
+    const entries = await BaseTrashEntry.listExpiredFields(cutoff, limit);
+    let deleted = 0;
+    for (const entry of entries) {
+      const context = {
+        workspace_id: entry.fk_workspace_id,
+        base_id: entry.base_id,
+      } as NcContext;
+      deleted += await this.permanentlyDeleteFieldTrash(context, entry);
+    }
+    return { selected: entries.length, deleted };
+  }
+
   async columnDelete(
     context: NcContext,
     param: {
@@ -3021,6 +3615,7 @@ export class ColumnsService implements IColumnsService {
       forceDeleteSystem?: boolean;
       reuse?: ReusableParams;
       columnWebhookManager?: ColumnWebhookManager;
+      trash?: boolean;
     },
     ncMeta = this.metaService,
   ) {
@@ -3142,6 +3737,17 @@ export class ColumnsService implements IColumnsService {
           }). Please delete the link column first.`,
         });
       }
+    }
+
+    if (param.trash) {
+      return this.columnTrash(context, {
+        column,
+        table,
+        source,
+        user: param.user,
+        req: param.req,
+        sqlMgr,
+      });
     }
 
     /**

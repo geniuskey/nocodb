@@ -110,9 +110,15 @@ export class SourcesService {
         { limit: 1, sourceId: source.id },
         ncMeta,
       );
-      if (structuralTrash.length) {
+      const fieldTrash = await BaseTrashEntry.listByType(
+        context,
+        'field',
+        { limit: 1, sourceId: source.id },
+        ncMeta,
+      );
+      if (structuralTrash.length || fieldTrash.length) {
         NcError.get(context).badRequest(
-          'Restore or permanently delete trashed tables before deleting this source',
+          'Restore or permanently delete trashed tables and fields before deleting this source',
         );
       }
       await source.delete(context, ncMeta);

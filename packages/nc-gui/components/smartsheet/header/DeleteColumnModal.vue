@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { ColumnType, LinkToAnotherRecordType } from 'nocodb-sdk'
-import { RelationTypes, isLinksOrLTAR } from 'nocodb-sdk'
+import { RelationTypes, isLinksOrLTAR, isSystemColumn, isVirtualCol } from 'nocodb-sdk'
 
 const props = defineProps<{
   visible: boolean
@@ -66,7 +66,16 @@ const onDelete = async () => {
   isLoading.value = true
 
   try {
-    await $api.dbTableColumn.delete(column.value.id as string)
+    const useTrash =
+      !isVirtualCol(column.value) &&
+      !isSystemColumn(column.value) &&
+      !column.value.system &&
+      !column.value.pk &&
+      !column.value.pv &&
+      !column.value.readonly &&
+      !meta.value?.synced
+
+    await $api.dbTableColumn.delete(column.value.id as string, { trash: useTrash })
 
     await getMeta(meta?.value?.id as string, true)
 

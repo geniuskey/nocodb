@@ -1,6 +1,7 @@
 # Base Trash and Restore
 
-Phase 5 provides recoverable record, view, and physical-table deletion.
+Phase 5 provides recoverable record, view, physical-field, and physical-table
+deletion.
 Existing record and table deletion routes keep their original permanent-delete
 behavior unless callers explicitly opt in, so this addition does not silently
 change API compatibility for existing clients.
@@ -42,17 +43,18 @@ The ACL boundary intentionally reuses existing table-data permissions:
 The independently defined Base Trash API provides a single base-scoped index:
 
 - `GET /api/v2/meta/bases/{baseId}/trash?limit=25&offset=0` returns record,
-  view, and table deletion entries newest first. Each record entry includes its
-  table ID and saved name, total record count, and at most eight previews.
+  view, field, and table deletion entries newest first. Each record entry
+  includes its table ID and saved name, total record count, and at most eight
+  previews. Field entries identify their parent table.
 - `POST /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore` restores all
   remaining records in that operation in bounded batches, or restores the
-  deleted view represented by the entry.
+  deleted view, field, or table represented by the entry.
 - `GET /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/conflicts` performs a
   bounded, non-mutating preflight for a grouped record entry and returns at
   most the first 100 conflict details with complete summary counts.
 - `DELETE /api/v2/meta/bases/{baseId}/trash` permanently empties the base's
-  record, view, and table Trash. Physical table drops happen before the
-  corresponding metadata transaction.
+  record, view, field, and table Trash. Physical field/table drops happen
+  before the corresponding metadata transaction.
 
 Editors, creators, and owners can list and restore record entries. Emptying the
 whole base Trash is owner-only. A data-read-only source may be listed but not
@@ -104,6 +106,40 @@ preserved metadata. Empty Trash and automatic expiry use the same path. The
 metadata and connected database cannot share a distributed transaction, so an
 unexpected metadata failure after a successful physical drop can leave an
 unrestorable entry that an operator must permanently remove after inspection.
+
+## Structural field Trash
+
+The Community field-delete dialog opts ordinary writable physical fields into
+structural Trash with `DELETE /api/v2/meta/columns/{columnId}?trash=true`.
+Omitting `trash=true` retains the compatible permanent-delete behavior. The
+recoverable path renames the physical column to the reserved
+`nc_trash_<column-id>` name, marks its existing column metadata inactive, and
+adds a 30-day Base Trash entry containing the parent table ID. Normal table
+metadata and record projections omit the inactive field; the stored values and
+stable field ID remain intact.
+
+Owners and creators can restore a field from Base Trash. Restore renames the
+physical column to its original name, reactivates the same metadata row, and
+preserves its values, type options, view-column presentation, and stable ID.
+The original logical and physical names remain reserved while the field is in
+Trash. A table or source cannot be deleted while it contains field Trash; the
+field must first be restored or permanently removed.
+
+This first field slice deliberately accepts only ordinary, writable physical
+data fields. It rejects virtual/computed/relation fields, system fields,
+primary keys, primary-display fields, readonly or synced fields, and
+schema-read-only sources. It also rejects fields referenced by filters,
+row-color rules, sorts, webhook triggers, Calendar/Gallery/Kanban/Map/List/
+Timeline/Gantt settings, Timeline grouping, expanded-record mappings,
+formula/button expressions, AI prompts, or relation metadata. The caller must
+remove those dependencies first; Trash never rewrites them implicitly.
+
+Virtual and computed fields continue through the existing permanent-delete
+path because they have no independently restorable physical value. Empty Trash
+and hourly expiry permanently drop hidden physical fields before deleting their
+preserved metadata. The browser acceptance workflow verifies hide/restore,
+stable identity, value preservation, permanent purge, name reuse after purge,
+and restoration after an application restart.
 
 Pre-existing record snapshots are migrated to one-entry groups, so an upgrade
 does not discard restorable data. New multi-record requests and filtered
@@ -236,8 +272,9 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Structural field Trash remains a
-subsequent Phase 5 slice.
+Expired snapshots and structural entries are not restorable. The structural
+field/table operations have the same metadata-versus-user-database transaction
+boundary described above; rollback is attempted when a normal operation fails.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no
@@ -278,5 +315,8 @@ curl -X POST "$NC_URL/api/v2/meta/bases/$BASE_ID/trash/$TRASH_ENTRY_ID/restore" 
   --data '{"mode":"clean"}'
 
 curl -X DELETE "$NC_URL/api/v2/meta/tables/$TABLE_ID?trash=true" \
+  -H "xc-token: $NC_TOKEN"
+
+curl -X DELETE "$NC_URL/api/v2/meta/columns/$COLUMN_ID?trash=true" \
   -H "xc-token: $NC_TOKEN"
 ```

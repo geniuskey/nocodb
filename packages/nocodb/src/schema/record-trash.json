@@ -230,7 +230,7 @@
       "delete": {
         "summary": "Empty Base Trash",
         "operationId": "db-base-trash-empty",
-        "description": "Permanently remove all record and view trash entries in one base",
+        "description": "Permanently remove all record and structural trash entries in one base",
         "tags": ["DB Base Trash"],
         "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
         "responses": {
@@ -512,7 +512,10 @@
           "restored": { "type": "integer", "minimum": 0 },
           "skipped": { "type": "integer", "minimum": 0 },
           "conflicted": { "type": "integer", "minimum": 0 },
-          "resource_type": { "type": "string", "enum": ["view", "table"] },
+          "resource_type": {
+            "type": "string",
+            "enum": ["view", "table", "field"]
+          },
           "resource_id": { "$ref": "#/components/schemas/Id" },
           "parent_id": { "$ref": "#/components/schemas/Id" }
         }
@@ -539,7 +542,7 @@
           "id": { "$ref": "#/components/schemas/Id" },
           "resource_type": {
             "type": "string",
-            "enum": ["records", "view", "table"]
+            "enum": ["records", "view", "table", "field"]
           },
           "resource_id": { "$ref": "#/components/schemas/Id" },
           "resource_name": { "type": "string", "maxLength": 255 },

@@ -6,6 +6,7 @@ import {
 } from '~/helpers/recordTrash';
 import { RecordTrash, ViewTrash } from '~/models';
 import { TablesService } from '~/services/tables.service';
+import { ColumnsService } from '~/services/columns.service';
 
 export type RecordTrashCleanupResult = {
   deleted: number;
@@ -52,34 +53,51 @@ export async function cleanExpiredRecordTrash(
 export class RecordTrashCleanUpProcessor {
   private readonly logger = new Logger(RecordTrashCleanUpProcessor.name);
 
-  constructor(private readonly tablesService: TablesService) {}
+  constructor(
+    private readonly tablesService: TablesService,
+    private readonly columnsService: ColumnsService,
+  ) {}
 
   async job(_job: Job): Promise<RecordTrashCleanupResult> {
     const cutoff = new Date();
-    const [recordResult, viewResult, tableResult] = await Promise.all([
-      cleanExpiredRecordTrash(
-        (batchCutoff, limit) =>
-          RecordTrash.deleteExpiredBatch(batchCutoff, limit),
-        { cutoff },
-      ),
-      cleanExpiredRecordTrash(
-        (batchCutoff, limit) =>
-          ViewTrash.deleteExpiredBatch(batchCutoff, limit),
-        { cutoff },
-      ),
-      cleanExpiredRecordTrash(
-        (batchCutoff, limit) =>
-          this.tablesService.cleanExpiredTableTrash(batchCutoff, limit),
-        { cutoff },
-      ),
-    ]);
+    const [fieldResult, recordResult, viewResult, tableResult] =
+      await Promise.all([
+        cleanExpiredRecordTrash(
+          (batchCutoff, limit) =>
+            this.columnsService.cleanExpiredFieldTrash(batchCutoff, limit),
+          { cutoff },
+        ),
+        cleanExpiredRecordTrash(
+          (batchCutoff, limit) =>
+            RecordTrash.deleteExpiredBatch(batchCutoff, limit),
+          { cutoff },
+        ),
+        cleanExpiredRecordTrash(
+          (batchCutoff, limit) =>
+            ViewTrash.deleteExpiredBatch(batchCutoff, limit),
+          { cutoff },
+        ),
+        cleanExpiredRecordTrash(
+          (batchCutoff, limit) =>
+            this.tablesService.cleanExpiredTableTrash(batchCutoff, limit),
+          { cutoff },
+        ),
+      ]);
     const result = {
-      deleted: recordResult.deleted + viewResult.deleted + tableResult.deleted,
+      deleted:
+        recordResult.deleted +
+        viewResult.deleted +
+        fieldResult.deleted +
+        tableResult.deleted,
       processed:
-        recordResult.processed + viewResult.processed + tableResult.processed,
+        recordResult.processed +
+        viewResult.processed +
+        fieldResult.processed +
+        tableResult.processed,
       limitReached:
         recordResult.limitReached ||
         viewResult.limitReached ||
+        fieldResult.limitReached ||
         tableResult.limitReached,
     };
     if (result.deleted || result.limitReached) {
