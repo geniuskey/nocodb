@@ -915,6 +915,31 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     data: { trash_ids: [createdTrash.list[0].id] },
   });
   expect(rejectedRestoreResponse.status()).toBe(422);
+  const primaryConflictResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/conflicts`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [createdTrash.list[0].id] },
+  });
+  const primaryConflict = await primaryConflictResponse.json();
+  expect(primaryConflictResponse.ok(), JSON.stringify(primaryConflict)).toBeTruthy();
+  expect(primaryConflict).toEqual(
+    expect.objectContaining({
+      total: 1,
+      clean: 0,
+      conflicted: 1,
+      conflicts: [
+        expect.objectContaining({
+          record_id: String(trashCandidates[0].Id),
+          issues: [expect.objectContaining({ type: 'primary_key', clearable: false })],
+        }),
+      ],
+    })
+  );
+  const skippedPrimaryRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [createdTrash.list[0].id], mode: 'force' },
+  });
+  expect(skippedPrimaryRestoreResponse.ok(), await skippedPrimaryRestoreResponse.text()).toBeTruthy();
+  expect(await skippedPrimaryRestoreResponse.json()).toEqual({ restored: 0, skipped: 1, conflicted: 1 });
   const collisionCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
     data: [{ Id: trashCandidates[0].Id }],
@@ -927,7 +952,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   const restoreTrash = await restoreTrashResponse.json();
   expect(restoreTrashResponse.ok(), JSON.stringify(restoreTrash)).toBeTruthy();
-  expect(restoreTrash).toEqual({ restored: 1 });
+  expect(restoreTrash).toEqual({ restored: 1, skipped: 0, conflicted: 0 });
 
   const trashListResponse = await page.request.get(`/api/v2/tables/${createdTableBody.id}/trash`, {
     headers: sessionHeaders,
@@ -950,6 +975,109 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(roundTripCleanupResponse.ok(), await roundTripCleanupResponse.text()).toBeTruthy();
 
+  const restoreKeyColumnResponse = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/columns`, {
+    headers: sessionHeaders,
+    data: {
+      title: 'Restore key',
+      column_name: 'Restore key',
+      uidt: UITypes.Number,
+      unique: true,
+    },
+  });
+  const restoreKeyColumnModel = await restoreKeyColumnResponse.json();
+  expect(restoreKeyColumnResponse.ok(), JSON.stringify(restoreKeyColumnModel)).toBeTruthy();
+  const restoreKeyColumn = restoreKeyColumnModel.columns.find(
+    (candidate: { title?: string }) => candidate.title === 'Restore key'
+  );
+  expect(restoreKeyColumn?.id).toEqual(expect.any(String));
+
+  const clearableTrashCandidateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Clearable restore conflict', 'Restore key': 424242 },
+  });
+  const clearableTrashCandidate = await clearableTrashCandidateResponse.json();
+  expect(clearableTrashCandidateResponse.ok(), JSON.stringify(clearableTrashCandidate)).toBeTruthy();
+  const clearableTrashResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash`, {
+    headers: sessionHeaders,
+    data: { records: [{ Id: clearableTrashCandidate.Id }] },
+  });
+  const clearableTrash = await clearableTrashResponse.json();
+  expect(clearableTrashResponse.ok(), JSON.stringify(clearableTrash)).toBeTruthy();
+
+  const renameRestoreKeyResponse = await page.request.patch(`/api/v2/meta/columns/${restoreKeyColumn.id}`, {
+    headers: sessionHeaders,
+    data: {
+      title: 'Renamed restore key',
+      column_name: restoreKeyColumn.column_name,
+      uidt: UITypes.Number,
+      unique: true,
+    },
+  });
+  expect(renameRestoreKeyResponse.ok(), await renameRestoreKeyResponse.text()).toBeTruthy();
+  const activeUniqueCollisionResponse = await page.request.post(
+    `/api/v2/tables/${createdTableBody.id}/records?undo=true`,
+    {
+      headers: sessionHeaders,
+      data: {
+        Id: clearableTrashCandidate.Id + 1000,
+        Title: 'Active unique collision',
+        'Renamed restore key': 424242,
+      },
+    }
+  );
+  const activeUniqueCollision = await activeUniqueCollisionResponse.json();
+  expect(activeUniqueCollisionResponse.ok(), JSON.stringify(activeUniqueCollision)).toBeTruthy();
+
+  const clearableConflictResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/conflicts`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [clearableTrash.list[0].id] },
+  });
+  const clearableConflict = await clearableConflictResponse.json();
+  expect(clearableConflictResponse.ok(), JSON.stringify(clearableConflict)).toBeTruthy();
+  expect(clearableConflict).toEqual(
+    expect.objectContaining({
+      total: 1,
+      clean: 0,
+      conflicted: 1,
+      conflicts: [
+        expect.objectContaining({
+          issues: [
+            expect.objectContaining({
+              type: 'unique',
+              field: 'Renamed restore key',
+              clearable: true,
+            }),
+          ],
+        }),
+      ],
+    })
+  );
+  const cleanConflictRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [clearableTrash.list[0].id], mode: 'clean' },
+  });
+  expect(cleanConflictRestoreResponse.ok(), await cleanConflictRestoreResponse.text()).toBeTruthy();
+  expect(await cleanConflictRestoreResponse.json()).toEqual({ restored: 0, skipped: 1, conflicted: 1 });
+  const forceConflictRestoreResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/trash/restore`, {
+    headers: sessionHeaders,
+    data: { trash_ids: [clearableTrash.list[0].id], mode: 'force' },
+  });
+  expect(forceConflictRestoreResponse.ok(), await forceConflictRestoreResponse.text()).toBeTruthy();
+  expect(await forceConflictRestoreResponse.json()).toEqual({ restored: 1, skipped: 0, conflicted: 1 });
+  const forceRestoredRecordsResponse = await page.request.get(
+    `/api/v2/tables/${createdTableBody.id}/records?limit=100`,
+    { headers: sessionHeaders }
+  );
+  const forceRestoredRecords = await forceRestoredRecordsResponse.json();
+  expect(forceRestoredRecordsResponse.ok(), JSON.stringify(forceRestoredRecords)).toBeTruthy();
+  expect(forceRestoredRecords.list.find((record: { Id: number }) => record.Id === clearableTrashCandidate.Id)).toEqual(
+    expect.objectContaining({ Title: 'Clearable restore conflict', 'Renamed restore key': null })
+  );
+  const clearableConflictCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Id: clearableTrashCandidate.Id }, { Id: activeUniqueCollision.Id }],
+  });
+  expect(clearableConflictCleanupResponse.ok(), await clearableConflictCleanupResponse.text()).toBeTruthy();
   const legacyTrashCandidateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
     data: { Title: 'Legacy route trash opt-in', Status: 'Blocked' },
@@ -1061,12 +1189,25 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   for (const record of baseTrash.list[0].records) {
     expect(record.row_data.Title).toMatch(/^Bulk trash matching \d+$/);
   }
+  const bulkTrashConflictResponse = await page.request.get(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${baseTrash.list[0].id}/conflicts`,
+    { headers: sessionHeaders }
+  );
+  const bulkTrashConflict = await bulkTrashConflictResponse.json();
+  expect(bulkTrashConflictResponse.ok(), JSON.stringify(bulkTrashConflict)).toBeTruthy();
+  expect(bulkTrashConflict).toEqual({
+    total: 101,
+    clean: 101,
+    conflicted: 0,
+    truncated: false,
+    conflicts: [],
+  });
   const bulkTrashRestoreResponse = await page.request.post(
     `/api/v2/meta/bases/${createdBaseBody.id}/trash/${baseTrash.list[0].id}/restore`,
     { headers: sessionHeaders }
   );
   expect(bulkTrashRestoreResponse.ok(), await bulkTrashRestoreResponse.text()).toBeTruthy();
-  expect(await bulkTrashRestoreResponse.json()).toEqual({ restored: 101 });
+  expect(await bulkTrashRestoreResponse.json()).toEqual({ restored: 101, skipped: 0, conflicted: 0 });
   for (let index = 0; index < bulkTrashCandidates.length; index += 100) {
     const bulkTrashCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
       headers: sessionHeaders,
@@ -1969,6 +2110,15 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   const trashUiSnapshots = await trashUiCreateResponse.json();
   expect(trashUiCreateResponse.ok(), JSON.stringify(trashUiSnapshots)).toBeTruthy();
   expect(trashUiSnapshots.list).toHaveLength(2);
+  const trashUiCollisionResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records?undo=true`, {
+    headers: sessionHeaders,
+    data: {
+      Id: trashUiRecords[0].Id,
+      Title: 'Active collision for trash UI',
+      Status: 'Blocked',
+    },
+  });
+  expect(trashUiCollisionResponse.ok(), await trashUiCollisionResponse.text()).toBeTruthy();
 
   const tableContextMenu = page.getByTestId('nc-sidebar-table-context-menu').first();
   await tableContextMenu.locator('xpath=ancestor::*[contains(@class,"nc-sidebar-node")][1]').hover();
@@ -1978,6 +2128,34 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   await expect(trashDialog).toBeVisible();
   await expect(trashDialog).toContainText('Restore from trash UI');
   await expect(trashDialog).toContainText('Permanently delete from trash UI');
+
+  const uiConflictResponsePromise = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/tables/${createdTableBody.id}/trash/conflicts`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId(`nc-record-trash-restore-${trashUiSnapshots.list[0].id}`).click();
+  const uiConflictResponse = await uiConflictResponsePromise;
+  expect(uiConflictResponse.ok(), await uiConflictResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-record-trash-conflicts')).toContainText('primary key is already used');
+  await expect(page.getByTestId('nc-record-trash-conflicts')).toContainText('Cannot force');
+
+  const uiForceRestoreResponsePromise = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/tables/${createdTableBody.id}/trash/restore`) && response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-record-trash-restore-force').click();
+  const uiForceRestoreResponse = await uiForceRestoreResponsePromise;
+  expect(uiForceRestoreResponse.ok(), await uiForceRestoreResponse.text()).toBeTruthy();
+  expect(await uiForceRestoreResponse.json()).toEqual({ restored: 0, skipped: 1, conflicted: 1 });
+  await expect(page.getByTestId('nc-record-trash-conflicts')).toHaveCount(0);
+  await expect(page.getByTestId(`nc-record-trash-row-${trashUiSnapshots.list[0].id}`)).toBeVisible();
+
+  const trashUiCollisionCleanupResponse = await page.request.delete(`/api/v2/tables/${createdTableBody.id}/records`, {
+    headers: sessionHeaders,
+    data: [{ Id: trashUiRecords[0].Id }],
+  });
+  expect(trashUiCollisionCleanupResponse.ok(), await trashUiCollisionCleanupResponse.text()).toBeTruthy();
 
   const uiRestoreResponsePromise = page.waitForResponse(
     response =>

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -8,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { RecordTrashRestoreModeReqType } from 'nocodb-sdk';
 import { NcContext, NcRequest } from '~/interface/config';
 import { TenantContext } from '~/decorators/tenant-context.decorator';
 import { GlobalGuard } from '~/guards/global/global.guard';
@@ -37,11 +39,25 @@ export class BaseTrashController {
     @TenantContext() context: NcContext,
     @Param('baseId') _baseId: string,
     @Param('trashEntryId') trashEntryId: string,
+    @Body() body: RecordTrashRestoreModeReqType | undefined,
     @Req() req: NcRequest,
   ) {
     return this.recordTrashService.restoreBaseTrashEntry(context, {
       trashEntryId,
+      body,
       req,
+    });
+  }
+
+  @Get('/api/v2/meta/bases/:baseId/trash/:trashEntryId/conflicts')
+  @Acl('baseTrashRestore')
+  async analyze(
+    @TenantContext() context: NcContext,
+    @Param('baseId') _baseId: string,
+    @Param('trashEntryId') trashEntryId: string,
+  ) {
+    return this.recordTrashService.analyzeBaseTrashEntry(context, {
+      trashEntryId,
     });
   }
 

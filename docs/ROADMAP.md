@@ -215,8 +215,12 @@ the complete Community view definition, including type-specific presentation,
 field visibility, filters, sorts, Calendar ranges, Gantt dependencies, and
 target-view links. Owners and creators can restore views through the Base Trash
 API and GUI with title, identifier, parent-table, schema-read-only, and missing
-field conflict checks. Richer record conflict handling and structural
-table/field trash remain before Phase 5 is complete.
+field conflict checks. Record restore now projects snapshots by stable field
+identity after field renames, drops values for fields deleted in the interim,
+and provides read-only primary-key, unique-value, and current-format conflict
+analysis. Compatible strict restore plus partial clean and force-with-null
+resolution modes are available through both table/Base APIs and GUIs.
+Structural table/field trash remains before Phase 5 is complete.
 
 ## Phase 6 — Snapshot
 

@@ -7,13 +7,17 @@ import {
   hashTrashRecordId,
   isRecordTrashCleanupEnabled,
   isRestorableTrashColumn,
+  projectTrashRow,
   serializedByteLength,
+  snapshotTrashFieldMap,
   snapshotTrashRow,
   trashExpiryFrom,
 } from '~/helpers/recordTrash';
 import { MetaTable } from '~/utils/globals';
 import { cleanExpiredRecordTrash } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
 import { up as addBaseTrashEntries } from '~/meta/migrations/v0/nc_011_base_trash_entries';
+import { up as addRecordTrashFieldMap } from '~/meta/migrations/v0/nc_013_record_trash_field_map';
+import { RecordTrashService } from '~/services/record-trash.service';
 
 describe('Record trash snapshots', () => {
   const column = (title: string, uidt: UITypes) => ({ title, uidt } as Column);
@@ -51,6 +55,62 @@ describe('Record trash snapshots', () => {
     expect(hashTrashRecordId('7')).toHaveLength(64);
   });
 
+  it('restores renamed fields by stable field ID and drops deleted fields', () => {
+    const deletedColumns = [
+      {
+        id: 'field-id',
+        title: 'Old title',
+        column_name: 'old_title',
+        uidt: UITypes.SingleLineText,
+      } as Column,
+      {
+        id: 'deleted-field-id',
+        title: 'Removed later',
+        column_name: 'removed_later',
+        uidt: UITypes.SingleLineText,
+      } as Column,
+    ];
+    const row = { old_title: 'kept', removed_later: 'discarded' };
+    const snapshot = snapshotTrashRow(deletedColumns, row);
+    const fieldMap = snapshotTrashFieldMap(deletedColumns, row);
+
+    expect(snapshot).toEqual({
+      'Old title': 'kept',
+      'Removed later': 'discarded',
+    });
+    expect(fieldMap).toEqual({
+      'field-id': 'Old title',
+      'deleted-field-id': 'Removed later',
+    });
+    expect(
+      projectTrashRow(
+        [
+          {
+            ...deletedColumns[0],
+            title: 'New title',
+            column_name: 'new_title',
+          } as Column,
+        ],
+        snapshot,
+        fieldMap,
+      ),
+    ).toEqual({ 'New title': 'kept' });
+  });
+
+  it('keeps title-based restore compatibility for older snapshots', () => {
+    const columns = [
+      {
+        id: 'field-id',
+        title: 'Title',
+        column_name: 'title',
+        uidt: UITypes.SingleLineText,
+      } as Column,
+    ];
+    expect(projectTrashRow(columns, { Title: 'legacy' })).toEqual({
+      Title: 'legacy',
+    });
+  });
+
   it('uses UTF-8 byte limits and deterministic retention timestamps', () => {
     expect(serializedByteLength({ value: '한' })).toBe(
       Buffer.byteLength(JSON.stringify({ value: '한' }), 'utf8'),
@@ -64,6 +124,93 @@ describe('Record trash snapshots', () => {
     expect(isRecordTrashCleanupEnabled(undefined)).toBe(true);
     expect(isRecordTrashCleanupEnabled('false')).toBe(true);
     expect(isRecordTrashCleanupEnabled('true')).toBe(false);
+  });
+});
+
+describe('Record trash conflict analysis', () => {
+  it('reports clearable active unique-value and current format conflicts', async () => {
+    const uniqueColumn = {
+      id: 'unique-id',
+      title: 'External key',
+      column_name: 'external_key',
+      uidt: UITypes.SingleLineText,
+      unique: true,
+    } as Column;
+    const emailColumn = {
+      id: 'email-id',
+      title: 'Contact',
+      column_name: 'contact',
+      uidt: UITypes.Email,
+      meta: { validate: true },
+      validate: JSON.stringify({
+        func: ['isEmail'],
+        msg: ['{VALUE} is not a valid email'],
+      }),
+      getValidators: () => ({
+        func: ['isEmail'],
+        msg: ['{VALUE} is not a valid email'],
+      }),
+    } as unknown as Column;
+    const first = jest.fn(async () => ({ external_key: 'duplicate' }));
+    const where = jest.fn(() => ({ first }));
+    const select = jest.fn(() => ({ where }));
+    const baseModel = {
+      isMySQL: false,
+      tnPath: 'tasks',
+      readByPk: jest.fn(async () => null),
+      dbDriver: jest.fn(() => ({ select })),
+    };
+    const service = new RecordTrashService({} as never);
+
+    const result = await (
+      service as unknown as {
+        analyzeRecords: (...args: unknown[]) => Promise<{
+          analysis: {
+            total: number;
+            clean: number;
+            conflicted: number;
+            conflicts: Array<{
+              issues: Array<{ type: string; clearable: boolean }>;
+            }>;
+          };
+        }>;
+      }
+    ).analyzeRecords(
+      { api_version: 'v2' },
+      {
+        model: {},
+        source: {},
+        baseModel,
+        columns: [uniqueColumn, emailColumn],
+      },
+      [
+        {
+          id: 'trash-id',
+          record_id: '1',
+          row_data: { 'External key': 'duplicate', Contact: 'not-an-email' },
+          field_map: {
+            'unique-id': 'External key',
+            'email-id': 'Contact',
+          },
+        },
+      ],
+    );
+
+    expect(result.analysis).toEqual(
+      expect.objectContaining({
+        total: 1,
+        clean: 0,
+        conflicted: 1,
+        conflicts: [
+          expect.objectContaining({
+            issues: expect.arrayContaining([
+              expect.objectContaining({ type: 'unique', clearable: true }),
+              expect.objectContaining({ type: 'format', clearable: true }),
+            ]),
+          }),
+        ],
+      }),
+    );
   });
 });
 
@@ -299,6 +446,42 @@ describe('Base trash entry migration', () => {
           .where('id', 'snapshot-a')
           .first('fk_trash_entry_id'),
       ).resolves.toEqual({ fk_trash_entry_id: 'snapshot-a' });
+    } finally {
+      await db.destroy();
+    }
+  });
+});
+
+describe('Record trash field identity migration', () => {
+  it('adds an optional field map without rewriting existing snapshots', async () => {
+    const db = knex({
+      client: 'sqlite3',
+      connection: { filename: ':memory:' },
+      useNullAsDefault: true,
+    });
+    try {
+      await db.schema.createTable(MetaTable.RECORD_TRASH, (table) => {
+        table.string('id').primary();
+        table.text('row_data').notNullable();
+      });
+      await db(MetaTable.RECORD_TRASH).insert({
+        id: 'snapshot-a',
+        row_data: JSON.stringify({ Title: 'kept' }),
+      });
+
+      await addRecordTrashFieldMap(db);
+
+      expect(
+        await db.schema.hasColumn(MetaTable.RECORD_TRASH, 'field_map'),
+      ).toBe(true);
+      await expect(
+        db(MetaTable.RECORD_TRASH)
+          .where('id', 'snapshot-a')
+          .first('row_data', 'field_map'),
+      ).resolves.toEqual({
+        row_data: JSON.stringify({ Title: 'kept' }),
+        field_map: null,
+      });
     } finally {
       await db.destroy();
     }

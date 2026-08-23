@@ -210,7 +210,7 @@ pnpm run test:community:upgrade -- mysql
 The upgrade fixture is pinned in `docs/UPGRADE_FIXTURES.json`. It creates only
 the v2025.10.0 fresh-install v0 state (`nc_001_init`) using the retained,
 hash-verified AGPL migration, inserts a persistence marker, and then lets the
-current image apply `nc_002` through `nc_012`. Verification requires the exact
+current image apply `nc_002` through `nc_013`. Verification requires the exact
 ordered migration ledger, the new List, Timeline, Gantt, dependency-graph,
 record/view/Base Trash, teams, and workflow tables, the sync-config
 columns, the row-order type change, marker preservation, and an idempotent
@@ -349,7 +349,7 @@ The following was verified on Windows with Node.js lifecycle version `22.12.0`, 
 - Frozen install: passed.
 - Nested integration workspace frozen install, Community core build, and core tests: passed.
 - Community source/default-script boundary check: passed.
-- Append-only metadata migration ledger: 111 files and 108 ordered registrations hash-verified across the v0, v1, v2, and audit tracks.
+- Append-only metadata migration ledger: 115 files and 112 ordered registrations hash-verified across the v0, v1, v2, and audit tracks.
 - Vendored runtime asset provenance/hash/notice check: passed.
 - Enterprise-labelled source/configuration absence check: passed.
 - Community SDK build: passed.

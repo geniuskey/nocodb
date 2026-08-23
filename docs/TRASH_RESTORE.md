@@ -20,6 +20,12 @@ to 100 snapshot IDs through the shared record insertion path. The snapshot is
 removed only after the insertion succeeds. `DELETE
 /api/v2/tables/{modelId}/trash` permanently removes selected snapshots.
 
+Before restoring, `POST /api/v2/tables/{modelId}/trash/conflicts` performs the
+same bounded, read-only preflight used by restore. It reports primary-key,
+unique-value, and enabled Email/URL/Phone validation conflicts per record and
+field. Existing restore requests remain compatible: omitting `mode` selects
+`strict`.
+
 Every new delete operation also creates one base-scoped trash entry. Its record
 snapshots carry `fk_trash_entry_id`, and filtered delete-all operations reuse
 that entry across their bounded 100-record batches. This preserves the existing
@@ -41,6 +47,9 @@ The independently defined Base Trash API provides a single base-scoped index:
 - `POST /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore` restores all
   remaining records in that operation in bounded batches, or restores the
   deleted view represented by the entry.
+- `GET /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/conflicts` performs a
+  bounded, non-mutating preflight for a grouped record entry and returns at
+  most the first 100 conflict details with complete summary counts.
 - `DELETE /api/v2/meta/bases/{baseId}/trash` permanently empties the base's
   record and view Trash in one metadata transaction.
 
@@ -144,9 +153,35 @@ created/modified time/user fields are not copied. Normal create/delete hooks and
 audits still run because trash and restore delegate their data mutation to the
 existing CRUD services.
 
-Restore preserves every primary-key component. If a live row already uses any
-snapshot's primary key, the whole restore request fails with no inserted rows
-and leaves all snapshots available for manual conflict resolution.
+New snapshots store a small field-ID-to-deletion-time-title map next to the row
+data. Restore projects values through stable field IDs: a renamed field receives
+its old value under its current title, while a field deleted after the record
+entered Trash is omitted. Snapshots created before this migration keep the
+legacy title-based restore behavior.
+
+## Record restore conflicts
+
+Restore preserves every primary-key component and supports three explicit
+modes:
+
+- `strict` is the compatible default. If any selected record has a detected
+  conflict, no selected row is inserted and every snapshot remains in Trash.
+- `clean` restores only records with no detected conflicts. Conflicted records
+  remain in Trash.
+- `force` restores clean records and clears conflicting optional unique or
+  validated fields to `null`. A record with a primary-key conflict, or a
+  conflict on a required/system field, remains in Trash.
+
+The table and Base Trash dialogs always run conflict analysis before mutation.
+When conflicts exist they present **Cancel**, **Restore clean ones**, and
+**Restore anyway** choices, with field-level reasons and an indication of
+whether a conflict can be cleared. Responses report `restored`, `skipped`, and
+`conflicted` counts. Base-entry restore uses the same modes across bounded
+pages; skipped snapshots keep their original grouped Trash entry.
+
+The analysis is advisory across the metadata and user-database boundary. A
+concurrent write after preflight can still cause the ordinary database insert
+to fail; in that case snapshots are retained.
 
 The first slice restores the record itself. Relationship rows represented only
 by virtual link columns and attachment files already removed by an external
@@ -169,8 +204,8 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Structural table/field trash and richer
-record conflict resolution are subsequent Phase 5 slices.
+Expired snapshots are not restorable. Structural table/field trash remains a
+subsequent Phase 5 slice.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no
@@ -192,9 +227,21 @@ curl -X POST "$NC_URL/api/v2/tables/$TABLE_ID/trash/restore" \
   -H "content-type: application/json" \
   --data '{"trash_ids":["TRASH_ID"]}'
 
+curl -X POST "$NC_URL/api/v2/tables/$TABLE_ID/trash/conflicts" \
+  -H "xc-token: $NC_TOKEN" \
+  -H "content-type: application/json" \
+  --data '{"trash_ids":["TRASH_ID"]}'
+
+curl -X POST "$NC_URL/api/v2/tables/$TABLE_ID/trash/restore" \
+  -H "xc-token: $NC_TOKEN" \
+  -H "content-type: application/json" \
+  --data '{"trash_ids":["TRASH_ID"],"mode":"force"}'
+
 curl "$NC_URL/api/v2/meta/bases/$BASE_ID/trash?limit=25&offset=0" \
   -H "xc-token: $NC_TOKEN"
 
 curl -X POST "$NC_URL/api/v2/meta/bases/$BASE_ID/trash/$TRASH_ENTRY_ID/restore" \
-  -H "xc-token: $NC_TOKEN"
+  -H "xc-token: $NC_TOKEN" \
+  -H "content-type: application/json" \
+  --data '{"mode":"clean"}'
 ```
