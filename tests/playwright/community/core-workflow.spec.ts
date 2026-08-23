@@ -980,7 +980,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     data: {
       title: 'Restore key',
       column_name: 'Restore key',
-      uidt: UITypes.SingleLineText,
+      uidt: UITypes.Number,
       unique: true,
     },
   });
@@ -993,7 +993,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   const clearableTrashCandidateResponse = await page.request.post(`/api/v2/tables/${createdTableBody.id}/records`, {
     headers: sessionHeaders,
-    data: { Title: 'Clearable restore conflict', 'Restore key': 'duplicate-key' },
+    data: { Title: 'Clearable restore conflict', 'Restore key': 424242 },
   });
   const clearableTrashCandidate = await clearableTrashCandidateResponse.json();
   expect(clearableTrashCandidateResponse.ok(), JSON.stringify(clearableTrashCandidate)).toBeTruthy();
@@ -1009,7 +1009,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     data: {
       title: 'Renamed restore key',
       column_name: restoreKeyColumn.column_name,
-      uidt: UITypes.SingleLineText,
+      uidt: UITypes.Number,
       unique: true,
     },
   });
@@ -1021,7 +1021,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       data: {
         Id: clearableTrashCandidate.Id + 1000,
         Title: 'Active unique collision',
-        'Renamed restore key': 'duplicate-key',
+        'Renamed restore key': 424242,
       },
     }
   );
