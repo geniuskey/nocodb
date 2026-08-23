@@ -6,7 +6,7 @@ import { MetaTable } from '~/utils/globals';
 
 export default class BaseTrashEntry {
   id: string;
-  resource_type: 'records';
+  resource_type: 'records' | 'view';
   resource_id: string;
   resource_name?: string;
   deleted_by?: string;
@@ -112,6 +112,16 @@ export default class BaseTrashEntry {
             `${MetaTable.RECORD_TRASH}.fk_trash_entry_id = ${MetaTable.BASE_TRASH}.id`,
           );
       })
+      .whereNotExists(function () {
+        this.select(1)
+          .from(MetaTable.VIEW_TRASH)
+          .whereRaw(
+            `${MetaTable.VIEW_TRASH}.base_id = ${MetaTable.BASE_TRASH}.base_id`,
+          )
+          .whereRaw(
+            `${MetaTable.VIEW_TRASH}.fk_trash_entry_id = ${MetaTable.BASE_TRASH}.id`,
+          );
+      })
       .delete();
     ncMeta.contextCondition(
       query,
@@ -134,7 +144,16 @@ export default class BaseTrashEntry {
         context.base_id,
         MetaTable.RECORD_TRASH,
       );
-      const deleted = Number(await recordQuery);
+      const recordDeleted = Number(await recordQuery);
+
+      const viewQuery = trx(MetaTable.VIEW_TRASH).delete();
+      ncMeta.contextCondition(
+        viewQuery,
+        context.workspace_id,
+        context.base_id,
+        MetaTable.VIEW_TRASH,
+      );
+      const viewDeleted = Number(await viewQuery);
 
       const entryQuery = trx(MetaTable.BASE_TRASH).delete();
       ncMeta.contextCondition(
@@ -144,7 +163,7 @@ export default class BaseTrashEntry {
         MetaTable.BASE_TRASH,
       );
       await entryQuery;
-      return { deleted };
+      return { deleted: recordDeleted + viewDeleted };
     });
   }
 }

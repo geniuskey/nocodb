@@ -92,6 +92,13 @@ describe('Record trash expiry cleanup', () => {
       table.string('resource_type').notNullable();
       table.primary(['base_id', 'id']);
     });
+    await db.schema.createTable(MetaTable.VIEW_TRASH, (table) => {
+      table.string('base_id');
+      table.string('fk_workspace_id');
+      table.string('id');
+      table.string('fk_trash_entry_id');
+      table.primary(['base_id', 'id']);
+    });
     ncMeta = {
       knex: db,
       formatDateTime: (value: string) => value,

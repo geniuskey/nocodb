@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ProjectRoles } from 'nocodb-sdk';
 import type {
   RecordTrashCreateReqType,
   RecordTrashIdsReqType,
@@ -16,7 +17,13 @@ import {
   snapshotTrashRow,
   trashExpiryFrom,
 } from '~/helpers/recordTrash';
-import { BaseTrashEntry, Model, RecordTrash, Source } from '~/models';
+import {
+  BaseTrashEntry,
+  Model,
+  RecordTrash,
+  Source,
+  ViewTrash,
+} from '~/models';
 import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 import { PagedResponseImpl } from '~/helpers/PagedResponse';
 import { DataTableService } from '~/services/data-table.service';
@@ -122,6 +129,16 @@ export class RecordTrashService {
     ]);
     const list = await Promise.all(
       entries.map(async (entry) => {
+        if (entry.resource_type === 'view') {
+          const viewTrash = await ViewTrash.getByEntryId(context, entry.id);
+          return {
+            ...entry,
+            parent_id: viewTrash?.fk_model_id,
+            view_type: viewTrash?.view_type,
+            record_count: 0,
+            records: [],
+          };
+        }
         const [recordCount, records] = await Promise.all([
           RecordTrash.countByEntryId(context, entry.id),
           RecordTrash.listByEntryId(context, entry.id, { limit: 8 }),
@@ -484,14 +501,41 @@ export class RecordTrashService {
   ) {
     const entry = await BaseTrashEntry.get(context, param.trashEntryId);
     if (!entry) NcError.get(context).notFound('Trash entry not found');
-    if (entry.resource_type !== 'records') {
-      NcError.get(context).unprocessableEntity(
-        `Restore is not supported for ${entry.resource_type}`,
-      );
-    }
     if (new Date(entry.expires_at).getTime() <= Date.now()) {
       NcError.get(context).badRequest(
         'Expired trash entries cannot be restored',
+      );
+    }
+    if (entry.resource_type === 'view') {
+      const roles = param.req.user?.base_roles ?? {};
+      if (!roles[ProjectRoles.OWNER] && !roles[ProjectRoles.CREATOR]) {
+        NcError.forbidden('Only base owners and creators can restore views');
+      }
+      const viewTrash = await ViewTrash.getByEntryId(context, entry.id);
+      if (!viewTrash) {
+        NcError.get(context).notFound('View trash snapshot not found');
+      }
+      const model = await Model.get(context, viewTrash.fk_model_id);
+      if (!model) {
+        NcError.get(context).badRequest(
+          'The table that contained this view no longer exists',
+        );
+      }
+      const source = await Source.get(context, model.source_id);
+      if (source?.is_schema_readonly) {
+        NcError.get(context).sourceMetaReadOnly(source.alias);
+      }
+      const restoredView = await ViewTrash.restore(context, entry.id);
+      return {
+        restored: 1,
+        resource_type: 'view' as const,
+        resource_id: restoredView.id,
+        parent_id: restoredView.fk_model_id,
+      };
+    }
+    if (entry.resource_type !== 'records') {
+      NcError.get(context).unprocessableEntity(
+        `Restore is not supported for ${entry.resource_type}`,
       );
     }
     const { source } = await this.getModelResources(context, entry.resource_id);

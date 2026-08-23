@@ -23,6 +23,7 @@ export { default as GanttViewColumn } from './GanttViewColumn';
 export { default as GanttDependency } from './GanttDependency';
 export { default as BaseTrashEntry } from './BaseTrashEntry';
 export { default as RecordTrash } from './RecordTrash';
+export { default as ViewTrash } from './ViewTrash';
 export { default as Hook } from './Hook';
 export { default as HookFilter } from './HookFilter';
 export { default as HookLog } from './HookLog';

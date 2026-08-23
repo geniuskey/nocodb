@@ -210,8 +210,13 @@ An hourly bounded cleanup job now permanently removes expired snapshots in both
 Redis-worker and in-process queue deployments. A base-scoped entry layer groups
 record deletion operations, exposes a unified bounded list and group restore
 API, and provides owner-only empty Trash while retaining the table-level
-compatibility API. Richer conflict handling and structural table/view/field
-trash remain before Phase 5 is complete.
+compatibility API. View deletion now enters the same Base Trash and preserves
+the complete Community view definition, including type-specific presentation,
+field visibility, filters, sorts, Calendar ranges, Gantt dependencies, and
+target-view links. Owners and creators can restore views through the Base Trash
+API and GUI with title, identifier, parent-table, schema-read-only, and missing
+field conflict checks. Richer record conflict handling and structural
+table/field trash remain before Phase 5 is complete.
 
 ## Phase 6 — Snapshot
 

@@ -26,6 +26,16 @@ const { isFeatureEnabled } = useBetaFeatureToggle()
 
 const isSharedBase = computed(() => route.value.params.typeOrId === 'base')
 
+const basesStore = useBases()
+const baseTrashVisible = ref(false)
+const canOpenBaseTrash = computed(
+  () =>
+    !isPublic.value &&
+    !isSharedBase.value &&
+    !!basesStore.activeProjectId &&
+    isUIAllowed('baseTrashList', { skipSourceCheck: true }),
+)
+
 const topbarBreadcrumbItemWidth = computed(() => {
   if (!isSharedBase.value && !isMobileMode.value) {
     return 'calc(\(100% - 167px - 24px\) / 2)'
@@ -70,6 +80,18 @@ const topbarBreadcrumbItemWidth = computed(() => {
       </div>
 
       <div class="flex items-center justify-end gap-2 flex-1">
+        <NcButton
+          v-if="canOpenBaseTrash"
+          type="secondary"
+          size="small"
+          class="nc-topbar-base-trash-btn"
+          data-testid="nc-topbar-base-trash"
+          @click="baseTrashVisible = true"
+        >
+          <MdiHistory class="h-4 w-4" />
+          <span class="ml-1">Trash</span>
+        </NcButton>
+
         <GeneralApiLoader v-if="!isMobileMode && !activeAutomationId && !activeDashboardId" />
 
         <NcButton
@@ -152,6 +174,15 @@ const topbarBreadcrumbItemWidth = computed(() => {
           />
         </div>
       </div>
+
+      <LazyDlgBaseTrash
+        v-if="basesStore.activeProjectId"
+        v-model:visible="baseTrashVisible"
+        :base-id="basesStore.activeProjectId"
+        :can-restore-records="isUIAllowed('baseTrashRestoreRecords', { skipSourceCheck: true })"
+        :can-restore-structure="isUIAllowed('baseTrashRestoreStructure', { skipSourceCheck: true })"
+        :can-empty="isUIAllowed('baseTrashEmpty', { skipSourceCheck: true })"
+      />
     </template>
   </div>
 </template>

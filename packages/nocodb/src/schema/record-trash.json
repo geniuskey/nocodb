@@ -189,7 +189,7 @@
       "delete": {
         "summary": "Empty Base Trash",
         "operationId": "db-base-trash-empty",
-        "description": "Permanently remove all record trash entries in one base",
+        "description": "Permanently remove all record and view trash entries in one base",
         "tags": ["DB Base Trash"],
         "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
         "responses": {
@@ -337,7 +337,12 @@
         "title": "Record Trash Restore Response",
         "type": "object",
         "required": ["restored"],
-        "properties": { "restored": { "type": "integer", "minimum": 0 } }
+        "properties": {
+          "restored": { "type": "integer", "minimum": 0 },
+          "resource_type": { "type": "string", "enum": ["view"] },
+          "resource_id": { "$ref": "#/components/schemas/Id" },
+          "parent_id": { "$ref": "#/components/schemas/Id" }
+        }
       },
       "RecordTrashDeleteResponse": {
         "title": "Record Trash Delete Response",
@@ -359,9 +364,14 @@
         ],
         "properties": {
           "id": { "$ref": "#/components/schemas/Id" },
-          "resource_type": { "type": "string", "enum": ["records"] },
+          "resource_type": {
+            "type": "string",
+            "enum": ["records", "view"]
+          },
           "resource_id": { "$ref": "#/components/schemas/Id" },
           "resource_name": { "type": "string", "maxLength": 255 },
+          "parent_id": { "$ref": "#/components/schemas/Id" },
+          "view_type": { "type": "integer" },
           "deleted_by": { "$ref": "#/components/schemas/Id" },
           "deleted_at": { "type": "string", "format": "date-time" },
           "expires_at": { "type": "string", "format": "date-time" },

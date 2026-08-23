@@ -668,6 +668,8 @@ export default class Model implements TableType {
       MetaTable.BASE_TRASH,
       { resource_type: 'records', resource_id: this.id },
     );
+    const { default: ViewTrash } = await import('~/models/ViewTrash');
+    await ViewTrash.deleteForModel(context, this.id, ncMeta);
 
     for (const view of await this.getViews(context, true, ncMeta)) {
       await view.delete(context, ncMeta);

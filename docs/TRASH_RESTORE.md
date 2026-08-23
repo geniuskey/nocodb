@@ -1,8 +1,9 @@
-# Record Trash and Restore
+# Base Trash and Restore
 
-Phase 5 begins with an opt-in, table-record trash API. Existing record deletion
-routes keep their original permanent-delete behavior, so this addition does not
-silently change API compatibility for existing clients.
+Phase 5 begins with recoverable record and view deletion. Existing record
+deletion routes keep their original permanent-delete behavior unless callers
+explicitly opt in, so this addition does not silently change API compatibility
+for existing clients.
 
 ## Foundation contract
 
@@ -38,14 +39,30 @@ The independently defined Base Trash API provides a single base-scoped index:
   entries newest first. Each record entry includes its table ID and saved name,
   total record count, and at most eight record previews.
 - `POST /api/v2/meta/bases/{baseId}/trash/{trashEntryId}/restore` restores all
-  remaining records in that operation in bounded batches.
+  remaining records in that operation in bounded batches, or restores the
+  deleted view represented by the entry.
 - `DELETE /api/v2/meta/bases/{baseId}/trash` permanently empties the base's
-  record Trash in one metadata transaction.
+  record and view Trash in one metadata transaction.
 
 Editors, creators, and owners can list and restore record entries. Emptying the
 whole base Trash is owner-only. A data-read-only source may be listed but not
 restored. The older table-level endpoints remain available for compatible,
 fine-grained record recovery.
+
+View deletion uses the same Base Trash index. Its entry identifies the original
+view and parent table; owners and creators can restore it from the API or the
+topbar **Trash** dialog. A restored view keeps its original identifier, title,
+order, type-specific presentation, field visibility, filters, sorts, Calendar
+ranges, Gantt dependencies, and target-view link configuration. The existing
+view-delete API keeps its successful boolean response while adding this
+recoverability.
+
+Restore is rejected without consuming the snapshot if the original table no
+longer exists, a live view has taken the same identifier or title, the source is
+schema-read-only, or a referenced field was deleted while the view was in
+Trash. This avoids returning a partially configured view. Deleting the parent
+table permanently also removes its orphaned view snapshots. Empty Trash and the
+hourly bounded expiry job permanently remove both record and view snapshots.
 
 Pre-existing record snapshots are migrated to one-entry groups, so an upgrade
 does not discard restorable data. New multi-record requests and filtered
@@ -53,8 +70,7 @@ delete-all operations are grouped. Client-side selections larger than the
 100-record request limit still form one group per request.
 
 The behavior boundary was derived from NocoDB's public
-[Base Trash documentation](https://nocodb.com/docs/product-docs/bases/base-trash)
-and [Trash settings documentation](https://nocodb.com/docs/product-docs/bases/trash-settings).
+[Base Trash documentation](https://nocodb.com/docs/product/bases/base-trash).
 No post-transition or Enterprise source implementation was used.
 
 ## Table Trash UI
@@ -87,10 +103,11 @@ The Community jobs service permanently removes snapshots after their stored
 `expires_at` timestamp and removes a group after its last snapshot. A repeatable
 cleanup runs at minute 15 of every hour,
 using the metadata index on `expires_at`. It selects at most 500 composite
-`base_id`/`id` identifiers at a time and processes at most 10,000 candidates in
-one run. The delete query checks the same fixed cutoff again, so overlapping
-workers and concurrent manual deletion are safe and idempotent. A backlog over
-the per-run limit is left for the next scheduled run.
+`base_id`/`id` identifiers at a time and processes at most 10,000 candidates of
+each snapshot type in one run. The delete query checks the same fixed cutoff
+again, so overlapping workers and concurrent manual deletion are safe and
+idempotent. A backlog over either per-type limit is left for the next scheduled
+run.
 
 The primary application schedules the repeatable job. With Redis workers, Bull
 deduplicates the fixed job identifier and a worker consumes it; without Redis,
@@ -152,8 +169,8 @@ There is therefore no claimed distributed transaction:
    primary key, after which the snapshot can be permanently removed.
 
 This ordering favors a recoverable duplicate over irreversible data loss.
-Expired snapshots are not restorable. Structural table/view/field trash and
-richer conflict resolution are subsequent Phase 5 slices.
+Expired snapshots are not restorable. Structural table/field trash and richer
+record conflict resolution are subsequent Phase 5 slices.
 
 Permanently deleting a table also removes that table's trash snapshots. Base
 deletion and export/import ordering include the trash metadata table so no

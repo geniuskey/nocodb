@@ -135,6 +135,23 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   );
   expect(Boolean(updatedList.view.show_field_labels)).toBe(false);
 
+  const listFilterResponse = await page.request.post(`/api/v2/meta/views/${createdList.id}/filters`, {
+    headers: sessionHeaders,
+    data: {
+      fk_column_id: createdStatusColumn.id,
+      comparison_op: 'eq',
+      value: 'Ready',
+    },
+  });
+  const createdListFilter = await listFilterResponse.json();
+  expect(listFilterResponse.ok(), JSON.stringify(createdListFilter)).toBeTruthy();
+  const listSortResponse = await page.request.post(`/api/v2/meta/views/${createdList.id}/sorts/`, {
+    headers: sessionHeaders,
+    data: { fk_column_id: titleColumn.id, direction: 'asc' },
+  });
+  const createdListSort = await listSortResponse.json();
+  expect(listSortResponse.ok(), JSON.stringify(createdListSort)).toBeTruthy();
+
   const createTimelineColumn = async (title: string, uidt: UITypes) => {
     const response = await page.request.post(`/api/v2/meta/tables/${createdTableBody.id}/columns`, {
       headers: sessionHeaders,
@@ -1380,6 +1397,96 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   });
   expect(listBulkTrashCleanupResponse.ok(), await listBulkTrashCleanupResponse.text()).toBeTruthy();
   expect(await listBulkTrashCleanupResponse.json()).toEqual({ deleted: 30 });
+
+  const listViewTrashResponse = await page.request.delete(`/api/v2/meta/views/${createdList.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(listViewTrashResponse.ok(), await listViewTrashResponse.text()).toBeTruthy();
+  const viewTrashListResponse = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const viewTrashList = await viewTrashListResponse.json();
+  expect(viewTrashListResponse.ok(), JSON.stringify(viewTrashList)).toBeTruthy();
+  expect(viewTrashList.list).toEqual([
+    expect.objectContaining({
+      resource_type: 'view',
+      resource_id: createdList.id,
+      resource_name: 'Task List',
+      parent_id: createdTableBody.id,
+      view_type: ViewTypes.LIST,
+      record_count: 0,
+      records: [],
+    }),
+  ]);
+  const viewTrashEntryId = viewTrashList.list[0].id as string;
+  const viewRestoreResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/trash/${viewTrashEntryId}/restore`,
+    { headers: sessionHeaders }
+  );
+  const restoredViewResult = await viewRestoreResponse.json();
+  expect(viewRestoreResponse.ok(), JSON.stringify(restoredViewResult)).toBeTruthy();
+  expect(restoredViewResult).toEqual({
+    restored: 1,
+    resource_type: 'view',
+    resource_id: createdList.id,
+    parent_id: createdTableBody.id,
+  });
+  const restoredListResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}/views`, {
+    headers: sessionHeaders,
+  });
+  const restoredViews = await restoredListResponse.json();
+  expect(restoredListResponse.ok(), JSON.stringify(restoredViews)).toBeTruthy();
+  const restoredList = restoredViews.list.find((view: { id?: string }) => view.id === createdList.id);
+  expect(restoredList).toBeTruthy();
+  expect(restoredList.view).toEqual(expect.objectContaining({ density: 'compact' }));
+  expect(Boolean(restoredList.view.show_field_labels)).toBe(false);
+  const restoredFiltersResponse = await page.request.get(`/api/v2/meta/views/${createdList.id}/filters`, {
+    headers: sessionHeaders,
+  });
+  expect(restoredFiltersResponse.ok(), await restoredFiltersResponse.text()).toBeTruthy();
+  expect((await restoredFiltersResponse.json()).list).toEqual([
+    expect.objectContaining({ id: createdListFilter.id, fk_column_id: createdStatusColumn.id, value: 'Ready' }),
+  ]);
+  const restoredSortsResponse = await page.request.get(`/api/v2/meta/views/${createdList.id}/sorts/`, {
+    headers: sessionHeaders,
+  });
+  expect(restoredSortsResponse.ok(), await restoredSortsResponse.text()).toBeTruthy();
+  expect((await restoredSortsResponse.json()).list).toEqual([
+    expect.objectContaining({ id: createdListSort.id, fk_column_id: titleColumn.id, direction: 'asc' }),
+  ]);
+
+  const secondViewTrashResponse = await page.request.delete(`/api/v2/meta/views/${createdList.id}`, {
+    headers: sessionHeaders,
+  });
+  expect(secondViewTrashResponse.ok(), await secondViewTrashResponse.text()).toBeTruthy();
+  const secondViewTrashListResponse = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/trash`, {
+    headers: sessionHeaders,
+  });
+  const secondViewTrashList = await secondViewTrashListResponse.json();
+  expect(secondViewTrashListResponse.ok(), JSON.stringify(secondViewTrashList)).toBeTruthy();
+  const secondViewTrashEntryId = secondViewTrashList.list[0].id as string;
+
+  await page.getByTestId('nc-topbar-base-trash').click();
+  const baseTrashDialog = page.getByTestId('nc-base-trash-dialog');
+  await expect(baseTrashDialog).toBeVisible();
+  await expect(page.getByTestId(`nc-base-trash-entry-${secondViewTrashEntryId}`)).toContainText('Task List');
+  const uiViewRestoreResponsePromise = page.waitForResponse(
+    response =>
+      response.url().includes(`/trash/${secondViewTrashEntryId}/restore`) && response.request().method() === 'POST'
+  );
+  await page.getByTestId(`nc-base-trash-restore-${secondViewTrashEntryId}`).click();
+  const uiViewRestoreResponse = await uiViewRestoreResponsePromise;
+  expect(uiViewRestoreResponse.ok(), await uiViewRestoreResponse.text()).toBeTruthy();
+  await expect(page.getByTestId('nc-base-trash-empty-state')).toBeVisible();
+  await page.getByTestId('nc-base-trash-close').click();
+  await expect(baseTrashDialog).toBeHidden();
+  const restoredViewListResponse = await page.request.get(`/api/v2/meta/tables/${createdTableBody.id}/views`, {
+    headers: sessionHeaders,
+  });
+  expect(restoredViewListResponse.ok(), await restoredViewListResponse.text()).toBeTruthy();
+  expect((await restoredViewListResponse.json()).list).toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: createdList.id, title: 'Task List' })])
+  );
 
   const currentTimelineDate = new Date().toISOString().slice(0, 10);
   const currentTimelineEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();

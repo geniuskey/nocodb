@@ -49,6 +49,10 @@
         {
           "name": "nc_011_base_trash_entries",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_011_base_trash_entries.ts"
+        },
+        {
+          "name": "nc_012_view_trash",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_012_view_trash.ts"
         }
       ]
     },
@@ -516,6 +520,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_011_base_trash_entries.ts",
       "sha256": "aa8b7d6abec1318b03d5f7ca4ec446e7b5ebab29944ab86c8fc513bc05002e52"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_012_view_trash.ts",
+      "sha256": "fb830d1d6a114fe46085c08d7f735d88ee541bedcbf39ed53246e67e77a5c49d"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",
