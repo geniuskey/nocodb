@@ -1,42 +1,141 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
-name: Backend Unit Tests
+name: Community Foundation CI
 
 on:
   push:
-    branches: ["develop"]
+    branches: [foundation]
     paths:
-      - "packages/nocodb/**"
+      - ".github/workflows/unit-test.yml"
+      - ".dockerignore"
+      - "Dockerfile.community"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "packages/**"
+      - "scripts/**"
+      - "tests/**"
   pull_request:
-    branches: ["develop"]
+    branches: [foundation]
     paths:
-      - "packages/nocodb/**"
+      - ".github/workflows/unit-test.yml"
+      - ".dockerignore"
+      - "Dockerfile.community"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "packages/**"
+      - "scripts/**"
+      - "tests/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  unit-tests:
+  verify-community:
+    name: Verify Community foundation
     runs-on: ubuntu-22.04
-
-    strategy:
-      matrix:
-        node-version: 22.12.0
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      NODE_OPTIONS: "--max-old-space-size=16384"
 
     steps:
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
         with:
-          version: 9
-      - uses: actions/checkout@v3
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+          version: 10.27.0
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-      - name: remove use-node-version from .npmrc
-        run: sed -i '/^use-node-version/d' .npmrc
-      - name: install dependencies
-        run: pnpm bootstrap
-      - name: run unit tests
-        working-directory: ./packages/nocodb
-        run: pnpm run unit-test
+          node-version: 22.12.0
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            packages/noco-integrations/pnpm-lock.yaml
+
+      - name: Verify toolchain
+        run: |
+          test "$(node --version)" = "v22.12.0"
+          test "$(pnpm --version)" = "10.27.0"
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: |
+          pnpm run build:sdk
+          pnpm run integrations:build
+
+      - name: Type-check backend
+        run: pnpm --filter nocodb exec tsc --noEmit -p tsconfig.json
+
+      - name: Test SDK
+        run: pnpm --filter nocodb-sdk exec jest --runInBand
+
+      - name: Test backend
+        run: pnpm --filter nocodb run test:unit
+
+      - name: Build Community production bundle
+        run: pnpm run build:community
+
+      - name: Verify production bundle
+        shell: bash
+        run: |
+          mkdir -p .ci-data
+          NC_TOOL_DIR="$PWD/.ci-data" NC_DISABLE_TELE=true PORT=18080 \
+            node packages/nocodb/docker/main.js > "$RUNNER_TEMP/nocodb.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18080/api/v1/health > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            cat "$RUNNER_TEMP/nocodb.log"
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:18080/dashboard/ > /dev/null
+          NC_VERIFY_URL=http://127.0.0.1:18080 pnpm run verify:community
+
+      - name: Build Community container
+        run: >-
+          docker build --progress=plain -f Dockerfile.community
+          -t nocodb-community:ci .
+
+      - name: Verify Community container
+        shell: bash
+        run: |
+          container_id=$(docker run -d --rm -p 18081:8080 nocodb-community:ci)
+          trap 'docker stop "$container_id" > /dev/null 2>&1 || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18081/api/v1/health > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            docker logs "$container_id"
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:18081/dashboard/ > /dev/null
+          NC_VERIFY_URL=http://127.0.0.1:18081 pnpm run verify:community
