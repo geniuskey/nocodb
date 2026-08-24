@@ -479,6 +479,11 @@ export default class BaseUser {
         );
       })
       .where(function () {
+        this.where(`${MetaTable.PROJECT}.is_snapshot`, false).orWhereNull(
+          `${MetaTable.PROJECT}.is_snapshot`,
+        );
+      })
+      .where(function () {
         this.whereNull(`${MetaTable.PROJECT_USERS}.roles`).orWhereNot(
           `${MetaTable.PROJECT_USERS}.roles`,
           ProjectRoles.NO_ACCESS,

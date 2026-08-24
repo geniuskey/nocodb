@@ -29,6 +29,9 @@ import { cleanBaseSchemaCacheForBase } from '~/helpers/scriptHelper';
 
 const logger = new Logger('Base');
 
+const isSnapshotFlag = (value: unknown) =>
+  value === true || value === 1 || value === '1';
+
 export default class Base implements BaseType {
   public id: string;
   public fk_workspace_id?: string;
@@ -75,6 +78,8 @@ export default class Base implements BaseType {
       'meta',
       'color',
       'order',
+      'fk_workspace_id',
+      'is_snapshot',
     ]);
 
     if (!insertObj.order) {
@@ -96,7 +101,7 @@ export default class Base implements BaseType {
       insertObj.type = 'database';
     }
 
-    insertObj.fk_workspace_id = Noco.ncDefaultWorkspaceId;
+    insertObj.fk_workspace_id ??= Noco.ncDefaultWorkspaceId;
 
     const createdBase = await ncMeta.metaInsert2(
       RootScopes.BASE,
@@ -130,20 +135,40 @@ export default class Base implements BaseType {
       logger.error('Failed to clean command palette cache');
     });
 
-    return this.getWithInfo(context, createdBase.id, true, ncMeta).then(
-      async (base) => {
-        await NocoCache.appendToList(
-          {
-            workspace_id: base.fk_workspace_id,
-            base_id: null,
-          },
-          CacheScope.PROJECT,
-          [],
-          `${CacheScope.PROJECT}:${base.id}`,
-        );
-        return base;
-      },
-    );
+    const getCreatedBase = isSnapshotFlag(createdBase.is_snapshot)
+      ? this.getSnapshotWithInfo(context, createdBase.id, true, ncMeta)
+      : this.getWithInfo(context, createdBase.id, true, ncMeta);
+
+    return getCreatedBase.then(async (base) => {
+      if (isSnapshotFlag(base.is_snapshot)) return base;
+      await NocoCache.appendToList(
+        {
+          workspace_id: base.fk_workspace_id,
+          base_id: null,
+        },
+        CacheScope.PROJECT,
+        [],
+        `${CacheScope.PROJECT}:${base.id}`,
+      );
+      await NocoCache.set(
+        {
+          workspace_id: undefined,
+          base_id: null,
+        },
+        `${CacheScope.PROJECT}:${base.id}`,
+        base,
+      );
+      await NocoCache.appendToList(
+        {
+          workspace_id: undefined,
+          base_id: null,
+        },
+        CacheScope.PROJECT,
+        [],
+        `${CacheScope.PROJECT}:${base.id}`,
+      );
+      return base;
+    });
   }
 
   static async list(
@@ -190,6 +215,12 @@ export default class Base implements BaseType {
                       eq: null,
                     },
                   },
+                ],
+              },
+              {
+                _or: [
+                  { is_snapshot: { eq: false } },
+                  { is_snapshot: { eq: null } },
                 ],
               },
             ],
@@ -268,6 +299,11 @@ export default class Base implements BaseType {
         baseData = null;
       }
     }
+    if (
+      isSnapshotFlag(baseData?.is_snapshot) &&
+      !context.additionalContext?.allowSnapshotBase
+    )
+      return null;
     return this.castType(baseData);
   }
 
@@ -341,6 +377,11 @@ export default class Base implements BaseType {
         baseData = null;
       }
     }
+    if (
+      isSnapshotFlag(baseData?.is_snapshot) &&
+      !context.additionalContext?.allowSnapshotBase
+    )
+      return null;
     if (baseData) {
       const base = this.castType(baseData);
 
@@ -349,6 +390,29 @@ export default class Base implements BaseType {
       return base;
     }
     return null;
+  }
+
+  static async getSnapshotWithInfo(
+    context: NcContext,
+    baseId: string,
+    includeConfig = true,
+    ncMeta = Noco.ncMeta,
+  ): Promise<Base> {
+    const baseData = await ncMeta.metaGet2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.PROJECT,
+      {
+        id: baseId,
+        deleted: false,
+        is_snapshot: true,
+      },
+    );
+    if (!baseData) return null;
+    baseData.meta = parseMetaProp(baseData);
+    const base = this.castType(baseData);
+    await base.getSources(includeConfig, ncMeta);
+    return base;
   }
 
   // @ts-ignore
@@ -517,6 +581,14 @@ export default class Base implements BaseType {
         o,
       );
     }
+    await NocoCache.update(
+      {
+        workspace_id: undefined,
+        base_id: null,
+      },
+      key,
+      updateObj,
+    );
     cleanCommandPaletteCache(context.workspace_id).catch(() => {
       logger.error('Failed to clean command palette cache');
     });
@@ -575,7 +647,7 @@ export default class Base implements BaseType {
       ncMeta,
     );
     for (const source of sources) {
-      await source.delete(context, ncMeta);
+      await source.delete(context, ncMeta, { force: true });
     }
 
     await DataReflection.revokeBase(base.fk_workspace_id, base.id, ncMeta);
@@ -606,6 +678,23 @@ export default class Base implements BaseType {
       `${CacheScope.PROJECT}:${baseId}`,
       CacheDelDirection.CHILD_TO_PARENT,
     );
+    const globalCacheContext = {
+      workspace_id: undefined,
+      base_id: null,
+    };
+    if (
+      await NocoCache.get(
+        globalCacheContext,
+        `${CacheScope.PROJECT}:${baseId}`,
+        CacheGetType.TYPE_OBJECT,
+      )
+    ) {
+      await NocoCache.deepDel(
+        globalCacheContext,
+        `${CacheScope.PROJECT}:${baseId}`,
+        CacheDelDirection.CHILD_TO_PARENT,
+      );
+    }
 
     await Noco.ncAudit.metaDelete(
       context.workspace_id,

@@ -1,0 +1,281 @@
+{
+  "paths": {
+    "/api/v2/meta/bases/{baseId}/snapshots": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Base Snapshots",
+        "operationId": "base-snapshot-list",
+        "description": "List point-in-time snapshots owned by one base",
+        "tags": ["Base Snapshot"],
+        "parameters": [
+          { "$ref": "#/components/parameters/xc-auth" },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BaseSnapshotList" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "post": {
+        "summary": "Create Base Snapshot",
+        "operationId": "base-snapshot-create",
+        "description": "Capture base metadata and records into protected snapshot storage",
+        "tags": ["Base Snapshot"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BaseSnapshotCreateReq" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot capture job accepted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BaseSnapshotJob" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/snapshots/{snapshotId}": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "snapshotId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Snapshot ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "delete": {
+        "summary": "Delete Base Snapshot",
+        "operationId": "base-snapshot-delete",
+        "description": "Permanently delete a snapshot and its protected storage",
+        "tags": ["Base Snapshot"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseSnapshotDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/snapshots/{snapshotId}/restore": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Base ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "snapshotId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Snapshot ID",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Restore Base Snapshot",
+        "operationId": "base-snapshot-restore",
+        "description": "Validate a snapshot and restore it into a newly created base without modifying the source base",
+        "tags": ["Base Snapshot"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseSnapshotRestoreReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot restore job accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseSnapshotRestoreJob"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SnapshotManifestTable": {
+        "type": "object",
+        "required": ["title", "column_count", "record_count"],
+        "properties": {
+          "title": { "type": "string" },
+          "column_count": { "type": "integer", "minimum": 0 },
+          "record_count": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "SnapshotManifest": {
+        "type": "object",
+        "required": [
+          "format",
+          "format_version",
+          "source_version",
+          "source_base_id",
+          "storage_base_id",
+          "captured_at",
+          "tables"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": ["nocodb-community-base-snapshot"]
+          },
+          "format_version": { "type": "integer", "minimum": 1 },
+          "source_version": { "type": "string" },
+          "source_base_id": { "$ref": "#/components/schemas/Id" },
+          "storage_base_id": { "$ref": "#/components/schemas/Id" },
+          "captured_at": { "type": "string", "format": "date-time" },
+          "tables": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SnapshotManifestTable" }
+          }
+        }
+      },
+      "Snapshot": {
+        "title": "Base Snapshot",
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "base_id",
+          "snapshot_base_id",
+          "status",
+          "format_version"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "title": { "type": "string", "maxLength": 120 },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "snapshot_base_id": { "$ref": "#/components/schemas/Id" },
+          "fk_workspace_id": { "$ref": "#/components/schemas/Id" },
+          "created_by": { "$ref": "#/components/schemas/Id" },
+          "status": {
+            "type": "string",
+            "enum": ["creating", "restoring", "ready", "failed"]
+          },
+          "format_version": { "type": "integer", "minimum": 1 },
+          "source_version": { "type": "string" },
+          "manifest": { "$ref": "#/components/schemas/SnapshotManifest" },
+          "job_id": { "$ref": "#/components/schemas/Id" },
+          "error": { "type": "string" },
+          "completed_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BaseSnapshotList": {
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Snapshot" }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
+      },
+      "BaseSnapshotCreateReq": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      },
+      "BaseSnapshotRestoreReq": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 50 },
+          "target_workspace_id": { "$ref": "#/components/schemas/Id" }
+        }
+      },
+      "BaseSnapshotJob": {
+        "type": "object",
+        "required": ["id", "snapshot_id"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "snapshot_id": { "$ref": "#/components/schemas/Id" }
+        }
+      },
+      "BaseSnapshotRestoreJob": {
+        "type": "object",
+        "required": ["id", "base_id"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "base_id": { "$ref": "#/components/schemas/Id" }
+        }
+      },
+      "BaseSnapshotDeleteResponse": {
+        "type": "object",
+        "required": ["deleted"],
+        "properties": { "deleted": { "type": "boolean" } }
+      }
+    }
+  }
+}

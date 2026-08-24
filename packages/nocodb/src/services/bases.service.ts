@@ -24,7 +24,7 @@ import { populateMeta, validatePayload } from '~/helpers';
 import { NcError } from '~/helpers/catchError';
 import { extractPropsAndSanitize } from '~/helpers/extractProps';
 import syncMigration from '~/helpers/syncMigration';
-import { Base, BaseUser, Integration } from '~/models';
+import { Base, BaseUser, Integration, Snapshot, SnapshotLock } from '~/models';
 import Noco from '~/Noco';
 import { getToolDir } from '~/utils/nc-config';
 import { MetaService } from '~/meta/meta.service';
@@ -188,6 +188,8 @@ export class BasesService {
       NcError.baseNotFound(param.baseId);
     }
 
+    await this.deleteSnapshotsForBase(context, ncMeta);
+
     const transaction = await ncMeta.startTransaction();
 
     try {
@@ -211,12 +213,57 @@ export class BasesService {
     return true;
   }
 
+  private async deleteSnapshotsForBase(
+    context: NcContext,
+    ncMeta = Noco.ncMeta,
+  ) {
+    // Base deletion is irreversible in Community. Snapshot storage is owned by
+    // that base and must be purged first so hidden physical tables cannot be
+    // orphaned.
+    const snapshots: Snapshot[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const page = await Snapshot.list(context, { limit: 100, offset }, ncMeta);
+      snapshots.push(...page);
+      if (page.length < 100) break;
+    }
+
+    const storageContexts = snapshots.map((snapshot) => ({
+      workspace_id: snapshot.fk_workspace_id || context.workspace_id,
+      base_id: snapshot.snapshot_base_id,
+      additionalContext: { allowSnapshotBase: true },
+    }));
+    for (const storageContext of storageContexts) {
+      if (await SnapshotLock.isActive(storageContext, ncMeta)) {
+        NcError.badRequest(
+          'Cannot delete a base while one of its snapshots is in use',
+        );
+      }
+    }
+
+    for (const [index, snapshot] of snapshots.entries()) {
+      const storageContext = storageContexts[index];
+      const storage = await Base.getSnapshotWithInfo(
+        storageContext,
+        snapshot.snapshot_base_id,
+        true,
+        ncMeta,
+      );
+      if (storage) await Base.delete(storageContext, storage.id, ncMeta);
+      await Snapshot.delete(context, snapshot.id, ncMeta);
+    }
+  }
+
   async baseCreate(
     param: {
       base: ProjectReqType;
       user: any;
       req: any;
       apiVersion?: NcApiVersion;
+      internal?: {
+        isSnapshot?: boolean;
+        skipMembership?: boolean;
+        suppressEvents?: boolean;
+      };
     },
     ncMeta = Noco.ncMeta,
   ) {
@@ -233,6 +280,7 @@ export class BasesService {
 
     const baseBody: ProjectReqType & Record<string, any> = param.base;
     baseBody.id = baseId;
+    if (param.internal?.isSnapshot) baseBody.is_snapshot = true;
 
     if (!baseBody.external) {
       const ranId = nanoid();
@@ -351,15 +399,17 @@ export class BasesService {
     };
 
     // TODO: create n:m instances here
-    await BaseUser.insert(
-      context,
-      {
-        fk_user_id: (param as any).user.id,
-        base_id: base.id,
-        roles: 'owner',
-      },
-      ncMeta,
-    );
+    if (!param.internal?.skipMembership) {
+      await BaseUser.insert(
+        context,
+        {
+          fk_user_id: (param as any).user.id,
+          base_id: base.id,
+          roles: 'owner',
+        },
+        ncMeta,
+      );
+    }
 
     await syncMigration(base);
 
@@ -372,23 +422,27 @@ export class BasesService {
           user: param.user,
         });
 
-        this.appHooksService.emit(AppEvents.APIS_CREATED, {
-          info,
-          req: param.req,
-          context,
-        });
+        if (!param.internal?.suppressEvents) {
+          this.appHooksService.emit(AppEvents.APIS_CREATED, {
+            info,
+            req: param.req,
+            context,
+          });
+        }
 
         source.config = undefined;
       }
     }
 
-    this.appHooksService.emit(AppEvents.PROJECT_CREATE, {
-      base,
-      user: param.user,
-      xcdb: !baseBody.external,
-      req: param.req,
-      context,
-    });
+    if (!param.internal?.suppressEvents) {
+      this.appHooksService.emit(AppEvents.PROJECT_CREATE, {
+        base,
+        user: param.user,
+        xcdb: !baseBody.external,
+        req: param.req,
+        context,
+      });
+    }
 
     return base;
   }

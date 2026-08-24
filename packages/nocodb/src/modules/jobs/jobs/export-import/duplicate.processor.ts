@@ -227,38 +227,54 @@ export class DuplicateProcessor {
         });
       }
 
-      await this.projectsService.baseUpdate(targetContext, {
-        baseId: targetBase.id,
-        base: {
-          status: null,
-        },
-        user: req.user,
-        req,
-      });
-      this.appHooksService.emit(AppEvents.BASE_DUPLICATE_COMPLETE, {
-        sourceBase,
-        destBase: targetBase,
-        user: req.user,
-        req,
-        context: targetContext,
-      });
-    } catch (err) {
-      if (targetBase?.id) {
-        await this.projectsService.baseSoftDelete(targetContext, {
+      if (operation === JobTypes.CreateSnapshot) {
+        await Base.update(targetContext, targetBase.id, { status: null });
+      } else {
+        await this.projectsService.baseUpdate(targetContext, {
           baseId: targetBase.id,
+          base: {
+            status: null,
+          },
           user: req.user,
           req,
         });
+        this.appHooksService.emit(AppEvents.BASE_DUPLICATE_COMPLETE, {
+          sourceBase,
+          destBase: targetBase,
+          user: req.user,
+          req,
+          context: targetContext,
+        });
+      }
+    } catch (err) {
+      if (targetBase?.id) {
+        if (
+          operation === JobTypes.CreateSnapshot ||
+          operation === JobTypes.RestoreSnapshot
+        ) {
+          await Base.delete(targetContext, targetBase.id).catch(() => {});
+        } else {
+          await this.projectsService.baseSoftDelete(targetContext, {
+            baseId: targetBase.id,
+            user: req.user,
+            req,
+          });
+        }
       }
 
-      this.appHooksService.emit(AppEvents.BASE_DUPLICATE_FAIL, {
-        sourceBase,
-        destBase: targetBase,
-        user: req.user,
-        req,
-        context: targetContext,
-        error: err.message,
-      });
+      if (
+        operation !== JobTypes.CreateSnapshot &&
+        operation !== JobTypes.RestoreSnapshot
+      ) {
+        this.appHooksService.emit(AppEvents.BASE_DUPLICATE_FAIL, {
+          sourceBase,
+          destBase: targetBase,
+          user: req.user,
+          req,
+          context: targetContext,
+          error: err.message,
+        });
+      }
 
       await this.telemetryService.sendSystemEvent({
         event_type: 'priority_error',

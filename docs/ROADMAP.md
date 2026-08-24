@@ -239,6 +239,20 @@ Define consistent metadata/data snapshot boundaries, storage format,
 compatibility metadata, restore validation, progress reporting, and recovery
 tests. Snapshot is distinct from Trash and from external database backup.
 
+Current evidence: the first independently designed Community Snapshot format
+uses the retained Community duplication pipeline to capture schema and records
+into a protected hidden Base. A bounded capture lock makes the source Base
+read-only to application HTTP writes while copying, and a versioned manifest
+records source/application compatibility plus per-table field and row counts.
+Restore validates that protected storage before creating a new ordinary Base;
+it never overwrites the source. Owner-only API and Base-settings GUI operations
+report queued job and catalog status, reject unsupported/corrupt storage, and
+permanently purge hidden storage on deletion. The production-image workflow
+verifies point-in-time isolation, hidden storage, application-restart recovery,
+restore, and deletion across the Community database matrix. Cross-workspace
+restore and physical database transaction backups are explicitly outside this
+first format. See [SNAPSHOTS.md](./SNAPSHOTS.md). Phase 6 is complete.
+
 ## Phase 7 — Automation / Workflow
 
 Create an event/action workflow core with independently defined triggers,

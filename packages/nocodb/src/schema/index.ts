@@ -6,6 +6,7 @@ import * as listView from './list-view.json';
 import * as timelineView from './timeline-view.json';
 import * as ganttView from './gantt-view.json';
 import * as recordTrash from './record-trash.json';
+import * as baseSnapshot from './base-snapshot.json';
 
 const communitySwagger: any = {
   ...swagger,
@@ -15,6 +16,7 @@ const communitySwagger: any = {
     ...timelineView.paths,
     ...ganttView.paths,
     ...recordTrash.paths,
+    ...baseSnapshot.paths,
   },
   components: {
     ...swagger.components,
@@ -25,6 +27,7 @@ const communitySwagger: any = {
       ...timelineView.components.schemas,
       ...ganttView.components.schemas,
       ...recordTrash.components.schemas,
+      ...baseSnapshot.components.schemas,
     },
   },
 };
