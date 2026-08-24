@@ -86,6 +86,12 @@ an integer from 5 through 1440 before starting the backend. See
 [SNAPSHOTS.md](./SNAPSHOTS.md) for the consistency boundary; this setting is not
 a database backup timeout.
 
+Workflow HTTP credentials are supplied to the backend/worker process as
+`NC_WORKFLOW_SECRET_<NAME>`. For example, a definition referring to
+`API_TOKEN` reads `NC_WORKFLOW_SECRET_API_TOKEN`. Local/private HTTP actions are
+blocked unless the existing `NC_ALLOW_LOCAL_HOOKS=true` operator override is
+set. See [AUTOMATION_WORKFLOW.md](./AUTOMATION_WORKFLOW.md).
+
 ## Production build
 
 ```sh
@@ -217,9 +223,10 @@ pnpm run test:community:upgrade -- mysql
 The upgrade fixture is pinned in `docs/UPGRADE_FIXTURES.json`. It creates only
 the v2025.10.0 fresh-install v0 state (`nc_001_init`) using the retained,
 hash-verified AGPL migration, inserts a persistence marker, and then lets the
-current image apply `nc_002` through `nc_016`. Verification requires the exact
+current image apply `nc_002` through `nc_017`. Verification requires the exact
 ordered migration ledger, the new List, Timeline, Gantt, dependency-graph,
-record/view/Base Trash, Snapshot catalog/lock, teams, and workflow tables, the sync-config
+record/view/Base Trash, Snapshot catalog/lock, workflow execution/lock tables,
+teams, and workflow tables, the sync-config
 columns, the row-order type change, field-Trash parent linkage, marker
 preservation, and an idempotent
 application restart on every database. No historical full application image or

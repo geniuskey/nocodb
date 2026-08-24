@@ -1,0 +1,506 @@
+{
+  "paths": {
+    "/api/v2/meta/bases/{baseId}/workflows": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Community Workflows",
+        "operationId": "workflow-list",
+        "tags": ["Workflow"],
+        "parameters": [
+          { "$ref": "#/components/parameters/xc-auth" },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityWorkflowList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Community Workflow",
+        "operationId": "workflow-create",
+        "tags": ["Workflow"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CommunityWorkflowReq" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityWorkflow" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/workflows/{workflowId}": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "workflowId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "Read Community Workflow",
+        "operationId": "workflow-read",
+        "tags": ["Workflow"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityWorkflow" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Community Workflow",
+        "operationId": "workflow-update",
+        "tags": ["Workflow"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommunityWorkflowUpdateReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CommunityWorkflow" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Community Workflow",
+        "operationId": "workflow-delete",
+        "tags": ["Workflow"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityWorkflowDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/workflows/{workflowId}/trigger": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "workflowId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "summary": "Manually Trigger Community Workflow",
+        "operationId": "workflow-trigger",
+        "tags": ["Workflow"],
+        "parameters": [
+          { "$ref": "#/components/parameters/xc-auth" },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": { "type": "string", "maxLength": 128 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommunityWorkflowTriggerReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Execution queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityWorkflowTriggerResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/workflows/{workflowId}/executions": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "workflowId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "List Community Workflow Executions",
+        "operationId": "workflow-execution-list",
+        "tags": ["Workflow"],
+        "parameters": [
+          { "$ref": "#/components/parameters/xc-auth" },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityWorkflowExecutionList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/meta/bases/{baseId}/workflows/{workflowId}/executions/{executionId}": {
+      "parameters": [
+        {
+          "name": "baseId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "workflowId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "executionId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "get": {
+        "summary": "Read Community Workflow Execution",
+        "operationId": "workflow-execution-read",
+        "tags": ["Workflow"],
+        "parameters": [{ "$ref": "#/components/parameters/xc-auth" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityWorkflowExecutionDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CommunityWorkflowNode": {
+        "type": "object",
+        "required": ["id", "type", "data"],
+        "properties": {
+          "id": { "type": "string", "maxLength": 64 },
+          "type": {
+            "type": "string",
+            "enum": ["trigger.manual", "action.log", "action.http"]
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            }
+          },
+          "data": {
+            "type": "object",
+            "required": ["title"],
+            "properties": {
+              "title": { "type": "string", "maxLength": 120 },
+              "config": { "type": "object", "additionalProperties": true }
+            }
+          }
+        }
+      },
+      "CommunityWorkflowEdge": {
+        "type": "object",
+        "required": ["id", "source", "target"],
+        "properties": {
+          "id": { "type": "string", "maxLength": 64 },
+          "source": { "type": "string", "maxLength": 64 },
+          "target": { "type": "string", "maxLength": 64 }
+        }
+      },
+      "CommunityWorkflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "enabled",
+          "definition_version",
+          "nodes",
+          "edges"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "title": { "type": "string", "maxLength": 100 },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "base_id": { "$ref": "#/components/schemas/Id" },
+          "fk_workspace_id": { "$ref": "#/components/schemas/Id" },
+          "enabled": { "type": "boolean" },
+          "definition_version": { "type": "integer", "enum": [1] },
+          "concurrency_limit": { "type": "integer", "enum": [1] },
+          "nodes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowNode" }
+          },
+          "edges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowEdge" }
+          },
+          "trigger_count": { "type": "integer", "minimum": 0 },
+          "created_by": { "$ref": "#/components/schemas/Id" },
+          "updated_by": { "$ref": "#/components/schemas/Id" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CommunityWorkflowReq": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "enabled": { "type": "boolean" },
+          "definition_version": { "type": "integer", "enum": [1] },
+          "nodes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowNode" }
+          },
+          "edges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowEdge" }
+          }
+        }
+      },
+      "CommunityWorkflowUpdateReq": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "enabled": { "type": "boolean" },
+          "nodes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowNode" }
+          },
+          "edges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflowEdge" }
+          }
+        }
+      },
+      "CommunityWorkflowList": {
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommunityWorkflow" }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
+      },
+      "CommunityWorkflowTriggerReq": {
+        "type": "object",
+        "properties": {
+          "inputs": { "type": "object", "additionalProperties": true },
+          "idempotency_key": { "type": "string", "maxLength": 128 }
+        }
+      },
+      "CommunityWorkflowTriggerResponse": {
+        "type": "object",
+        "required": ["id", "execution_id", "replayed"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "execution_id": { "$ref": "#/components/schemas/Id" },
+          "replayed": { "type": "boolean" }
+        }
+      },
+      "CommunityWorkflowExecution": {
+        "type": "object",
+        "required": ["id", "fk_workflow_id", "status", "finished"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "fk_workflow_id": { "$ref": "#/components/schemas/Id" },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "success", "error", "cancelled"]
+          },
+          "finished": { "type": "boolean" },
+          "trigger_type": { "type": "string", "enum": ["trigger.manual"] },
+          "trigger_data": { "type": "object", "additionalProperties": true },
+          "result": {},
+          "error": { "type": "string", "nullable": true },
+          "job_id": { "$ref": "#/components/schemas/Id" },
+          "created_by": { "$ref": "#/components/schemas/Id" },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CommunityWorkflowExecutionNode": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Id" },
+          "node_id": { "type": "string" },
+          "node_type": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["running", "success", "error"]
+          },
+          "attempt": { "type": "integer", "minimum": 0 },
+          "input": {},
+          "output": {},
+          "error": { "type": "string", "nullable": true },
+          "started_at": { "type": "string", "format": "date-time" },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CommunityWorkflowExecutionDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CommunityWorkflowExecution" },
+          {
+            "type": "object",
+            "properties": {
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CommunityWorkflowExecutionNode"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CommunityWorkflowExecutionList": {
+        "type": "object",
+        "required": ["list", "pageInfo"],
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommunityWorkflowExecution"
+            }
+          },
+          "pageInfo": { "$ref": "#/components/schemas/Paginated" }
+        }
+      },
+      "CommunityWorkflowDeleteResponse": {
+        "type": "object",
+        "required": ["deleted"],
+        "properties": { "deleted": { "type": "boolean" } }
+      }
+    }
+  }
+}

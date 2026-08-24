@@ -130,6 +130,7 @@ export class MetaService {
       [MetaTable.WORKSPACE]: 'w',
       [MetaTable.WORKFLOWS]: 'wf',
       [MetaTable.WORKFLOW_EXECUTIONS]: 'wfex',
+      [MetaTable.WORKFLOW_EXECUTION_NODES]: 'wfen',
       [MetaTable.DEPENDENCY_TRACKER]: 'dt',
     };
 

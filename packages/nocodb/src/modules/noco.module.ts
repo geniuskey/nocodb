@@ -59,6 +59,7 @@ import { GanttSchedulesController } from '~/controllers/gantt-schedules.controll
 import { RecordTrashController } from '~/controllers/record-trash.controller';
 import { BaseTrashController } from '~/controllers/base-trash.controller';
 import { SnapshotsController } from '~/controllers/snapshots.controller';
+import { WorkflowsController } from '~/controllers/workflows.controller';
 import { MapsController } from '~/controllers/maps.controller';
 import { ModelVisibilitiesController } from '~/controllers/model-visibilities.controller';
 import { NotificationsController } from '~/controllers/notifications.controller';
@@ -104,6 +105,7 @@ import { GanttDependenciesService } from '~/services/gantt-dependencies.service'
 import { GanttSchedulesService } from '~/services/gantt-schedules.service';
 import { RecordTrashService } from '~/services/record-trash.service';
 import { SnapshotsService } from '~/services/snapshots.service';
+import { WorkflowsService } from '~/services/workflows.service';
 import { MapsService } from '~/services/maps.service';
 import { MetaDiffsService } from '~/services/meta-diffs.service';
 import { ModelVisibilitiesService } from '~/services/model-visibilities.service';
@@ -235,6 +237,7 @@ export const nocoModuleMetadata = {
           RecordTrashController,
           BaseTrashController,
           SnapshotsController,
+          WorkflowsController,
           MapsController,
           ModelVisibilitiesController,
           OrgLcenseController,
@@ -327,6 +330,7 @@ export const nocoModuleMetadata = {
     GanttSchedulesService,
     RecordTrashService,
     SnapshotsService,
+    WorkflowsService,
     MapsService,
     MetaDiffsService,
     ModelVisibilitiesService,

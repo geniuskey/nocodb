@@ -5,7 +5,7 @@ import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } fro
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
 test('Community image supports signup, base, table, and record CRUD', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   await page.addInitScript(() => {
     (window as Window & { isPlaywright?: boolean }).isPlaywright = true;
   });
@@ -2529,4 +2529,117 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
     data: { Title: 'Created after snapshot boundary' },
   });
   expect(postSnapshotRecordResponse.ok(), await postSnapshotRecordResponse.text()).toBeTruthy();
+
+  await page.getByTestId('nc-sidebar-base-overview-btn').click();
+  const workflowButton = page.getByTestId('proj-view-btn__workflows');
+  await expect(workflowButton).toBeVisible({ timeout: 30_000 });
+  await workflowButton.click();
+  await expect(page.getByTestId('nc-workflow-manager')).toBeVisible();
+  await page.getByTestId('nc-workflow-new-title').fill('Restart workflow fixture');
+  const workflowCreateResponse = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/api/v2/meta/bases/${createdBaseBody.id}/workflows`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-workflow-create').click();
+  const createdWorkflowResponse = await workflowCreateResponse;
+  const createdWorkflow = await createdWorkflowResponse.json();
+  expect(createdWorkflowResponse.ok(), JSON.stringify(createdWorkflow)).toBeTruthy();
+  expect(createdWorkflow).toEqual(expect.objectContaining({ id: expect.any(String), enabled: false }));
+
+  await page.getByTestId('nc-workflow-enabled').click();
+  await page.getByTestId('nc-workflow-log-message').fill('Hello {{ trigger.name }}');
+  await page.getByTestId('nc-workflow-trigger-input').fill('{"name":"Ada"}');
+  const workflowSaveResponse = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}`) &&
+      response.request().method() === 'PATCH'
+  );
+  await page.getByTestId('nc-workflow-save').click();
+  expect((await workflowSaveResponse).ok()).toBeTruthy();
+
+  const workflowGuiTriggerResponse = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}/trigger`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-workflow-run').click();
+  const guiExecution = await (await workflowGuiTriggerResponse).json();
+  await expect(page.getByTestId(`nc-workflow-execution-${guiExecution.execution_id}`)).toContainText('success', {
+    timeout: 30_000,
+  });
+
+  const invalidSecretWorkflowResponse = await page.request.post(`/api/v2/meta/bases/${createdBaseBody.id}/workflows`, {
+    headers: sessionHeaders,
+    data: {
+      title: 'Invalid plaintext secret fixture',
+      nodes: [
+        {
+          id: 'trigger',
+          type: 'trigger.manual',
+          data: { title: 'Manual trigger', config: {} },
+        },
+        {
+          id: 'http',
+          type: 'action.http',
+          data: {
+            title: 'HTTP request',
+            config: {
+              url: 'https://example.com',
+              headers: [{ name: 'Authorization', value: 'Bearer plaintext' }],
+            },
+          },
+        },
+      ],
+      edges: [{ id: 'edge', source: 'trigger', target: 'http' }],
+    },
+  });
+  expect(invalidSecretWorkflowResponse.status()).toBe(400);
+
+  const workflowIdempotencyKey = 'community-workflow-restart-fixture';
+  const firstIdempotentTriggerResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}/trigger`,
+    {
+      headers: { ...sessionHeaders, 'Idempotency-Key': workflowIdempotencyKey },
+      data: { inputs: { name: 'Grace' } },
+    }
+  );
+  const firstIdempotentTrigger = await firstIdempotentTriggerResponse.json();
+  expect(firstIdempotentTriggerResponse.ok(), JSON.stringify(firstIdempotentTrigger)).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}/executions/${firstIdempotentTrigger.execution_id}`,
+          { headers: sessionHeaders }
+        );
+        return (await response.json()).status;
+      },
+      { timeout: 30_000 }
+    )
+    .toBe('success');
+  const firstExecutionResponse = await page.request.get(
+    `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}/executions/${firstIdempotentTrigger.execution_id}`,
+    { headers: sessionHeaders }
+  );
+  const firstExecution = await firstExecutionResponse.json();
+  expect(firstExecutionResponse.ok(), JSON.stringify(firstExecution)).toBeTruthy();
+  expect(firstExecution.nodes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ node_type: 'action.log', status: 'success', output: { message: 'Hello Grace' } }),
+    ])
+  );
+
+  const replayTriggerResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdWorkflow.id}/trigger`,
+    {
+      headers: { ...sessionHeaders, 'Idempotency-Key': workflowIdempotencyKey },
+      data: { inputs: { name: 'Ignored replay input' } },
+    }
+  );
+  const replayTrigger = await replayTriggerResponse.json();
+  expect(replayTriggerResponse.ok(), JSON.stringify(replayTrigger)).toBeTruthy();
+  expect(replayTrigger).toEqual(
+    expect.objectContaining({ execution_id: firstIdempotentTrigger.execution_id, replayed: true })
+  );
 });

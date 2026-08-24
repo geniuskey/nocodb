@@ -14,6 +14,7 @@ import { DataExportCleanUpProcessor } from '~/modules/jobs/jobs/data-export-clea
 import { AttachmentUrlUploadProcessor } from '~/modules/jobs/jobs/attachment-url-upload/attachment-url-upload.processor';
 import { RecordTrashCleanUpProcessor } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
 import { SnapshotProcessor } from '~/modules/jobs/jobs/snapshot/snapshot.processor';
+import { WorkflowProcessor } from '~/modules/jobs/jobs/workflow/workflow.processor';
 import { JobTypes } from '~/interface/Jobs';
 
 @Injectable()
@@ -34,6 +35,7 @@ export class JobsMap {
     protected readonly attachmentUrlUploadProcessor: AttachmentUrlUploadProcessor,
     protected readonly recordTrashCleanUpProcessor: RecordTrashCleanUpProcessor,
     protected readonly snapshotProcessor: SnapshotProcessor,
+    protected readonly workflowProcessor: WorkflowProcessor,
   ) {}
 
   protected get _jobMap(): {
@@ -105,6 +107,9 @@ export class JobsMap {
       [JobTypes.RestoreSnapshot]: {
         this: this.snapshotProcessor,
         fn: 'restore',
+      },
+      [JobTypes.ExecuteWorkflow]: {
+        this: this.workflowProcessor,
       },
     };
   }

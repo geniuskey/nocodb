@@ -269,6 +269,5 @@ export interface ReseatSubscriptionJobData extends JobData {
 
 export interface ExecuteWorkflowJobData extends JobData {
   workflowId: string;
-  triggerNodeId?: string; // Optional: specific trigger node to start from
-  triggerInputs: any; // Data passed to the trigger node
+  executionId: string;
 }

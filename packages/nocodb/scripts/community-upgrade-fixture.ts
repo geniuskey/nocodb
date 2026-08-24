@@ -38,6 +38,7 @@ const expectedMigrations = [
   'nc_014_table_trash',
   'nc_015_field_trash',
   'nc_016_base_snapshots',
+  'nc_017_workflow_foundation',
 ];
 
 class HistoricalV0MigrationSource {
@@ -196,6 +197,8 @@ async function verify(connection: Knex, sourceTag: string) {
     MetaTable.VIEW_TRASH,
     MetaTable.SNAPSHOT,
     MetaTable.SNAPSHOT_LOCK,
+    MetaTable.WORKFLOW_EXECUTION_NODES,
+    MetaTable.WORKFLOW_LOCKS,
   ]) {
     if (!(await connection.schema.hasTable(table))) {
       fail(`expected migrated table ${table} is absent.`);
@@ -253,6 +256,33 @@ async function verify(connection: Knex, sourceTag: string) {
 
   if (!(await connection.schema.hasColumn(MetaTable.PROJECT, 'is_snapshot'))) {
     fail('expected protected Base marker is absent.');
+  }
+
+  const workflowColumns = await connection(MetaTable.WORKFLOWS).columnInfo();
+  for (const column of ['definition_version', 'concurrency_limit']) {
+    if (!workflowColumns[column]) {
+      fail(
+        `expected migrated column ${MetaTable.WORKFLOWS}.${column} is absent.`,
+      );
+    }
+  }
+  const workflowExecutionColumns = await connection(
+    MetaTable.WORKFLOW_EXECUTIONS,
+  ).columnInfo();
+  for (const column of [
+    'idempotency_key',
+    'trigger_type',
+    'trigger_data',
+    'result',
+    'error',
+    'job_id',
+    'created_by',
+  ]) {
+    if (!workflowExecutionColumns[column]) {
+      fail(
+        `expected migrated column ${MetaTable.WORKFLOW_EXECUTIONS}.${column} is absent.`,
+      );
+    }
   }
 
   const orderColumn = await connection(

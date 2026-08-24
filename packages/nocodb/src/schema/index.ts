@@ -7,6 +7,7 @@ import * as timelineView from './timeline-view.json';
 import * as ganttView from './gantt-view.json';
 import * as recordTrash from './record-trash.json';
 import * as baseSnapshot from './base-snapshot.json';
+import * as workflow from './workflow.json';
 
 const communitySwagger: any = {
   ...swagger,
@@ -17,6 +18,7 @@ const communitySwagger: any = {
     ...ganttView.paths,
     ...recordTrash.paths,
     ...baseSnapshot.paths,
+    ...workflow.paths,
   },
   components: {
     ...swagger.components,
@@ -28,6 +30,7 @@ const communitySwagger: any = {
       ...ganttView.components.schemas,
       ...recordTrash.components.schemas,
       ...baseSnapshot.components.schemas,
+      ...workflow.components.schemas,
     },
   },
 };

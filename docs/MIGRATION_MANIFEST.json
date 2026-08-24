@@ -69,6 +69,10 @@
         {
           "name": "nc_016_base_snapshots",
           "path": "packages/nocodb/src/meta/migrations/v0/nc_016_base_snapshots.ts"
+        },
+        {
+          "name": "nc_017_workflow_foundation",
+          "path": "packages/nocodb/src/meta/migrations/v0/nc_017_workflow_foundation.ts"
         }
       ]
     },
@@ -556,6 +560,10 @@
     {
       "path": "packages/nocodb/src/meta/migrations/v0/nc_016_base_snapshots.ts",
       "sha256": "11614c325d376bdca1ec99d4e598af0885aec22c1013dbc02912e35446ccc117"
+    },
+    {
+      "path": "packages/nocodb/src/meta/migrations/v0/nc_017_workflow_foundation.ts",
+      "sha256": "34f035890defc1fc3c83dbfafecdbf8b8e5fde4972c2d1de0e9f30b0fe9ef168"
     },
     {
       "path": "packages/nocodb/src/meta/migrations/v1/nc_001_init.ts",

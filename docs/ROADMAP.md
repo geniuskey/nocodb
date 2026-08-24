@@ -259,6 +259,16 @@ Create an event/action workflow core with independently defined triggers,
 conditions, durable execution state, retries, idempotency, concurrency limits,
 secrets boundaries, observability, and webhook actions.
 
+Current foundation: definition format version 1 implements an independently
+designed manual trigger with linear log-message and HTTP-request actions. It
+adds persistent execution and per-node logs, idempotency keys, one-run locking,
+bounded transient HTTP retries, SSRF filtering, response redaction, and
+environment-only secret references. The Base Overview GUI exposes create,
+configure, enable, run, history, and delete operations. Record/schedule/form
+triggers, conditions, branches, iteration, record actions, cancellation, and
+higher concurrency remain explicit follow-up slices; Phase 7 is therefore in
+progress. See [AUTOMATION_WORKFLOW.md](./AUTOMATION_WORKFLOW.md).
+
 ## Phase 8 — Script
 
 Add a permission-aware scripting capability on top of the workflow engine.

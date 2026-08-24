@@ -60,6 +60,7 @@ const rolePermissions = {
       fieldUpdate: true,
       hookList: true,
       hookCreate: true,
+      manageWorkflow: true,
       tableCreate: true,
       tableRename: true,
       tableDelete: true,

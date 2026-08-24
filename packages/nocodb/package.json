@@ -40,7 +40,7 @@
     "watch:run:playwright:pg:cyquick": "rm -f ./test_noco.db; cp ../../tests/playwright/fixtures/noco_0_91_7.db ./test_noco.db; cross-env NC_DISABLE_TELE=true NODE_ENV=test ENTRYPOINT=src/run/dockerRunPG_CyQuick.ts rspack --config rspack.dev.js",
     "mail": "email dev --dir src/services/mail/templates --port 8001",
     "test": "jest --runInBand --forceExit --passWithNoTests",
-    "test:community:smoke": "jest --runTestsByPath src/services/users/users.service.spec.ts --testRegex users\\.service\\.spec\\.ts$ --runInBand --forceExit && jest --testRegex \"(gantt-(dependency-graph|critical-path|working-calendar)|record-trash|snapshot|view-trash)\\.spec\\.ts$\" --runInBand --forceExit",
+    "test:community:smoke": "jest --runTestsByPath src/services/users/users.service.spec.ts --testRegex users\\.service\\.spec\\.ts$ --runInBand --forceExit && jest --testRegex \"(gantt-(dependency-graph|critical-path|working-calendar)|record-trash|snapshot|workflow|view-trash)\\.spec\\.ts$\" --runInBand --forceExit",
     "typecheck:community": "tsc --noEmit -p tsconfig.json",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
