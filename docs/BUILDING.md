@@ -157,11 +157,12 @@ SDK unit tests:
 pnpm --filter nocodb-sdk exec jest --runInBand
 ```
 
-Current baseline result is 182 passing and one failing test. The retained
-`Time.spec.ts` expects the clock value from an offset timestamp to compare as
-`02:15`; the retained implementation normalizes the offset and returns false.
-This is a recorded upstream baseline defect and was not changed as part of the
-build foundation.
+The suite contains 182 ordinary passing tests and one expected-failure test.
+The retained `Time.spec.ts` expects the clock value from an offset timestamp to
+compare as `02:15`; the retained implementation normalizes the offset and
+returns false. Issue #62 records the frozen-baseline defect, and
+`it.failing` ensures CI fails if the behaviour changes before the expectation
+and timezone semantics are updated together.
 
 Frontend Vitest configuration (the frozen revision currently has no matching
 frontend test files and therefore exits with status 1):
@@ -254,3 +255,19 @@ re-exports, large frontend chunks, and one dynamic `require` in
 `require-in-the-middle` are retained baseline warnings. They are candidates for
 the modernization phase, not reasons to upgrade dependencies in the foundation
 commit.
+
+## Continuous integration
+
+`.github/workflows/unit-test.yml` runs for application, build, dependency, and
+test changes targeting `foundation`. It uses the pinned Node.js and pnpm
+versions and performs the following on a clean Ubuntu runner:
+
+1. frozen dependency installation;
+2. SDK and nested integration builds;
+3. backend type-check, SDK Jest, and backend Mocha tests;
+4. Community production build and the authentication/Base/table/record CRUD
+   verifier;
+5. source-built Community Docker image plus the same verifier against the
+   running container.
+
+Documentation-only changes do not start this resource-intensive workflow.
