@@ -6,7 +6,13 @@ export default async function syncMigration(base: Base): Promise<void> {
     try {
       /* create sql-migrator */
       const migrator = new KnexMigratorv2(
-        { workspace_id: base.fk_workspace_id, base_id: base.id },
+        {
+          workspace_id: base.fk_workspace_id,
+          base_id: base.id,
+          additionalContext: base.is_snapshot
+            ? { allowSnapshotBase: true }
+            : undefined,
+        },
         base,
       );
 
@@ -30,7 +36,13 @@ export async function syncBaseMigration(
   try {
     /* create sql-migrator */
     const migrator = new KnexMigratorv2(
-      { workspace_id: base.fk_workspace_id, base_id: base.id },
+      {
+        workspace_id: base.fk_workspace_id,
+        base_id: base.id,
+        additionalContext: base.is_snapshot
+          ? { allowSnapshotBase: true }
+          : undefined,
+      },
       base,
     );
 

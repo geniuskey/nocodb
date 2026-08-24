@@ -5,6 +5,7 @@ import { getAuthToken } from './public-api-contract';
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
 test('Community image preserves login, schema, and records across restart', async ({ page }) => {
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     (window as Window & { isPlaywright?: boolean }).isPlaywright = true;
   });
@@ -35,7 +36,92 @@ test('Community image preserves login, schema, and records across restart', asyn
   expect(tablesResponse.ok(), JSON.stringify(tables)).toBeTruthy();
   const tasksTableMeta = tables.list.find((table: { title?: string }) => table.title === 'Tasks');
   expect(tasksTableMeta?.id).toEqual(expect.any(String));
+  const snapshotFixtureTableMeta = tables.list.find((table: { title?: string }) => table.title === 'Snapshot fixture');
+  expect(snapshotFixtureTableMeta?.id).toEqual(expect.any(String));
   expect(tables.list.find((table: { title?: string }) => table.title === 'Structural trash fixture')).toBeUndefined();
+
+  const snapshotsResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/snapshots`, {
+    headers: sessionHeaders,
+  });
+  const snapshots = await snapshotsResponse.json();
+  expect(snapshotsResponse.ok(), JSON.stringify(snapshots)).toBeTruthy();
+  const restartSnapshot = snapshots.list.find(
+    (snapshot: { title?: string }) => snapshot.title === 'Restart snapshot fixture'
+  );
+  expect(restartSnapshot).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      snapshot_base_id: expect.any(String),
+      status: 'ready',
+      format_version: 1,
+      manifest: expect.objectContaining({
+        format: 'nocodb-community-base-snapshot',
+        format_version: 1,
+        tables: expect.arrayContaining([expect.objectContaining({ title: 'Tasks' })]),
+      }),
+    })
+  );
+  expect(bases.list.some((base: { id?: string }) => base.id === restartSnapshot.snapshot_base_id)).toBe(false);
+
+  const restoreSnapshotResponse = await page.request.post(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/snapshots/${restartSnapshot.id}/restore`,
+    {
+      headers: sessionHeaders,
+      data: { title: 'Snapshot recovery fixture' },
+    }
+  );
+  const restoreSnapshot = await restoreSnapshotResponse.json();
+  expect(restoreSnapshotResponse.ok(), JSON.stringify(restoreSnapshot)).toBeTruthy();
+  expect(restoreSnapshot.base_id).toEqual(expect.any(String));
+
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/v2/meta/bases/${restoreSnapshot.base_id}`, {
+          headers: sessionHeaders,
+        });
+        if (!response.ok()) return 'missing';
+        return (await response.json()).status || 'ready';
+      },
+      { timeout: 30_000 }
+    )
+    .toBe('ready');
+
+  const restoredTablesResponse = await page.request.get(`/api/v2/meta/bases/${restoreSnapshot.base_id}/tables`, {
+    headers: sessionHeaders,
+  });
+  const restoredTables = await restoredTablesResponse.json();
+  expect(restoredTablesResponse.ok(), JSON.stringify(restoredTables)).toBeTruthy();
+  const restoredTasks = restoredTables.list.find((table: { title?: string }) => table.title === 'Tasks');
+  expect(restoredTasks?.id).toEqual(expect.any(String));
+  const restoredSnapshotFixture = restoredTables.list.find(
+    (table: { title?: string }) => table.title === 'Snapshot fixture'
+  );
+  expect(restoredSnapshotFixture?.id).toEqual(expect.any(String));
+  const [originalRecordsResponse, restoredRecordsResponse] = await Promise.all([
+    page.request.get(`/api/v2/tables/${snapshotFixtureTableMeta.id}/records?limit=1000`, { headers: sessionHeaders }),
+    page.request.get(`/api/v2/tables/${restoredSnapshotFixture.id}/records?limit=1000`, { headers: sessionHeaders }),
+  ]);
+  const originalRecords = await originalRecordsResponse.json();
+  const snapshotRecords = await restoredRecordsResponse.json();
+  expect(originalRecordsResponse.ok(), JSON.stringify(originalRecords)).toBeTruthy();
+  expect(restoredRecordsResponse.ok(), JSON.stringify(snapshotRecords)).toBeTruthy();
+  expect(
+    originalRecords.list.some((record: { Title?: string }) => record.Title === 'Created after snapshot boundary')
+  ).toBe(true);
+  expect(
+    snapshotRecords.list.some((record: { Title?: string }) => record.Title === 'Created after snapshot boundary')
+  ).toBe(false);
+
+  const deleteSnapshotResponse = await page.request.delete(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/snapshots/${restartSnapshot.id}`,
+    { headers: sessionHeaders }
+  );
+  expect(deleteSnapshotResponse.ok(), await deleteSnapshotResponse.text()).toBeTruthy();
+  const emptySnapshotsResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/snapshots`, {
+    headers: sessionHeaders,
+  });
+  expect((await emptySnapshotsResponse.json()).list).toEqual([]);
 
   const baseTrashResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/trash`, {
     headers: sessionHeaders,

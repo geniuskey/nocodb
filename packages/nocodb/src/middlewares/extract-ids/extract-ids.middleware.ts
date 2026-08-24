@@ -38,6 +38,7 @@ import {
   SyncSource,
   View,
   Workspace,
+  SnapshotLock,
 } from '~/models';
 import rolePermissions, {
   generateReadablePermissionErr,
@@ -724,6 +725,16 @@ export class AclMiddleware implements NestInterceptor {
       //     Object.keys(roles).filter((k) => roles[k]),
       //   )} : Not allowed`,
       // );
+    }
+
+    if (
+      req.ncBaseId &&
+      ['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method) &&
+      (await SnapshotLock.isActive(req.context))
+    ) {
+      NcError.badRequest(
+        'This base is temporarily read-only while a snapshot is being captured',
+      );
     }
 
     // check if permission have source level permission restriction

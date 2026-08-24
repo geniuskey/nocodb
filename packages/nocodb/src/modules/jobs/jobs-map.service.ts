@@ -13,6 +13,7 @@ import { UseWorkerProcessor } from '~/modules/jobs/jobs/use-worker/use-worker.pr
 import { DataExportCleanUpProcessor } from '~/modules/jobs/jobs/data-export-clean-up/data-export-clean-up.processor';
 import { AttachmentUrlUploadProcessor } from '~/modules/jobs/jobs/attachment-url-upload/attachment-url-upload.processor';
 import { RecordTrashCleanUpProcessor } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
+import { SnapshotProcessor } from '~/modules/jobs/jobs/snapshot/snapshot.processor';
 import { JobTypes } from '~/interface/Jobs';
 
 @Injectable()
@@ -32,6 +33,7 @@ export class JobsMap {
     protected readonly dataExportCleanUpProcessor: DataExportCleanUpProcessor,
     protected readonly attachmentUrlUploadProcessor: AttachmentUrlUploadProcessor,
     protected readonly recordTrashCleanUpProcessor: RecordTrashCleanUpProcessor,
+    protected readonly snapshotProcessor: SnapshotProcessor,
   ) {}
 
   protected get _jobMap(): {
@@ -95,6 +97,14 @@ export class JobsMap {
       },
       [JobTypes.AttachmentUrlUpload]: {
         this: this.attachmentUrlUploadProcessor,
+      },
+      [JobTypes.CreateSnapshot]: {
+        this: this.snapshotProcessor,
+        fn: 'create',
+      },
+      [JobTypes.RestoreSnapshot]: {
+        this: this.snapshotProcessor,
+        fn: 'restore',
       },
     };
   }

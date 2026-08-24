@@ -37,6 +37,7 @@ const expectedMigrations = [
   'nc_013_record_trash_field_map',
   'nc_014_table_trash',
   'nc_015_field_trash',
+  'nc_016_base_snapshots',
 ];
 
 class HistoricalV0MigrationSource {
@@ -193,6 +194,8 @@ async function verify(connection: Knex, sourceTag: string) {
     MetaTable.BASE_TRASH,
     MetaTable.RECORD_TRASH,
     MetaTable.VIEW_TRASH,
+    MetaTable.SNAPSHOT,
+    MetaTable.SNAPSHOT_LOCK,
   ]) {
     if (!(await connection.schema.hasTable(table))) {
       fail(`expected migrated table ${table} is absent.`);
@@ -230,6 +233,26 @@ async function verify(connection: Knex, sourceTag: string) {
         `expected migrated column ${MetaTable.BASE_TRASH}.${column} is absent.`,
       );
     }
+  }
+
+  const snapshotColumns = await connection(MetaTable.SNAPSHOT).columnInfo();
+  for (const column of [
+    'format_version',
+    'source_version',
+    'manifest',
+    'job_id',
+    'error',
+    'completed_at',
+  ]) {
+    if (!snapshotColumns[column]) {
+      fail(
+        `expected migrated column ${MetaTable.SNAPSHOT}.${column} is absent.`,
+      );
+    }
+  }
+
+  if (!(await connection.schema.hasColumn(MetaTable.PROJECT, 'is_snapshot'))) {
+    fail('expected protected Base marker is absent.');
   }
 
   const orderColumn = await connection(

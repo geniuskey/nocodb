@@ -5,7 +5,7 @@ const hasPermissionForBaseAccess = computed(() => isEeUI && isUIAllowed('manageB
 
 const hasPermissionForMCP = computed(() => isUIAllowed('manageMCP'))
 
-const hasPermissionForSnapshots = computed(() => isEeUI && isUIAllowed('baseMiscSettings') && isUIAllowed('manageSnapshot'))
+const hasPermissionForSnapshots = computed(() => isUIAllowed('baseMiscSettings') && isUIAllowed('manageSnapshot'))
 
 const hasPermissionForMigrate = computed(() => !isEeUI && isUIAllowed('baseMiscSettings') && isUIAllowed('migrateBase'))
 

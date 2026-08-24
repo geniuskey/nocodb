@@ -70,6 +70,7 @@ export enum MetaTable {
   FILE_REFERENCES = 'nc_file_references',
   COL_BUTTON = 'nc_col_button_v2',
   SNAPSHOT = 'nc_snapshots',
+  SNAPSHOT_LOCK = 'nc_snapshot_locks',
   ROW_COLOR_CONDITIONS = 'nc_row_color_conditions',
   DATA_REFLECTION = 'nc_data_reflection',
   CUSTOM_URLS = 'nc_custom_urls_v2',

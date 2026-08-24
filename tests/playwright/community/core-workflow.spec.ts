@@ -5,7 +5,7 @@ import { expectPublicApiContract, expectPublicApiRuntimeCrud, getAuthToken } fro
 const isDataRequest = (url: string) => url.includes('/api/v1/db/data/noco/');
 
 test('Community image supports signup, base, table, and record CRUD', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   await page.addInitScript(() => {
     (window as Window & { isPlaywright?: boolean }).isPlaywright = true;
   });
@@ -2474,4 +2474,59 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
       }),
     }),
   ]);
+
+  const snapshotFixtureTableResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/${createdTableBody.source_id}/tables`,
+    {
+      headers: sessionHeaders,
+      data: {
+        title: 'Snapshot fixture',
+        table_name: 'Snapshot fixture',
+        columns: [{ title: 'Title', column_name: 'Title', uidt: UITypes.SingleLineText, pv: true }],
+      },
+    }
+  );
+  const snapshotFixtureTable = await snapshotFixtureTableResponse.json();
+  expect(snapshotFixtureTableResponse.ok(), JSON.stringify(snapshotFixtureTable)).toBeTruthy();
+  const preSnapshotRecordResponse = await page.request.post(`/api/v2/tables/${snapshotFixtureTable.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Created before snapshot boundary' },
+  });
+  expect(preSnapshotRecordResponse.ok(), await preSnapshotRecordResponse.text()).toBeTruthy();
+
+  const snapshotBaseList = page.locator('.nc-treeview-container-base-list');
+  for (let attempt = 0; attempt < 3 && !(await snapshotBaseList.isVisible()); attempt += 1) {
+    await page.getByTestId('nc-sidebar-project-btn').click();
+    await page.waitForTimeout(1_000);
+  }
+  await expect(snapshotBaseList).toBeVisible();
+  const baseNode = snapshotBaseList.getByTestId('nc-sidebar-base-title-Community Acceptance');
+  await baseNode.hover();
+  await baseNode.getByTestId('nc-sidebar-context-menu').click();
+  await page.locator('.nc-sidebar-base-base-settings').click();
+  await expect(page.locator('.nc-base-settings')).toBeVisible();
+  await page.getByTestId('snapshots-tab').click();
+  await expect(page.getByTestId('nc-settings-subtab-snapshots')).toBeVisible();
+  await page.getByTestId('nc-snapshot-title').fill('Restart snapshot fixture');
+  await page.getByTestId('nc-snapshot-create').click();
+
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/v2/meta/bases/${createdBaseBody.id}/snapshots`, {
+          headers: sessionHeaders,
+        });
+        const body = await response.json();
+        return body.list?.find((snapshot: { title?: string }) => snapshot.title === 'Restart snapshot fixture')?.status;
+      },
+      { timeout: 30_000 }
+    )
+    .toBe('ready');
+  await expect(page.getByText('Restart snapshot fixture', { exact: true })).toBeVisible();
+
+  const postSnapshotRecordResponse = await page.request.post(`/api/v2/tables/${snapshotFixtureTable.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Created after snapshot boundary' },
+  });
+  expect(postSnapshotRecordResponse.ok(), await postSnapshotRecordResponse.text()).toBeTruthy();
 });

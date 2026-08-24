@@ -59,6 +59,15 @@ conservative: it rejects semantic dependencies instead of mutating filters,
 views, formulas, hooks, relations, or automation configuration. See
 [TRASH_RESTORE.md](./TRASH_RESTORE.md).
 
+Base Snapshot is coordinated above the data adapters by `SnapshotsService`,
+the queued `SnapshotProcessor`, and the retained Community duplication
+pipeline. Protected storage is represented by a hidden Base instead of a new
+database dump format; normal `Base` and `BaseUser` lookup paths exclude it.
+`SnapshotLock` rejects application HTTP writes during capture, while a
+versioned manifest validates storage before restore. Snapshot is neither a
+Trash entry nor a transaction-level external database backup. Its consistency
+limits and extension contract are documented in [SNAPSHOTS.md](./SNAPSHOTS.md).
+
 `docs/MIGRATION_MANIFEST.json` records the cross-platform normalized SHA-256
 digest of every retained metadata migration/support file and the exact order of
 the v0, v1, v2, and audit migration sources. The migration integrity check
@@ -171,7 +180,10 @@ not fetch a package manager or SDK generator during the sandboxed build.
   public OpenAPI contract for the created base and table and executes a complete
   record lifecycle through each public API version before the restart. The same
   workflow covers recoverable field hide/restore/purge, retained values and
-  identifiers, and a second restore after the application restart.
+  identifiers, and a second restore after the application restart. It also
+  captures a protected Base Snapshot, changes the source after capture,
+  restarts the application, restores the earlier state into a new Base, and
+  verifies hidden-storage isolation and permanent cleanup.
 
 Known baseline test failures are recorded in [BUILDING.md](./BUILDING.md). They are not hidden by dependency upgrades or product-code cleanup.
 
