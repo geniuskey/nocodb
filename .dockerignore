@@ -1,0 +1,17 @@
+.git
+.github
+.husky
+.pnpm-store
+.tmp-*
+**/node_modules
+**/.nuxt
+**/.output
+**/dist
+**/build
+packages/nc-gui/dist
+packages/nc-lib-gui/lib/dist
+packages/nocodb/docker/main.js
+packages/nocodb/docker/main.js.map
+nc-lib-gui-*.tgz
+noco.db
+test_noco.db

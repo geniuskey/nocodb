@@ -1,0 +1,36 @@
+FROM node:22.12.0-bookworm-slim AS builder
+
+ENV NODE_OPTIONS=--max-old-space-size=16384
+
+RUN npm install --global pnpm@10.27.0
+
+WORKDIR /workspace
+COPY . .
+
+RUN CI=true pnpm install --frozen-lockfile
+RUN pnpm run build:community
+RUN pnpm --filter nocodb deploy --prod --legacy /opt/nocodb
+RUN mkdir -p /opt/nocodb/docker/public \
+    && cp packages/nocodb/docker/main.js /opt/nocodb/docker/main.js \
+    && cp -R packages/nocodb/src/public/. /opt/nocodb/docker/public/ \
+    && test -f /opt/nocodb/node_modules/nc-lib-gui/lib/dist/index.html
+
+FROM node:22.12.0-bookworm-slim AS runtime
+
+ENV NC_DISABLE_TELE=true
+ENV NC_TOOL_DIR=/usr/app/data
+ENV NODE_ENV=production
+ENV PORT=8080
+
+WORKDIR /usr/src/app
+COPY --from=builder --chown=node:node /opt/nocodb/ ./
+
+RUN mkdir -p /usr/app/data && chown node:node /usr/app/data
+
+USER node
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+CMD ["node", "docker/main.js"]
