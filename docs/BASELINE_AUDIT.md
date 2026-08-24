@@ -160,6 +160,20 @@ Do not copy, cherry-pick, port, adapt, or use as an implementation reference
 any upstream commit after the selected SHA. Do not fetch a current package or
 container as a substitute for a dependency missing from the frozen tree.
 
+### Foundation cleanup status
+
+The first fork-owned foundation changes implement the complete-unit exclusions
+for `nc-secret-mgr`, the CLI/Timely generators and workflows, precompiled
+executable assets, and the self-hosted runner configuration. The retained
+Community integration manifests now state `AGPL-3.0-or-later` explicitly.
+
+Community builds use new `rspack.community.*` entry points. The historical
+edition-selected Rspack files are not used as Community build inputs and were
+not altered to unlock another edition. The frontend is generated from retained
+AGPL source and staged into the local `nc-lib-gui` workspace package; no
+published GUI artifact is installed. `docs/BUILDING.md` records the exact build
+and verification commands.
+
 ## Recommended fork strategy
 
 1. Preserve the mistaken `0.111.4`-based work at
