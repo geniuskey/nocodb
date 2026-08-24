@@ -29,6 +29,51 @@ test('Community image preserves login, schema, and records across restart', asyn
   const acceptanceBaseMeta = bases.list.find((base: { title?: string }) => base.title === 'Community Acceptance');
   expect(acceptanceBaseMeta?.id).toEqual(expect.any(String));
 
+  const workflowsResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows`, {
+    headers: sessionHeaders,
+  });
+  const workflows = await workflowsResponse.json();
+  expect(workflowsResponse.ok(), JSON.stringify(workflows)).toBeTruthy();
+  const restartWorkflow = workflows.list.find(
+    (workflow: { title?: string }) => workflow.title === 'Restart workflow fixture'
+  );
+  expect(restartWorkflow).toEqual(expect.objectContaining({ id: expect.any(String), enabled: true, trigger_count: 2 }));
+  const workflowExecutionsResponse = await page.request.get(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows/${restartWorkflow.id}/executions`,
+    { headers: sessionHeaders }
+  );
+  const workflowExecutions = await workflowExecutionsResponse.json();
+  expect(workflowExecutionsResponse.ok(), JSON.stringify(workflowExecutions)).toBeTruthy();
+  const persistedIdempotentExecution = workflowExecutions.list.find(
+    (execution: { idempotency_key?: string }) => execution.idempotency_key === 'community-workflow-restart-fixture'
+  );
+  expect(persistedIdempotentExecution).toEqual(
+    expect.objectContaining({ id: expect.any(String), status: 'success', finished: true })
+  );
+  const persistedWorkflowExecutionResponse = await page.request.get(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows/${restartWorkflow.id}/executions/${persistedIdempotentExecution.id}`,
+    { headers: sessionHeaders }
+  );
+  const persistedWorkflowExecution = await persistedWorkflowExecutionResponse.json();
+  expect(persistedWorkflowExecutionResponse.ok(), JSON.stringify(persistedWorkflowExecution)).toBeTruthy();
+  expect(persistedWorkflowExecution.nodes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ node_type: 'action.log', status: 'success', output: { message: 'Hello Grace' } }),
+    ])
+  );
+  const replayAfterRestartResponse = await page.request.post(
+    `/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows/${restartWorkflow.id}/trigger`,
+    {
+      headers: { ...sessionHeaders, 'Idempotency-Key': 'community-workflow-restart-fixture' },
+      data: { inputs: { name: 'Ignored after restart' } },
+    }
+  );
+  const replayAfterRestart = await replayAfterRestartResponse.json();
+  expect(replayAfterRestartResponse.ok(), JSON.stringify(replayAfterRestart)).toBeTruthy();
+  expect(replayAfterRestart).toEqual(
+    expect.objectContaining({ execution_id: persistedIdempotentExecution.id, replayed: true })
+  );
+
   const tablesResponse = await page.request.get(`/api/v2/meta/bases/${acceptanceBaseMeta.id}/tables`, {
     headers: sessionHeaders,
   });

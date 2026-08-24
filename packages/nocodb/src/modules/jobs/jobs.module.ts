@@ -31,6 +31,7 @@ import { UseWorkerProcessor } from '~/modules/jobs/jobs/use-worker/use-worker.pr
 import { AttachmentUrlUploadProcessor } from '~/modules/jobs/jobs/attachment-url-upload/attachment-url-upload.processor';
 import { RecordTrashCleanUpProcessor } from '~/modules/jobs/jobs/record-trash-clean-up/record-trash-clean-up.processor';
 import { SnapshotProcessor } from '~/modules/jobs/jobs/snapshot/snapshot.processor';
+import { WorkflowProcessor } from '~/modules/jobs/jobs/workflow/workflow.processor';
 
 // Job Processor
 import { JobsProcessor } from '~/modules/jobs/jobs.processor';
@@ -124,6 +125,7 @@ export const JobsModuleMetadata = {
     AttachmentUrlUploadProcessor,
     RecordTrashCleanUpProcessor,
     SnapshotProcessor,
+    WorkflowProcessor,
 
     // Migration Jobs
     InitMigrationJobs,

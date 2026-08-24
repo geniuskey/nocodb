@@ -68,6 +68,15 @@ versioned manifest validates storage before restore. Snapshot is neither a
 Trash entry nor a transaction-level external database backup. Its consistency
 limits and extension contract are documented in [SNAPSHOTS.md](./SNAPSHOTS.md).
 
+The Community workflow foundation uses the retained AGPL `nc_workflows` and
+`nc_workflow_executions` tables through new application models and the shared
+jobs abstraction. Definitions are validated as versioned graphs before write
+and snapshotted into each execution. `WorkflowProcessor` persists per-node
+state, applies idempotency and a one-run lock, and executes only independently
+defined log/HTTP action adapters. HTTP credentials are environment references,
+not definition values. The initial manual-trigger boundary and planned graph
+extensions are documented in [AUTOMATION_WORKFLOW.md](./AUTOMATION_WORKFLOW.md).
+
 `docs/MIGRATION_MANIFEST.json` records the cross-platform normalized SHA-256
 digest of every retained metadata migration/support file and the exact order of
 the v0, v1, v2, and audit migration sources. The migration integrity check

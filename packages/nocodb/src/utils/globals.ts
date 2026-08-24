@@ -112,6 +112,8 @@ export enum MetaTable {
   SUBSCRIPTIONS = 'nc_subscriptions',
   WORKFLOWS = 'nc_workflows',
   WORKFLOW_EXECUTIONS = 'nc_workflow_executions',
+  WORKFLOW_EXECUTION_NODES = 'nc_workflow_execution_nodes',
+  WORKFLOW_LOCKS = 'nc_workflow_locks',
   DEPENDENCY_TRACKER = 'nc_dependency_tracker',
 }
 
@@ -175,6 +177,8 @@ export const BaseRelatedMetaTables = [
   MetaTable.MODEL_STAT,
   MetaTable.WORKFLOWS,
   MetaTable.WORKFLOW_EXECUTIONS,
+  MetaTable.WORKFLOW_EXECUTION_NODES,
+  MetaTable.WORKFLOW_LOCKS,
   MetaTable.DEPENDENCY_TRACKER,
 ];
 

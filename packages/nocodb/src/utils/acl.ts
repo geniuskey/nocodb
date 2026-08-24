@@ -192,6 +192,9 @@ const permissionScopes = {
 
     'hookTrigger',
 
+    // Workflows
+    'manageWorkflow',
+
     'userInvite',
 
     // AI
@@ -678,6 +681,7 @@ const permissionDescriptions: Record<string, string> = {
   timelineViewUpdate: 'update timeline view',
   ganttViewGet: 'view Gantt',
   ganttViewUpdate: 'update Gantt view',
+  manageWorkflow: 'create, configure, run, and inspect workflows',
   formViewUpdate: 'update form view',
   groupedDataList: 'view grouped data',
   mmList: 'view many-to-many relationships',
