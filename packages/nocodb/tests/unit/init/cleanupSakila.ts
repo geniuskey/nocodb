@@ -1,6 +1,7 @@
 import { Audit, Base } from '../../../src/models';
 import TestDbMngr from '../TestDbMngr';
 import { RootScopes } from '../../../src/utils/globals';
+import NcConnectionMgrv2 from '~/utils/common/NcConnectionMgrv2';
 
 const dropTablesOfSakila = async () => {
   await TestDbMngr.disableForeignKeyChecks(TestDbMngr.sakilaKnex);
@@ -32,6 +33,10 @@ const dropSchemaAndSeedSakila = async () => {
 
 const resetAndSeedSakila = async () => {
   try {
+    if (TestDbMngr.isSqlite()) {
+      await TestDbMngr.setupSakila();
+      return;
+    }
     await dropTablesOfSakila();
     await TestDbMngr.seedSakila();
   } catch (e) {
@@ -61,6 +66,12 @@ const cleanUpSakila = async (forceReset) => {
       ));
 
     if (audits?.length > 0 || forceReset) {
+      if (TestDbMngr.isSqlite() && sakilaProject) {
+        await sakilaProject.getSources();
+        for (const source of sakilaProject.sources ?? []) {
+          await NcConnectionMgrv2.deleteAwait(source);
+        }
+      }
       // if PG, drop schema
       if (TestDbMngr.isPg()) {
         return await dropSchemaAndSeedSakila();

@@ -134,12 +134,23 @@ curl --fail http://127.0.0.1:8080/dashboard/
 
 ## Testing
 
-Backend integration-style unit suite (falls back to SQLite when local MySQL is
-not configured):
+Backend integration-style unit suite with an explicit SQLite database:
 
 ```sh
+DB_CLIENT=sqlite3 pnpm --filter nocodb run test:unit
+```
+
+PowerShell:
+
+```powershell
+$env:DB_CLIENT = 'sqlite3'
 pnpm --filter nocodb run test:unit
 ```
+
+Use an explicit `DB_CLIENT` so a missing server database cannot add a connection
+timeout or silently change which database is under test. PostgreSQL and MySQL
+commands, pinned container versions, and the known retained-suite failures are
+recorded in [DB_COMPATIBILITY.md](./DB_COMPATIBILITY.md).
 
 Backend Jest command:
 
@@ -236,19 +247,23 @@ not install a published `nc-lib-gui` artifact.
 The unchanged AGPL checkout was attempted before fixes. These failures drove
 the minimal build changes:
 
-| Failure | Resolution/status |
-| --- | --- |
-| pnpm refused to replace an existing `node_modules` without a TTY | Use `CI=true`; a clean checkout is unaffected |
-| GUI postinstall could not resolve a not-yet-built local SDK | Defer Nuxt preparation on a clean install; build SDK first |
-| SDK generator treated the PowerShell `; rm` suffix as part of the template path | Use `&&`, pinned local generator, and cross-platform `rimraf` |
-| Root override referenced the impossible package `@types/mime@npm:nonexistent` | Replace it with the valid `@types/mime` 4.0.0 compatibility stub; no runtime dependency upgrade |
-| Backend type-check treated `src/types` subdirectories as ambient packages | Let `include` load local declarations and restrict `typeRoots` to dependency types |
-| A retained migration imported a missing `BaseVersion.V2` marker | Restore the minimal V2 metadata marker required by that retained migration |
-| Nested integrations resolved stale SDK output | Frozen install and build the nested workspace after the SDK |
-| Windows Node 22 returned `spawnSync pnpm.cmd EINVAL` in GUI postinstall | Invoke the local Nuxt CLI with the current Node executable |
-| Production startup failed with `ENOENT` when `NC_TOOL_DIR` did not exist | Create the exact data directory before local startup; Docker creates it in the image |
-| Docker's bundled Corepack rejected pnpm's current signing key | Install the exact pinned pnpm CLI in the builder image |
-| SDK unit test for offset time comparison fails | Recorded baseline defect; 182/183 tests pass |
+| Failure                                                                                                | Resolution/status                                                                                        |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| pnpm refused to replace an existing `node_modules` without a TTY                                       | Use `CI=true`; a clean checkout is unaffected                                                            |
+| GUI postinstall could not resolve a not-yet-built local SDK                                            | Defer Nuxt preparation on a clean install; build SDK first                                               |
+| SDK generator treated the PowerShell `; rm` suffix as part of the template path                        | Use `&&`, pinned local generator, and cross-platform `rimraf`                                            |
+| Root override referenced the impossible package `@types/mime@npm:nonexistent`                          | Replace it with the valid `@types/mime` 4.0.0 compatibility stub; no runtime dependency upgrade          |
+| Backend type-check treated `src/types` subdirectories as ambient packages                              | Let `include` load local declarations and restrict `typeRoots` to dependency types                       |
+| A retained migration imported a missing `BaseVersion.V2` marker                                        | Restore the minimal V2 metadata marker required by that retained migration                               |
+| Nested integrations resolved stale SDK output                                                          | Frozen install and build the nested workspace after the SDK                                              |
+| Windows Node 22 returned `spawnSync pnpm.cmd EINVAL` in GUI postinstall                                | Invoke the local Nuxt CLI with the current Node executable                                               |
+| Production startup failed with `ENOENT` when `NC_TOOL_DIR` did not exist                               | Create the exact data directory before local startup; Docker creates it in the image                     |
+| Docker's bundled Corepack rejected pnpm's current signing key                                          | Install the exact pinned pnpm CLI in the builder image                                                   |
+| SDK unit test for offset time comparison fails                                                         | Recorded baseline defect; 182/183 tests pass                                                             |
+| Backend unit tests probed MySQL before silently falling back to SQLite                                 | Select SQLite explicitly; server-DB diagnostics set `DB_REQUIRE_CONNECTION=true`                         |
+| PostgreSQL/MySQL fixture paths failed on Windows                                                       | Resolve the fixture directory structurally instead of replacing a POSIX-only path string                 |
+| Repeated SQLite fixture resets failed with `EBUSY` on Windows                                          | Close the test and application data-source connections before replacing the fixture                      |
+| Type-checking `tests/unit/tsconfig.json` alone reports retained `rootDir` and source-map option errors | Treat it as the Mocha runtime compiler configuration; use the backend root `tsconfig.json` command above |
 
 Warnings about duplicated Pinia imports, deprecated Nuxt helpers, circular SDK
 re-exports, large frontend chunks, and one dynamic `require` in
@@ -264,9 +279,9 @@ versions and performs the following on a clean Ubuntu runner:
 
 1. frozen dependency installation;
 2. SDK and nested integration builds;
-3. backend type-check, SDK Jest, and backend Mocha tests;
+3. backend type-check, SDK Jest, and explicit SQLite backend Mocha tests;
 4. Community production build and the authentication/Base/table/record CRUD
-   verifier;
+   verifier with SQLite, PostgreSQL 14.7, and MySQL 8.3.0 metadata stores;
 5. source-built Community Docker image plus the same verifier against the
    running container.
 

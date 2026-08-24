@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import process from 'process';
 import { knex } from 'knex';
 import SqlMgrv2 from '../../src/db/sql-mgr/v2/SqlMgrv2';
@@ -65,11 +66,21 @@ export default class TestDbMngr {
   static async init() {
     TestDbMngr.populateConnectionConfig();
 
+    if (['sqlite', 'sqlite3'].includes(TestDbMngr.connection.client)) {
+      await TestDbMngr.switchToSqlite();
+      return;
+    }
+
     // common for both pg and mysql
     if (await TestDbMngr.isDbConfigured()) {
       await TestDbMngr.connectDb();
     } else {
-      console.log('Mysql is not configured. Switching to sqlite');
+      if (process.env['DB_REQUIRE_CONNECTION'] === 'true') {
+        throw new Error(
+          `Required ${TestDbMngr.connection.client} test database is unavailable`,
+        );
+      }
+      console.log('Database is not configured. Switching to sqlite');
       await TestDbMngr.switchToSqlite();
     }
   }
@@ -252,7 +263,7 @@ export default class TestDbMngr {
   }
 
   static async seedSakila() {
-    const testsDir = __dirname.replace('tests/unit', 'tests');
+    const testsDir = path.resolve(__dirname, '..');
 
     if (TestDbMngr.isSqlite()) {
       if (fs.existsSync(`${__dirname}/test_sakila.db`)) {
