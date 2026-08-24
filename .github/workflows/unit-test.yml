@@ -38,6 +38,31 @@ jobs:
     name: Verify Community foundation
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:14.7@sha256:5ac16ee311340b09e3670d660c76f77a611202fd07b05d486e934eece99bea7c
+        env:
+          POSTGRES_DB: nocodb
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nocodb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8.3.0@sha256:9de9d54fecee6253130e65154b930978b1fcc336bcc86dfd06e89b72a2588ebe
+        env:
+          MYSQL_DATABASE: nocodb
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -ppassword --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CI: "true"
       NODE_OPTIONS: "--max-old-space-size=16384"
@@ -81,6 +106,8 @@ jobs:
         run: pnpm --filter nocodb-sdk exec jest --runInBand
 
       - name: Test backend
+        env:
+          DB_CLIENT: sqlite3
         run: pnpm --filter nocodb run test:unit
 
       - name: Build Community production bundle
@@ -111,6 +138,64 @@ jobs:
 
           curl --fail --silent http://127.0.0.1:18080/dashboard/ > /dev/null
           NC_VERIFY_URL=http://127.0.0.1:18080 pnpm run verify:community
+
+      - name: Verify production bundle with PostgreSQL metadata
+        shell: bash
+        run: |
+          mkdir -p .ci-data-pg
+          NC_DB="pg://127.0.0.1:5432?u=postgres&p=password&d=nocodb" \
+            NC_TOOL_DIR="$PWD/.ci-data-pg" NC_DISABLE_TELE=true PORT=18082 \
+            node packages/nocodb/docker/main.js > "$RUNNER_TEMP/nocodb-pg.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18082/api/v1/health > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            cat "$RUNNER_TEMP/nocodb-pg.log"
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:18082/dashboard/ > /dev/null
+          NC_VERIFY_URL=http://127.0.0.1:18082 \
+            NC_VERIFY_EMAIL=foundation-pg@example.test \
+            pnpm run verify:community
+
+      - name: Verify production bundle with MySQL metadata
+        shell: bash
+        run: |
+          mkdir -p .ci-data-mysql
+          NC_DB="mysql2://127.0.0.1:3306?u=root&p=password&d=nocodb" \
+            NC_TOOL_DIR="$PWD/.ci-data-mysql" NC_DISABLE_TELE=true PORT=18083 \
+            node packages/nocodb/docker/main.js > "$RUNNER_TEMP/nocodb-mysql.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18083/api/v1/health > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            cat "$RUNNER_TEMP/nocodb-mysql.log"
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:18083/dashboard/ > /dev/null
+          NC_VERIFY_URL=http://127.0.0.1:18083 \
+            NC_VERIFY_EMAIL=foundation-mysql@example.test \
+            pnpm run verify:community
 
       - name: Build Community container
         run: >-
