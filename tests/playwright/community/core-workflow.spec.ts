@@ -2654,4 +2654,100 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(replayTrigger).toEqual(
     expect.objectContaining({ execution_id: firstIdempotentTrigger.execution_id, replayed: true })
   );
+
+  await page.getByTestId('nc-workflow-new-title').fill('Record created workflow fixture');
+  const recordWorkflowCreateResponse = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/api/v2/meta/bases/${createdBaseBody.id}/workflows`) &&
+      response.request().method() === 'POST'
+  );
+  await page.getByTestId('nc-workflow-create').click();
+  const createdRecordWorkflowResponse = await recordWorkflowCreateResponse;
+  const createdRecordWorkflow = await createdRecordWorkflowResponse.json();
+  expect(createdRecordWorkflowResponse.ok(), JSON.stringify(createdRecordWorkflow)).toBeTruthy();
+
+  await page.getByTestId('nc-workflow-trigger-type').click();
+  await page.locator('.ant-select-dropdown:visible').getByText('Record created', { exact: true }).click();
+  await page.getByTestId('nc-workflow-trigger-table').click();
+  await page.locator('.ant-select-dropdown:visible').last().getByText('Snapshot fixture', { exact: true }).click();
+  await page.getByTestId('nc-workflow-enabled').click();
+  await page.getByTestId('nc-workflow-log-message').fill('Created {{ trigger.record.Title }} ({{ trigger.count }})');
+  const recordWorkflowSaveResponse = page.waitForResponse(
+    response =>
+      response.url().endsWith(`/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdRecordWorkflow.id}`) &&
+      response.request().method() === 'PATCH'
+  );
+  await page.getByTestId('nc-workflow-save').click();
+  expect((await recordWorkflowSaveResponse).ok()).toBeTruthy();
+  await expect(page.getByTestId('nc-workflow-run')).toHaveCount(0);
+  const recordWorkflowManualTriggerResponse = await page.request.post(
+    `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdRecordWorkflow.id}/trigger`,
+    { headers: sessionHeaders, data: { inputs: {} } }
+  );
+  expect(recordWorkflowManualTriggerResponse.status()).toBe(400);
+
+  const invalidTableWorkflowResponse = await page.request.post(`/api/v2/meta/bases/${createdBaseBody.id}/workflows`, {
+    headers: sessionHeaders,
+    data: {
+      title: 'Invalid record trigger table fixture',
+      nodes: [
+        {
+          id: 'trigger',
+          type: 'trigger.record.created',
+          data: { title: 'Record created', config: { table_id: 'md_not_in_this_base' } },
+        },
+        { id: 'log', type: 'action.log', data: { title: 'Log', config: { message: 'Unexpected' } } },
+      ],
+      edges: [{ id: 'edge', source: 'trigger', target: 'log' }],
+    },
+  });
+  expect(invalidTableWorkflowResponse.status()).toBe(400);
+
+  const triggeredRecordResponse = await page.request.post(`/api/v2/tables/${snapshotFixtureTable.id}/records`, {
+    headers: sessionHeaders,
+    data: { Title: 'Workflow-created event' },
+  });
+  expect(triggeredRecordResponse.ok(), await triggeredRecordResponse.text()).toBeTruthy();
+
+  let recordExecution: { id?: string; status?: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdRecordWorkflow.id}/executions`,
+          { headers: sessionHeaders }
+        );
+        const body = await response.json();
+        recordExecution = body.list?.[0];
+        return recordExecution?.status;
+      },
+      { timeout: 30_000 }
+    )
+    .toBe('success');
+  const recordExecutionResponse = await page.request.get(
+    `/api/v2/meta/bases/${createdBaseBody.id}/workflows/${createdRecordWorkflow.id}/executions/${recordExecution!.id}`,
+    { headers: sessionHeaders }
+  );
+  const recordExecutionDetail = await recordExecutionResponse.json();
+  expect(recordExecutionResponse.ok(), JSON.stringify(recordExecutionDetail)).toBeTruthy();
+  expect(recordExecutionDetail).toEqual(
+    expect.objectContaining({
+      trigger_type: 'trigger.record.created',
+      trigger_data: expect.objectContaining({
+        event: 'record.created',
+        table_id: snapshotFixtureTable.id,
+        count: 1,
+        record: expect.objectContaining({ Title: 'Workflow-created event' }),
+      }),
+    })
+  );
+  expect(recordExecutionDetail.nodes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        node_type: 'action.log',
+        status: 'success',
+        output: { message: 'Created Workflow-created event (1)' },
+      }),
+    ])
+  );
 });

@@ -8,6 +8,7 @@ import {
   WORKFLOW_ACTION_LOG,
   WORKFLOW_DEFINITION_VERSION,
   WORKFLOW_TRIGGER_MANUAL,
+  WORKFLOW_TRIGGER_RECORD_CREATED,
   type WorkflowDefinition,
 } from '~/helpers/workflowEngine';
 
@@ -35,6 +36,29 @@ describe('Community workflow definition', () => {
     expect(
       validateWorkflowDefinition(definition()).map((node) => node.id),
     ).toEqual(['trigger', 'log']);
+  });
+
+  it('accepts a table-scoped record-created trigger', () => {
+    const candidate = definition();
+    candidate.nodes[0] = {
+      id: 'trigger',
+      type: WORKFLOW_TRIGGER_RECORD_CREATED,
+      data: {
+        title: 'Record created',
+        config: { table_id: 'md_tasks' },
+      },
+    };
+    expect(validateWorkflowDefinition(candidate)).toEqual(candidate.nodes);
+  });
+
+  it('rejects a record-created trigger without a valid table ID', () => {
+    const candidate = definition();
+    candidate.nodes[0] = {
+      id: 'trigger',
+      type: WORKFLOW_TRIGGER_RECORD_CREATED,
+      data: { title: 'Record created', config: { table_id: '' } },
+    };
+    expect(() => validateWorkflowDefinition(candidate)).toThrow(/table ID/i);
   });
 
   it.each([

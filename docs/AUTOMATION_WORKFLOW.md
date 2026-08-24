@@ -12,9 +12,9 @@ not implementation references.
 
 ## Foundation scope
 
-Definition format version 1 deliberately implements one narrow vertical slice:
+Definition format version 1 deliberately implements a bounded foundation:
 
-- exactly one manual trigger;
+- exactly one manual or record-created trigger;
 - one linear, acyclic path of up to 49 actions;
 - durable log-message and HTTP-request actions;
 - versioned workflow definition snapshots for every execution;
@@ -24,10 +24,10 @@ Definition format version 1 deliberately implements one narrow vertical slice:
 - bounded HTTP retry, timeout, response capture, and error reporting; and
 - a Base Overview GUI for create, edit, enable, run, inspect, and delete.
 
-Record and form triggers, schedules, conditions, branching, iteration, record
-actions, cancellation, and higher concurrency are not silently simulated. They
-are future format extensions and will require their own migrations, validation,
-tests, and documentation.
+Record-updated/deleted and form-specific triggers, schedules, conditions,
+branching, iteration, record actions, cancellation, and higher concurrency are
+not silently simulated. They are future format extensions and will require
+their own migrations, validation, tests, and documentation.
 
 ## Definition contract
 
@@ -37,6 +37,7 @@ Allowed node types are:
 
 ```text
 trigger.manual
+trigger.record.created
 action.log
 action.http
 ```
@@ -47,9 +48,24 @@ reachability from the trigger. Unsupported graphs fail closed instead of being
 partially executed.
 
 Templates use Handlebars syntax. Manual input is available through
-`{{ trigger.field }}`. A completed action is available to later nodes through
-`{{ nodes.node_id.output.field }}`. The `json` helper serializes structured
-values.
+`{{ trigger.field }}`. A record-created trigger exposes `event`, `table_id`,
+`view_id`, `record`, `records`, and `count`; for example,
+`{{ trigger.record.Title }}`. A completed action is available to later nodes
+through `{{ nodes.node_id.output.field }}`. The `json` helper serializes
+structured values.
+
+The record-created trigger subscribes to the retained Community data hook after
+the insert transaction commits. It is scoped to one table selected in the
+workflow definition. A single insert produces one execution, while one bulk
+insert produces one execution whose `records` array contains the committed
+records and whose `record` value is the first record. The event listener is
+isolated from the CRUD response path: dispatch failures are logged and do not
+roll back an already committed insert.
+
+Definition updates verify that the selected table belongs to the current base.
+The manual trigger endpoint rejects record-triggered workflows. If an automated
+event arrives while that workflow's single execution lock is held, a finished
+error execution is persisted instead of silently dropping the event.
 
 ## Durable execution and recovery
 
@@ -112,7 +128,7 @@ while an execution lock is active.
 
 ## Next independent slices
 
-1. Record-created/updated/deleted triggers using Community application events.
+1. Record-updated/deleted triggers using Community application events.
 2. Condition evaluation and explicit if/else graph ports.
 3. Scheduled triggers and startup reconciliation for interrupted executions.
 4. Community record create/update/find/list actions.

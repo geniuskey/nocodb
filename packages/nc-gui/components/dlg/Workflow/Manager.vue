@@ -8,6 +8,8 @@ const dialogVisible = useVModel(props, 'visible', emits)
 const { $api } = useNuxtApp()
 const workflowStore = useWorkflowStore()
 const { activeBaseWorkflows: workflows, isLoadingWorkflow: loading } = storeToRefs(workflowStore)
+const tablesStore = useTablesStore()
+const availableTables = computed(() => tablesStore.baseTables.get(props.baseId) || [])
 
 const creating = ref(false)
 const saving = ref(false)
@@ -21,6 +23,8 @@ const form = reactive({
   title: '',
   description: '',
   enabled: false,
+  triggerType: 'trigger.manual',
+  tableId: '',
   actionType: 'action.log',
   message: 'Workflow started',
   method: 'POST',
@@ -48,10 +52,13 @@ const loadExecutions = async () => {
 
 const selectWorkflow = async (workflow: CommunityWorkflowType) => {
   selectedId.value = String(workflow.id)
-  const action = workflow.nodes?.find((node) => node.type !== 'trigger.manual')
+  const trigger = workflow.nodes?.find((node) => node.type.startsWith('trigger.'))
+  const action = workflow.nodes?.find((node) => node.type.startsWith('action.'))
   form.title = workflow.title || ''
   form.description = workflow.description || ''
   form.enabled = Boolean(workflow.enabled)
+  form.triggerType = trigger?.type || 'trigger.manual'
+  form.tableId = String(trigger?.data.config?.table_id || '')
   form.actionType = action?.type || 'action.log'
   form.message = String(action?.data.config?.message || 'Workflow started')
   form.method = String(action?.data.config?.method || 'POST')
@@ -66,6 +73,7 @@ const selectWorkflow = async (workflow: CommunityWorkflowType) => {
 
 const load = async () => {
   try {
+    await tablesStore.loadProjectTables(props.baseId, true)
     const list = await workflowStore.loadWorkflows(props.baseId)
     if (selectedId.value) {
       const current = list.find((workflow) => String(workflow.id) === selectedId.value)
@@ -95,9 +103,12 @@ const create = async () => {
 
 const definition = () => {
   const trigger = {
-    id: 'manual_trigger',
-    type: 'trigger.manual' as const,
-    data: { title: 'Manual trigger', config: {} },
+    id: 'primary_trigger',
+    type: form.triggerType as 'trigger.manual' | 'trigger.record.created',
+    data: {
+      title: form.triggerType === 'trigger.record.created' ? 'Record created' : 'Manual trigger',
+      config: form.triggerType === 'trigger.record.created' ? { table_id: form.tableId } : {},
+    },
   }
   const config =
     form.actionType === 'action.http'
@@ -118,7 +129,7 @@ const definition = () => {
   }
   return {
     nodes: [trigger, action],
-    edges: [{ id: 'manual_trigger_to_primary_action', source: trigger.id, target: action.id }],
+    edges: [{ id: 'primary_trigger_to_primary_action', source: trigger.id, target: action.id }],
   }
 }
 
@@ -211,7 +222,7 @@ watch(
       <div class="flex w-full items-center justify-between gap-3 p-1">
         <div>
           <div class="text-lg font-semibold text-nc-content-gray-emphasis">Automation workflows</div>
-          <div class="text-xs text-nc-content-gray-muted">Manual triggers with durable log or HTTP actions</div>
+          <div class="text-xs text-nc-content-gray-muted">Manual or record-created triggers with durable actions</div>
         </div>
         <NcButton type="text" size="small" aria-label="Close workflows" @click="dialogVisible = false">
           <GeneralIcon icon="close" />
@@ -265,6 +276,26 @@ watch(
           </div>
           <div class="col-span-2 flex items-center gap-2">
             <a-switch v-model:checked="form.enabled" data-testid="nc-workflow-enabled" /><span class="text-sm">Enabled</span>
+          </div>
+          <div>
+            <div class="mb-1 text-xs font-medium">Trigger</div>
+            <a-select v-model:value="form.triggerType" class="w-full" data-testid="nc-workflow-trigger-type">
+              <a-select-option value="trigger.manual">Manual</a-select-option>
+              <a-select-option value="trigger.record.created">Record created</a-select-option>
+            </a-select>
+          </div>
+          <div v-if="form.triggerType === 'trigger.record.created'">
+            <div class="mb-1 text-xs font-medium">Table</div>
+            <a-select
+              v-model:value="form.tableId"
+              class="w-full"
+              placeholder="Select a table"
+              data-testid="nc-workflow-trigger-table"
+            >
+              <a-select-option v-for="table of availableTables" :key="String(table.id)" :value="String(table.id)">
+                {{ table.title }}
+              </a-select-option>
+            </a-select>
           </div>
           <div class="col-span-2">
             <div class="mb-1 text-xs font-medium">Action</div>
@@ -324,7 +355,7 @@ watch(
         </div>
 
         <div class="mt-5 border-t border-nc-border-gray-medium pt-4">
-          <div class="flex items-end gap-2">
+          <div v-if="form.triggerType === 'trigger.manual'" class="flex items-end gap-2">
             <div class="flex-1">
               <div class="mb-1 text-xs font-medium">Manual trigger input (JSON)</div>
               <a-textarea v-model:value="triggerInputs" :rows="2" data-testid="nc-workflow-trigger-input" />
@@ -338,6 +369,13 @@ watch(
             >
               Run
             </NcButton>
+          </div>
+          <div
+            v-else
+            class="rounded border border-nc-border-gray-medium bg-nc-bg-gray-light p-3 text-sm text-nc-content-gray-muted"
+          >
+            An execution is queued after records are created in the selected table. Bulk inserts produce one execution with all
+            created records.
           </div>
           <div class="mt-4 flex items-center justify-between">
             <div class="font-medium">Execution history</div>

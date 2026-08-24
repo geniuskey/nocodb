@@ -38,6 +38,22 @@ test('Community image preserves login, schema, and records across restart', asyn
     (workflow: { title?: string }) => workflow.title === 'Restart workflow fixture'
   );
   expect(restartWorkflow).toEqual(expect.objectContaining({ id: expect.any(String), enabled: true, trigger_count: 2 }));
+  const recordCreatedWorkflow = workflows.list.find(
+    (workflow: { title?: string }) => workflow.title === 'Record created workflow fixture'
+  );
+  expect(recordCreatedWorkflow).toEqual(
+    expect.objectContaining({
+      id: expect.any(String),
+      enabled: true,
+      trigger_count: 1,
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          type: 'trigger.record.created',
+          data: expect.objectContaining({ config: expect.objectContaining({ table_id: expect.any(String) }) }),
+        }),
+      ]),
+    })
+  );
   const workflowExecutionsResponse = await page.request.get(
     `/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows/${restartWorkflow.id}/executions`,
     { headers: sessionHeaders }
@@ -301,6 +317,31 @@ test('Community image preserves login, schema, and records across restart', asyn
   const emptyTrash = await emptyTrashResponse.json();
   expect(emptyTrashResponse.ok(), JSON.stringify(emptyTrash)).toBeTruthy();
   expect(emptyTrash.list).toEqual([]);
+
+  const postRestartWorkflowRecordResponse = await page.request.post(
+    `/api/v2/tables/${snapshotFixtureTableMeta.id}/records`,
+    {
+      headers: sessionHeaders,
+      data: { Title: 'Workflow event after restart' },
+    }
+  );
+  expect(postRestartWorkflowRecordResponse.ok(), await postRestartWorkflowRecordResponse.text()).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `/api/v2/meta/bases/${acceptanceBaseMeta.id}/workflows/${recordCreatedWorkflow.id}/executions`,
+          { headers: sessionHeaders }
+        );
+        const body = await response.json();
+        return body.list?.find(
+          (execution: { trigger_data?: { record?: { Title?: string } }; status?: string }) =>
+            execution.trigger_data?.record?.Title === 'Workflow event after restart'
+        )?.status;
+      },
+      { timeout: 30_000 }
+    )
+    .toBe('success');
 
   const viewsResponse = await page.request.get(`/api/v2/meta/tables/${tasksTableMeta.id}/views`, {
     headers: sessionHeaders,

@@ -106,6 +106,7 @@ import { GanttSchedulesService } from '~/services/gantt-schedules.service';
 import { RecordTrashService } from '~/services/record-trash.service';
 import { SnapshotsService } from '~/services/snapshots.service';
 import { WorkflowsService } from '~/services/workflows.service';
+import { WorkflowTriggerHandlerService } from '~/services/workflow-trigger-handler.service';
 import { MapsService } from '~/services/maps.service';
 import { MetaDiffsService } from '~/services/meta-diffs.service';
 import { ModelVisibilitiesService } from '~/services/model-visibilities.service';
@@ -331,6 +332,7 @@ export const nocoModuleMetadata = {
     RecordTrashService,
     SnapshotsService,
     WorkflowsService,
+    WorkflowTriggerHandlerService,
     MapsService,
     MetaDiffsService,
     ModelVisibilitiesService,
