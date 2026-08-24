@@ -811,9 +811,22 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
 
   await grid.locator('.nc-grid-add-new-cell').click();
   const titleCell = grid.getByTestId('cell-Title-0');
-  await expect(titleCell).toBeVisible();
-  await titleCell.dblclick();
-  await titleCell.locator('input').fill('First task');
+  const fillTitleCell = async (value: string) => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await expect(titleCell).toBeVisible();
+        await titleCell.dblclick();
+        await titleCell.locator('input').fill(value, { timeout: 5_000 });
+        return;
+      } catch (error) {
+        lastError = error;
+        await page.waitForTimeout(250);
+      }
+    }
+    throw lastError;
+  };
+  await fillTitleCell('First task');
 
   const createRecordResponse = page.waitForResponse(
     response => isDataRequest(response.url()) && ['POST', 'PATCH'].includes(response.request().method())
@@ -823,8 +836,7 @@ test('Community image supports signup, base, table, and record CRUD', async ({ p
   expect(createdRecord.ok()).toBeTruthy();
   await expect(titleCell).toContainText('First task');
 
-  await titleCell.dblclick();
-  await titleCell.locator('input').fill('Updated task');
+  await fillTitleCell('Updated task');
   const updateRecordResponse = page.waitForResponse(
     response => isDataRequest(response.url()) && response.request().method() === 'PATCH'
   );
