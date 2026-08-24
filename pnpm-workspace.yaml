@@ -2,7 +2,7 @@ packages:
   - "packages/nocodb-sdk"
   - "packages/nocodb-sdk-v2"
   - "packages/nc-gui"
+  - "packages/nc-lib-gui"
   - "packages/nc-mail-templates"
   - "packages/nocodb"
   - "tests/playwright"
-  - "packages/nc-secret-mgr"

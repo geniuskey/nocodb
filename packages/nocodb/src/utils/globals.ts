@@ -300,3 +300,8 @@ export enum FilterCacheScope {
   WIDGET = 'widget',
   PARENT = 'parent',
 }
+
+// The retained nc_092 migration only requires the v2 metadata marker.
+export const BaseVersion = {
+  V2: 2,
+} as const;
