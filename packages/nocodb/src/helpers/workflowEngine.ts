@@ -2,11 +2,17 @@ import Handlebars from 'handlebars';
 
 export const WORKFLOW_DEFINITION_VERSION = 1;
 export const WORKFLOW_TRIGGER_MANUAL = 'trigger.manual';
+export const WORKFLOW_TRIGGER_RECORD_CREATED = 'trigger.record.created';
 export const WORKFLOW_ACTION_LOG = 'action.log';
 export const WORKFLOW_ACTION_HTTP = 'action.http';
 
-export const WORKFLOW_NODE_TYPES = [
+export const WORKFLOW_TRIGGER_TYPES = [
   WORKFLOW_TRIGGER_MANUAL,
+  WORKFLOW_TRIGGER_RECORD_CREATED,
+] as const;
+
+export const WORKFLOW_NODE_TYPES = [
+  ...WORKFLOW_TRIGGER_TYPES,
   WORKFLOW_ACTION_LOG,
   WORKFLOW_ACTION_HTTP,
 ] as const;
@@ -181,16 +187,20 @@ export function validateWorkflowDefinition(
         'Workflow HTTP retry attempts must be between 1 and 3',
       );
     }
+    if (node.type === WORKFLOW_TRIGGER_RECORD_CREATED) {
+      assert(
+        typeof config.table_id === 'string' &&
+          /^[A-Za-z0-9_-]{1,64}$/.test(config.table_id),
+        'Record-created triggers require a valid table ID',
+      );
+    }
     nodes.set(node.id, node);
   }
 
-  const triggers = definition.nodes.filter(
-    (node) => node.type === WORKFLOW_TRIGGER_MANUAL,
+  const triggers = definition.nodes.filter((node) =>
+    WORKFLOW_TRIGGER_TYPES.includes(node.type as any),
   );
-  assert(
-    triggers.length === 1,
-    'A workflow must contain exactly one manual trigger',
-  );
+  assert(triggers.length === 1, 'A workflow must contain exactly one trigger');
 
   const incoming = new Map<string, number>();
   const outgoing = new Map<string, string>();
@@ -245,7 +255,9 @@ export function validateWorkflowDefinition(
     'Every workflow node must be reachable from the trigger',
   );
   assert(
-    ordered.slice(1).every((node) => node.type !== WORKFLOW_TRIGGER_MANUAL),
+    ordered
+      .slice(1)
+      .every((node) => !WORKFLOW_TRIGGER_TYPES.includes(node.type as any)),
     'Trigger nodes can only appear at the start of a workflow',
   );
   return ordered;

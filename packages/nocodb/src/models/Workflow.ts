@@ -116,6 +116,22 @@ export default class Workflow implements WorkflowType {
     return rows.map((row) => this.fromDb(row));
   }
 
+  static async listEnabled(
+    context: NcContext,
+    ncMeta: MetaService = Noco.ncMeta,
+  ) {
+    const rows = await ncMeta.metaList2(
+      context.workspace_id,
+      context.base_id,
+      MetaTable.WORKFLOWS,
+      {
+        condition: { enabled: true },
+        orderBy: { order: 'asc', created_at: 'asc' },
+      },
+    );
+    return rows.map((row) => this.fromDb(row));
+  }
+
   static count(
     context: NcContext,
     ncMeta: MetaService = Noco.ncMeta,

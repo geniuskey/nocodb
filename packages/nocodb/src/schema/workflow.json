@@ -287,7 +287,12 @@
           "id": { "type": "string", "maxLength": 64 },
           "type": {
             "type": "string",
-            "enum": ["trigger.manual", "action.log", "action.http"]
+            "enum": [
+              "trigger.manual",
+              "trigger.record.created",
+              "action.log",
+              "action.http"
+            ]
           },
           "position": {
             "type": "object",
@@ -425,7 +430,10 @@
             "enum": ["queued", "running", "success", "error", "cancelled"]
           },
           "finished": { "type": "boolean" },
-          "trigger_type": { "type": "string", "enum": ["trigger.manual"] },
+          "trigger_type": {
+            "type": "string",
+            "enum": ["trigger.manual", "trigger.record.created"]
+          },
           "trigger_data": { "type": "object", "additionalProperties": true },
           "result": {},
           "error": { "type": "string", "nullable": true },

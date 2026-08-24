@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { nanoid } from 'nanoid';
 import type { NcContext, NcRequest } from '~/interface/config';
 import { JobTypes } from '~/interface/Jobs';
@@ -6,11 +6,13 @@ import {
   WORKFLOW_ACTION_LOG,
   WORKFLOW_DEFINITION_VERSION,
   WORKFLOW_TRIGGER_MANUAL,
+  WORKFLOW_TRIGGER_RECORD_CREATED,
   validateWorkflowDefinition,
 } from '~/helpers/workflowEngine';
 import { NcError } from '~/helpers/catchError';
 import {
   Base,
+  Model,
   Workflow,
   WorkflowExecution,
   WorkflowExecutionNode,
@@ -23,6 +25,8 @@ import { MetaTable } from '~/utils/globals';
 
 @Injectable()
 export class WorkflowsService {
+  protected readonly logger = new Logger(WorkflowsService.name);
+
   constructor(
     @Inject('JobsService') protected readonly jobsService: IJobsService,
   ) {}
@@ -52,7 +56,10 @@ export class WorkflowsService {
   ) {
     await this.requireBase(context);
     const definition = this.definitionFrom(param.body);
-    this.validateDefinition(context, definition);
+    await this.validateDefinitionReferences(
+      context,
+      this.validateDefinition(context, definition),
+    );
     const id = await Noco.ncMeta.genNanoid(MetaTable.WORKFLOWS);
     return Workflow.create(context, {
       id,
@@ -80,7 +87,10 @@ export class WorkflowsService {
       nodes: param.body.nodes ?? existing.nodes,
       edges: param.body.edges ?? existing.edges,
     });
-    this.validateDefinition(context, definition);
+    await this.validateDefinitionReferences(
+      context,
+      this.validateDefinition(context, definition),
+    );
     return Workflow.update(context, workflowId, {
       ...(param.body.title !== undefined
         ? { title: this.title(context, param.body.title) }
@@ -126,9 +136,99 @@ export class WorkflowsService {
       );
     }
     const definition = this.definitionFrom(workflow);
-    this.validateDefinition(context, definition);
+    const ordered = this.validateDefinition(context, definition);
+    if (ordered[0].type !== WORKFLOW_TRIGGER_MANUAL) {
+      NcError.get(context).badRequest(
+        'Only workflows with a manual trigger can use the manual trigger endpoint',
+      );
+    }
 
-    const inputs = param.inputs ?? {};
+    return this.enqueue(context, workflow, definition, {
+      triggerType: WORKFLOW_TRIGGER_MANUAL,
+      triggerData: param.inputs ?? {},
+      idempotencyKey: param.idempotencyKey,
+      user: param.req.user,
+      persistConcurrencyFailure: false,
+    });
+  }
+
+  async triggerRecordCreated(
+    context: NcContext,
+    param: {
+      newData: unknown;
+      user?: NcRequest['user'];
+      viewId?: string;
+      modelId?: string;
+    },
+  ) {
+    if (
+      !param.modelId ||
+      param.newData === undefined ||
+      param.newData === null
+    ) {
+      return;
+    }
+    const records = Array.isArray(param.newData)
+      ? param.newData
+      : [param.newData];
+    if (!records.length) return;
+
+    const eventId = nanoid();
+    const workflows = await Workflow.listEnabled(context);
+    for (const workflow of workflows) {
+      try {
+        const definition = this.definitionFrom(workflow);
+        const ordered = this.validateDefinition(context, definition);
+        const trigger = ordered[0];
+        if (
+          trigger.type !== WORKFLOW_TRIGGER_RECORD_CREATED ||
+          trigger.data.config?.table_id !== param.modelId
+        ) {
+          continue;
+        }
+        await this.enqueue(context, workflow, definition, {
+          triggerType: WORKFLOW_TRIGGER_RECORD_CREATED,
+          triggerData: {
+            event: 'record.created',
+            table_id: param.modelId,
+            view_id: param.viewId || null,
+            record: records[0],
+            records,
+            count: records.length,
+          },
+          idempotencyKey: `record-created:${eventId}`,
+          user: param.user,
+          persistConcurrencyFailure: true,
+        });
+      } catch (error) {
+        this.logger.error({
+          error,
+          details: 'Unable to queue a record-created workflow execution',
+          workflowId: workflow.id,
+          modelId: param.modelId,
+        });
+      }
+    }
+  }
+
+  private async enqueue(
+    context: NcContext,
+    workflow: Workflow,
+    definition: ReturnType<WorkflowsService['definitionFrom']>,
+    param: {
+      triggerType:
+        | typeof WORKFLOW_TRIGGER_MANUAL
+        | typeof WORKFLOW_TRIGGER_RECORD_CREATED;
+      triggerData: unknown;
+      idempotencyKey?: string;
+      user?: NcRequest['user'];
+      persistConcurrencyFailure: boolean;
+    },
+  ) {
+    const workflowId = workflow.id;
+    if (!workflowId) throw new Error('Workflow ID is missing');
+    const inputs = param.triggerData ?? {};
+
     if (JSON.stringify(inputs).length > 64_000) {
       NcError.get(context).badRequest('Workflow trigger input is too large');
     }
@@ -151,6 +251,28 @@ export class WorkflowsService {
       MetaTable.WORKFLOW_EXECUTIONS,
     );
     if (!(await WorkflowLock.acquire(context, workflowId, executionId))) {
+      if (param.persistConcurrencyFailure) {
+        const error = 'Workflow concurrency limit reached';
+        await WorkflowExecution.create(context, {
+          id: executionId,
+          fk_workflow_id: workflowId,
+          workflow_data: this.executionDefinition(workflow, definition),
+          trigger_type: param.triggerType,
+          trigger_data: inputs,
+          idempotency_key: idempotencyKey,
+          created_by: param.user?.id,
+          status: WorkflowExecutionStatus.ERROR,
+          error,
+          finished: true,
+          finished_at: new Date().toISOString(),
+        });
+        await Workflow.incrementTriggerCount(context, workflowId);
+        return {
+          id: executionId,
+          execution_id: executionId,
+          replayed: false,
+        };
+      }
       NcError.get(context).badRequest(
         'This workflow already has an active execution',
       );
@@ -161,18 +283,12 @@ export class WorkflowsService {
       execution = await WorkflowExecution.create(context, {
         id: executionId,
         fk_workflow_id: workflowId,
-        workflow_data: {
-          id: workflow.id,
-          title: workflow.title,
-          definition_version: WORKFLOW_DEFINITION_VERSION,
-          nodes: definition.nodes,
-          edges: definition.edges,
-        },
-        trigger_type: WORKFLOW_TRIGGER_MANUAL,
+        workflow_data: this.executionDefinition(workflow, definition),
+        trigger_type: param.triggerType,
         trigger_data: inputs,
         idempotency_key: idempotencyKey,
         job_id: executionId,
-        created_by: param.req.user?.id,
+        created_by: param.user?.id,
         status: WorkflowExecutionStatus.QUEUED,
         finished: false,
       });
@@ -180,7 +296,7 @@ export class WorkflowsService {
         JobTypes.ExecuteWorkflow,
         {
           context,
-          user: param.req.user,
+          user: param.user || {},
           workflowId,
           executionId,
         },
@@ -299,6 +415,34 @@ export class WorkflowsService {
     } catch (error) {
       NcError.get(context).badRequest(String(error?.message || error));
     }
+  }
+
+  private async validateDefinitionReferences(
+    context: NcContext,
+    ordered: ReturnType<typeof validateWorkflowDefinition>,
+  ) {
+    const trigger = ordered[0];
+    if (trigger.type === WORKFLOW_TRIGGER_RECORD_CREATED) {
+      const table = await Model.get(context, trigger.data.config?.table_id);
+      if (!table) {
+        NcError.get(context).badRequest(
+          'Record-created trigger table was not found in this base',
+        );
+      }
+    }
+  }
+
+  private executionDefinition(
+    workflow: Workflow,
+    definition: ReturnType<WorkflowsService['definitionFrom']>,
+  ) {
+    return {
+      id: workflow.id,
+      title: workflow.title,
+      definition_version: WORKFLOW_DEFINITION_VERSION,
+      nodes: definition.nodes,
+      edges: definition.edges,
+    };
   }
 
   private title(context: NcContext, value: unknown) {

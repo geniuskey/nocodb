@@ -13,7 +13,7 @@ import {
   validateWorkflowDefinition,
   WORKFLOW_ACTION_HTTP,
   WORKFLOW_ACTION_LOG,
-  WORKFLOW_TRIGGER_MANUAL,
+  WORKFLOW_TRIGGER_TYPES,
 } from '~/helpers/workflowEngine';
 import {
   WorkflowExecution,
@@ -78,10 +78,9 @@ export class WorkflowProcessor {
         const nodeResultId = await Noco.ncMeta.genNanoid(
           MetaTable.WORKFLOW_EXECUTION_NODES,
         );
-        const input =
-          node.type === WORKFLOW_TRIGGER_MANUAL
-            ? boundedWorkflowValue(runtime.trigger)
-            : this.safeNodeInput(node.data.config || {});
+        const input = WORKFLOW_TRIGGER_TYPES.includes(node.type as any)
+          ? boundedWorkflowValue(runtime.trigger)
+          : this.safeNodeInput(node.data.config || {});
         await WorkflowExecutionNode.create(context, {
           id: nodeResultId,
           fk_execution_id: executionId,
@@ -96,7 +95,7 @@ export class WorkflowProcessor {
         try {
           let output: unknown;
           let attempt = 1;
-          if (node.type === WORKFLOW_TRIGGER_MANUAL) {
+          if (WORKFLOW_TRIGGER_TYPES.includes(node.type as any)) {
             output = boundedWorkflowValue(runtime.trigger);
           } else if (node.type === WORKFLOW_ACTION_LOG) {
             output = {
