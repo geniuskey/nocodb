@@ -325,8 +325,11 @@ function groupByTests() {
       })
       .expect(200);
 
-    assert.match(response.body.list[1]['ActorNames'], /ADAM|ANNE/);
-    expect(+response.body.list[1]['count']).to.gt(0);
+    const matchingGroup = response.body.list.find((group) =>
+      /ADAM|ANNE/.test(group.ActorNames),
+    );
+    assert.exists(matchingGroup);
+    expect(+matchingGroup.count).to.gt(0);
     expect(response.body.list.length).to.equal(25);
   });
 

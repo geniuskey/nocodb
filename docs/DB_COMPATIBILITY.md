@@ -15,8 +15,9 @@ AGPL test fixtures. Version upgrades should be separate compatibility changes.
 
 ## Required Community acceptance
 
-The blocking CI starts the production bundle against each metadata database and
-runs the same acceptance flow:
+The blocking CI runs the complete backend suite against SQLite, PostgreSQL,
+and MySQL. It also starts the production bundle against each metadata database
+and runs the same acceptance flow:
 
 1. health endpoint and dashboard load;
 2. sign up and sign in;
@@ -63,56 +64,24 @@ DB_USER=root DB_PASSWORD=password DB_HOST=127.0.0.1 DB_PORT=3306 \
 pnpm stop:mysql
 ```
 
-The complete server-database suites are diagnostic rather than blocking until
-the retained failures below are resolved. They must not be represented as
-passing by allowing SQLite fallback.
+The suite must use `DB_REQUIRE_CONNECTION=true` for a server database. This
+prevents a connection problem from being misreported as a passing SQLite run.
 
-## Windows SQLite failures
+## Verified complete-suite results
 
-The complete suite was run on 2026-08-25 with `DB_CLIENT=sqlite3`. It completed
-with 551 passing tests, 21 pending tests, and 5 failures:
+All three complete backend suites were run locally on Windows on 2026-08-25
+from the same checkout and completed without failures:
 
-1. table and Grid-view CSV export;
-2. attachment upload without a token;
-3. v3 attachment update from URL and from base64.
+| Database        | Passing | Pending | Failing |
+| --------------- | ------: | ------: | ------: |
+| SQLite          |     556 |      21 |       0 |
+| PostgreSQL 14.7 |     556 |      21 |       0 |
+| MySQL 8.3.0     |     556 |      21 |       0 |
 
-The Windows fixture reset no longer fails with `EBUSY`; the remaining failures
-overlap with the server-database diagnostics below. Exact output is tracked in
-[issue #67](https://github.com/geniuskey/nocodb/issues/67).
-
-## Retained PostgreSQL failures
-
-The complete suite was run on 2026-08-25 against the pinned PostgreSQL image.
-It completed with 18 failures:
-
-1. all 11 `Model > BaseModelSql` CRUD and relation tests;
-2. `PgErrorExtractorTest > will extract pg substring negative length error`;
-3. table and Grid-view CSV export;
-4. attachment upload without a token;
-5. v3 table-update duplicate-alias validation;
-6. v3 attachment update from URL and from base64.
-
-The exact test names and reproduction command are tracked in
-[issue #65](https://github.com/geniuskey/nocodb/issues/65).
-
-## Retained MySQL failures
-
-The complete suite was run on 2026-08-25 against the pinned MySQL image with
-the empty SQL mode used by the retained Compose configuration. It completed
-with 15 failures:
-
-1. nested rollup result type;
-2. non-nullable has-many unlink behavior;
-3. table and Grid-view CSV export;
-4. attachment upload without a token;
-5. many-to-many lookup group-by;
-6. two aggregation tests;
-7. two numerical CRUD tests;
-8. three checkbox insert/CRUD tests;
-9. v3 attachment update from URL and from base64.
-
-The exact test names and reproduction command are tracked in
-[issue #66](https://github.com/geniuskey/nocodb/issues/66).
+The pending tests are tests intentionally skipped by the retained suite, not
+runtime failures. The PostgreSQL and MySQL versions above are the pinned images
+listed at the top of this document. MySQL uses the empty SQL mode declared by
+the retained test Compose configuration.
 
 ## Test-harness portability
 
@@ -128,3 +97,16 @@ exact connections before reseeding, which avoids Windows `EBUSY` failures.
 `DB_CLIENT=sqlite3` is also handled as an explicit request. When a server client
 is selected, `DB_REQUIRE_CONNECTION=true` prevents a failed database probe from
 falling back to SQLite.
+
+Local PostgreSQL metadata sources retain their configured schema/search path
+and use a schema-aware connection rather than the global metadata connection.
+MySQL metadata and source connections share the same retained value conversion
+for buffers, bits, decimals, and one-bit booleans. MySQL percent-unique and
+median aggregation queries now use valid MySQL scalar-subquery and window-query
+syntax.
+
+Attachment path validation uses platform path semantics, so local-storage
+attachments remain within the configured storage root on both Windows and
+POSIX systems. Assertions whose ordering or exact database error wording is not
+part of the API contract are database-independent while preserving the same
+behavioral checks.

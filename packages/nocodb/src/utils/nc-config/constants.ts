@@ -19,6 +19,32 @@ export const defaultConnectionConfig: any = {
   dateStrings: true,
 };
 
+export function mysqlTypeCast(field, next) {
+  const res = next();
+
+  // Convert buffers to hexadecimal strings, except BIT values which are
+  // represented as integers by the data APIs.
+  if (res && res instanceof Buffer) {
+    const hex = [...res]
+      .map((value) => ('00' + value.toString(16)).slice(-2))
+      .join('');
+    if (field.type === 'BIT') {
+      return parseInt(hex, 16);
+    }
+    return hex;
+  }
+
+  if (field.type === 'NEWDECIMAL') {
+    return res && parseFloat(res);
+  }
+
+  if (field.type === 'TINY' && field.length === 1) {
+    return res === null ? null : Boolean(res);
+  }
+
+  return res;
+}
+
 // default knex options
 export const defaultConnectionOptions = {
   pool: {

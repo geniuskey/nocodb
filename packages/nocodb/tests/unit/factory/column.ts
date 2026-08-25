@@ -292,6 +292,8 @@ const customColumns = function (
               column_name: 'Decimal',
               title: 'Decimal',
               uidt: UITypes.Decimal,
+              dtxp: 19,
+              dtxs: 4,
               meta: {
                 ...optionsOverride['Decimal'],
               },
@@ -304,6 +306,7 @@ const customColumns = function (
               options: {
                 locale: 'en-USD',
                 code: 'USD',
+                precision: 4,
                 ...optionsOverride['Currency'],
               },
             }
@@ -311,6 +314,8 @@ const customColumns = function (
               column_name: 'Currency',
               title: 'Currency',
               uidt: UITypes.Currency,
+              dtxp: 19,
+              dtxs: 4,
               meta: {
                 currency_locale: 'en-USD',
                 currency_code: 'USD',
@@ -669,6 +674,8 @@ const customColumns = function (
               column_name: 'Decimal',
               title: 'Decimal',
               uidt: UITypes.Decimal,
+              dtxp: 19,
+              dtxs: 3,
             },
         isV3
           ? {

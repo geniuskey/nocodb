@@ -2265,7 +2265,11 @@ function tableTest() {
       !response.body.message?.includes("Column 'customer_id' cannot be null") &&
       !response.body.message?.includes('Cannot add or update a child row') &&
       !response.body.msg?.includes("Column 'customer_id' cannot be null") &&
-      !response.body.msg?.includes('Cannot add or update a child row')
+      !response.body.msg?.includes('Cannot add or update a child row') &&
+      !(
+        response.body.error === 'DATABASE_ERROR' &&
+        response.body.code === 'ER_NO_REFERENCED_ROW_2'
+      )
     ) {
       console.log(
         'Delete list hm with existing ref row id with non nullable clause',

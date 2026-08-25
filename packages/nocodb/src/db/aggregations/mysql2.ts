@@ -244,7 +244,7 @@ export function genMysql2AggregatedQuery({
           )
         ) {
           aggregationSql = knex.raw(
-            `(COUNT(DISTINCT CASE WHEN ?? IS NOT NULL THEN ?? END) * 100.0 / NULLIF(COUNT(*), 0))`,
+            `(COUNT(DISTINCT CASE WHEN (??) IS NOT NULL THEN (??) END) * 100.0 / NULLIF(COUNT(*), 0))`,
             [column_query, column_query],
           );
           break;
@@ -306,27 +306,23 @@ export function genMysql2AggregatedQuery({
         ]);
         break;
       case NumericalAggregations.Median:
-        // This is the sqlite3 port median query. Need to use native mysql median query
         aggregationSql = knex.raw(
-          `
-  (
-    SELECT AVG(??)
-    FROM (
-      SELECT ??
-      FROM ??
-      ORDER BY ??
-      LIMIT 2 - (SELECT COUNT(*) FROM ??) % 2    -- Handle even/odd number of rows
-      OFFSET (SELECT (COUNT(*) - 1) / 2 FROM ??) -- Calculate the median offset
-    ) AS median_subquery
-  )`,
-          [
-            column_query,
-            column_query,
-            baseModelSqlv2.tnPath,
-            column_query,
-            baseModelSqlv2.tnPath,
-            baseModelSqlv2.tnPath,
-          ],
+          `(
+            SELECT AVG(median_value)
+            FROM (
+              SELECT
+                (??) AS median_value,
+                ROW_NUMBER() OVER (ORDER BY (??)) AS row_num,
+                COUNT(*) OVER () AS row_count
+              FROM ??
+              WHERE (??) IS NOT NULL
+            ) AS median_subquery
+            WHERE row_num IN (
+              FLOOR((row_count + 1) / 2),
+              FLOOR((row_count + 2) / 2)
+            )
+          )`,
+          [column_query, column_query, baseModelSqlv2.tnPath, column_query],
         );
         break;
       default:

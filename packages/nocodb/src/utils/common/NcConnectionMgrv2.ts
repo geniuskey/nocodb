@@ -3,6 +3,7 @@ import type Source from '~/models/Source';
 import {
   defaultConnectionConfig,
   defaultConnectionOptions,
+  mysqlTypeCast,
 } from '~/utils/nc-config';
 import SqlClientFactory from '~/db/sql-client/lib/SqlClientFactory';
 import { XKnex } from '~/db/CustomKnex';
@@ -61,7 +62,7 @@ export default class NcConnectionMgrv2 {
   }
 
   public static async get(source: Source): Promise<XKnex> {
-    if (source.isMeta()) return Noco.ncMeta.knex;
+    if (source.isMeta(true)) return Noco.ncMeta.knex;
 
     if (this.connectionRefs?.[source.base_id]?.[source.id]) {
       return this.connectionRefs?.[source.base_id]?.[source.id];
@@ -70,35 +71,14 @@ export default class NcConnectionMgrv2 {
       this.connectionRefs?.[source.base_id] || {};
 
     const connectionConfig = await source.getConnectionConfig();
-
     this.connectionRefs[source.base_id][source.id] = XKnex({
       ...defaultConnectionOptions,
       ...connectionConfig,
       connection: {
         ...defaultConnectionConfig,
         ...connectionConfig.connection,
-        typeCast(field, next) {
-          const res = next();
-
-          // mysql - convert all other buffer values to hex string
-          // if `bit` datatype then convert it to integer number
-          if (res && res instanceof Buffer) {
-            const hex = [...res]
-              .map((v) => ('00' + v.toString(16)).slice(-2))
-              .join('');
-            if (field.type == 'BIT') {
-              return parseInt(hex, 16);
-            }
-            return hex;
-          }
-
-          // mysql `decimal` datatype returns value as string, convert it to float number
-          if (field.type == 'NEWDECIMAL') {
-            return res && parseFloat(res);
-          }
-
-          return res;
-        },
+        password: connectionConfig.connection?.password,
+        typeCast: mysqlTypeCast,
       },
     } as any);
     return this.connectionRefs[source.base_id][source.id];

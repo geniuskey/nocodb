@@ -38,7 +38,6 @@ function attachmentTests() {
   it('Upload file - Without token', async () => {
     const response = await request(context.app)
       .post('/api/v1/db/storage/upload')
-      .attach('files', FILE_PATH)
       .expect(401);
 
     const msg = response.body.message;

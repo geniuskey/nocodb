@@ -48,11 +48,19 @@ export function validateAndNormaliseLocalPath(
 
   // Get the absolute path to the file
   const absolutePath = path.resolve(
-    path.join(toolDir, ...fileOrFolderPath.replace(toolDir, '').split('/')),
+    path.isAbsolute(fileOrFolderPath)
+      ? fileOrFolderPath
+      : path.join(toolDir, ...fileOrFolderPath.split('/')),
   );
 
+  const relativePath = path.relative(absoluteBasePath, absolutePath);
+
   // Check if the resolved path is within the intended directory
-  if (!absolutePath.startsWith(absoluteBasePath)) {
+  if (
+    relativePath === '..' ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
     if (throw404) {
       NcError.notFound();
     } else {

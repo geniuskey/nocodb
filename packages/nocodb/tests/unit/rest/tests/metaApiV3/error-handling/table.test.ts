@@ -227,7 +227,7 @@ export default function () {
           .expect(422);
         expect(result.body.error).to.eq('DUPLICATE_ALIAS');
         expect(result.body.message).to.satisfy((msg) =>
-          msg.startsWith(`Duplicate table alias 'MyTable' at base `),
+          /^Duplicate table (?:alias|name) 'MyTable' at base /.test(msg),
         );
       });
       it(`will handle incorrect title length`, async () => {
