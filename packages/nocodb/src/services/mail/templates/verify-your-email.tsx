@@ -54,7 +54,7 @@ export const VerifyYourEmail = ({
 
 VerifyYourEmail.PreviewProps = {
   email: 'janedoe@gmail.com',
-  link: 'https://nocodb.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default VerifyYourEmail;

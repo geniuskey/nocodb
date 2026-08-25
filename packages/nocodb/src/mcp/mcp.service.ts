@@ -374,7 +374,7 @@ export class McpService {
                   ]),
                 ),
             )
-            .describe('Array of attachment objects from NocoDB'),
+            .describe('Array of attachment objects from RowWeave'),
         },
         annotations: {
           readOnlyHint: true,

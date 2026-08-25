@@ -250,7 +250,7 @@ async function waitForMasterHealth(
 
 if (shouldUseCluster) {
   if (cluster.isPrimary) {
-    console.log(`Starting NocoDB in cluster mode with ${workerCount} workers`);
+    console.log(`Starting RowWeave in cluster mode with ${workerCount} workers`);
     console.log(`Primary process ${process.pid} is running`);
 
     // Setup signal handlers for primary process

@@ -3,7 +3,7 @@ export default `<!doctype html>
 <head>
     <meta name="viewport" content="width=device-width">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>NocoDB forms: someone has responded to Form</title>
+    <title>RowWeave forms: someone has responded to Form</title>
     <style>
         @media only screen and (max-width: 620px) {
             table[class=body] h1 {
@@ -101,7 +101,7 @@ export default `<!doctype html>
 <body class=""
       style="background-color: #f6f6f6; font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.4; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
 <span class="preheader"
-      style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">NocoDB forms: someone has responded to Form</span>
+      style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">RowWeave forms: someone has responded to Form</span>
 <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body"
        style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #f6f6f6; width: 100%;"
        width="100%" bgcolor="#f6f6f6">
@@ -129,8 +129,8 @@ export default `<!doctype html>
                                    
                                    <tr>
                                    <td style="font-family: sans-serif; font-size: 14px;padding: 20px 5px 10px 5px; " colspan="2">
-                                     <a href="https://github.com/nocodb/nocodb" target="_blank">
-                                        <img src="https://cdn.nocodb.com/email/logo.png" alt="NocoDB" width="150" style=" vertical-align: middle">
+                                     <a href="https://github.com/geniuskey/rowweave" target="_blank">
+                                        <span style="color: #312e81; font-family: sans-serif; font-size: 24px; font-weight: 700; vertical-align: middle;">RowWeave</span>
                                      </a>
                                    </td>
                                    </tr>
@@ -181,7 +181,7 @@ export default `<!doctype html>
                             <td class="content-block powered-by"
                                 style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;"
                                 valign="top" align="center">
-                                <a href="https://github.com/nocodb/nocodb">NocoDB</a>
+                                <a href="https://github.com/geniuskey/rowweave">RowWeave</a>
                                 <!--                Powered by <a href="http://htmlemail.io">HTMLemail</a>.-->
                             </td>
                         </tr>

@@ -28,21 +28,21 @@ export const OrganizationInvite = ({
   <Html>
     <RootWrapper>
       <Head />
-      <Preview>You’ve been invited to NocoDB</Preview>
+      <Preview>You’ve been invited to RowWeave</Preview>
       <Body className="bg-white">
         <ContentWrapper>
           <Heading className="text-gray-900 text-center font-bold m-auto text-xl md:text-2xl">
-            You’ve been invited to NocoDB
+            You’ve been invited to RowWeave
           </Heading>
           <Text className="text-gray-600 text-center !my-6 text-sm">
             <span className="font-bold text-gray-800">{name}</span> ( {email})
-            has invited you to collaborate on NocoDB.
+            has invited you to collaborate on RowWeave.
           </Text>
           <Button
             className="text-center w-full text-base font-bold bg-brand-500 text-white rounded-lg h-10"
             href={link}
           >
-            <Text className="!my-[8px]">Go to NocoDB</Text>
+            <Text className="!my-[8px]">Go to RowWeave</Text>
           </Button>
         </ContentWrapper>
         <Footer />
@@ -54,7 +54,7 @@ export const OrganizationInvite = ({
 OrganizationInvite.PreviewProps = {
   name: 'John Doe',
   email: 'johndoe@gmail.com',
-  link: 'https://nocodb.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default OrganizationInvite;

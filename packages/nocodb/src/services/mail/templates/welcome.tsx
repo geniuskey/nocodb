@@ -24,11 +24,11 @@ export const Welcome = ({ email, link }: WelcomeTemplateProps) => (
   <Html>
     <RootWrapper>
       <Head />
-      <Preview>Welcome to NocoDB!</Preview>
+      <Preview>Welcome to RowWeave!</Preview>
       <Body className="bg-white">
         <ContentWrapper>
           <Heading className="text-gray-900 text-center font-bold m-auto text-xl md:text-2xl">
-            Welcome to NocoDB!
+            Welcome to RowWeave!
           </Heading>
           <Section className="py-6 mx-auto font-bold text-center text-gray-900 text-base">
             {email}
@@ -62,8 +62,8 @@ export const Welcome = ({ email, link }: WelcomeTemplateProps) => (
 );
 
 Welcome.PreviewProps = {
-  email: 'janedoe@nocodb.com',
-  link: 'https://nocodb.com',
+  email: 'janedoe@example.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default Welcome;

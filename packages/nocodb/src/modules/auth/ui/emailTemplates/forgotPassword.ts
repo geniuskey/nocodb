@@ -115,7 +115,7 @@ table[class=body] .article {
                 <tr>
                   <td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
                     <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Hi,</p>
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">To change your NocoDB account password click the following link.</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">To change your RowWeave account password click the following link.</p>
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; box-sizing: border-box; width: 100%;" width="100%">
                       <tbody>
                       <tr>
@@ -131,7 +131,7 @@ table[class=body] .article {
                       </tr>
                       </tbody>
                     </table>
-                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks regards NocoDB.</p>
+                    <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks regards RowWeave.</p>
                   </td>
                 </tr>
               </table>
@@ -153,7 +153,7 @@ table[class=body] .article {
             </tr>
             <tr>
               <td class="content-block powered-by" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; color: #999999; font-size: 12px; text-align: center;" valign="top" align="center">
-              <a href="http://nocodb.com/">NocoDB</a>
+              <a href="https://github.com/geniuskey/rowweave">RowWeave</a>
 <!--                Powered by <a href="http://htmlemail.io">HTMLemail</a>.-->
               </td>
             </tr>

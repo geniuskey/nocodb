@@ -43,7 +43,12 @@ class TeleBatchProcessor {
       return;
     }
 
-    await axios.post('https://telemetry.nocodb.com/api/v1/telemetry', batch);
+    const telemetryUrl = process.env.ROWWEAVE_TELEMETRY_URL;
+    if (process.env.NC_DISABLE_TELE === 'true' || !telemetryUrl) {
+      return;
+    }
+
+    await axios.post(telemetryUrl, batch);
   }
 }
 

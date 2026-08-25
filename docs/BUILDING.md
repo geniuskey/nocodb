@@ -1,6 +1,6 @@
 # Building the Community Foundation
 
-These commands build the modern AGPL foundation without using a later NocoDB
+These commands build the RowWeave modern AGPL foundation without using a later NocoDB
 package, image, generated GUI, or Enterprise implementation.
 
 ## Prerequisites
@@ -84,6 +84,25 @@ pnpm --filter nc-gui run dev -- --host 127.0.0.1 --port 3000
 
 Open `http://127.0.0.1:3000`. The backend watcher uses the fork-owned
 Community Rspack configuration.
+
+### Optional outbound services
+
+RowWeave does not send telemetry, fetch a product feed, submit feedback, or
+load remote email branding by default. These integrations are enabled only
+when an operator explicitly supplies a RowWeave-owned endpoint:
+
+| Variable | Purpose |
+| --- | --- |
+| `ROWWEAVE_TELEMETRY_URL` | Full opt-in telemetry collection endpoint |
+| `ROWWEAVE_NEWSLETTER_URL` | Full opt-in newsletter subscription endpoint |
+| `ROWWEAVE_PRODUCT_FEED_URL` | Base URL for optional `/social/feed` and `/cloud/features` services |
+| `ROWWEAVE_FEEDBACK_URL` | Full optional feedback-form endpoint |
+| `ROWWEAVE_GIFT_URL` | Optional community contribution link shown after meaningful use |
+| `ROWWEAVE_EMAIL_ASSETS_BASE_URL` | Optional base URL for independently owned email assets |
+
+`NC_DISABLE_TELE=true` remains supported and always wins over
+`ROWWEAVE_TELEMETRY_URL` for compatibility. Do not point any of these variables
+at upstream NocoDB services.
 
 ## Production build
 
@@ -223,19 +242,19 @@ Build from the repository root so Docker can see every workspace package and
 both lockfiles:
 
 ```sh
-docker build --progress=plain -f Dockerfile.community -t nocodb-community:foundation .
+docker build --progress=plain -f Dockerfile.community -t rowweave:foundation .
 ```
 
 Run the image:
 
 ```sh
-docker run --rm --name nocodb-community -p 8080:8080 nocodb-community:foundation
+docker run --rm --name rowweave -p 8080:8080 rowweave:foundation
 ```
 
 Persist metadata and attachments by mounting `/usr/app/data`:
 
 ```sh
-docker run --rm --name nocodb-community -p 8080:8080 -v nocodb-community-data:/usr/app/data nocodb-community:foundation
+docker run --rm --name rowweave -p 8080:8080 -v rowweave-data:/usr/app/data rowweave:foundation
 ```
 
 The image builds the SDK, frontend, local GUI package, and backend entirely
@@ -268,6 +287,7 @@ the minimal build changes:
 | MySQL percent-unique and median generated invalid or non-portable SQL                                  | Use a scalar subquery and MySQL 8 window functions without changing dependencies                         |
 | Windows attachment reads rejected valid files or reset multipart connections                           | Validate attachment paths with platform path semantics and exercise the auth gate without an unused body |
 | Type-checking `tests/unit/tsconfig.json` alone reports retained `rootDir` and source-map option errors | Treat it as the Mocha runtime compiler configuration; use the backend root `tsconfig.json` command above |
+| `pnpm --filter nc-gui exec nuxi typecheck` fails before source diagnostics because the temporary `vue-tsc` resolves a TypeScript package export without `./lib/tsc` | Use `pnpm run build:community` as the frozen frontend compile check; resolve the toolchain mismatch separately during modernization without upgrading application dependencies |
 
 Warnings about duplicated Pinia imports, deprecated Nuxt helpers, circular SDK
 re-exports, large frontend chunks, and one dynamic `require` in

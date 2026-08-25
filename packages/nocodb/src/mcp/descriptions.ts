@@ -1,4 +1,4 @@
-export const whereDescription = `Filter records using NocoDB syntax: (field,operator,value)
+export const whereDescription = `Filter records using the RowWeave-compatible syntax: (field,operator,value)
 
 OPERATORS:
 - Equality: eq, neq, is, isnot

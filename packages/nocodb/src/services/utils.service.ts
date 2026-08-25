@@ -93,7 +93,7 @@ export class UtilsService {
         versionCache.lastFetched < Date.now() - 1000 * 60 * 60)
     ) {
       const nonBetaTags = await axios
-        .get('https://api.github.com/repos/nocodb/nocodb/tags', {
+        .get('https://api.github.com/repos/geniuskey/rowweave/tags', {
           timeout: 5000,
         })
         .then((response) => {
@@ -425,13 +425,8 @@ export class UtilsService {
       ? process.env.NC_OIDC_PROVIDER_NAME ?? 'OpenID Connect'
       : null;
 
-    let giftUrl: string;
-
-    if (instance.impacted >= 5) {
-      giftUrl = `https://w21dqb1x.nocodb.com/#/nc/form/4d2e0e4b-df97-4c5e-ad8e-f8b8cca90330?Users=${
-        instance.impacted
-      }&Bases=${instance.projectsExt + instance.projectsMeta}`;
-    }
+    const giftUrl =
+      instance.impacted >= 5 ? process.env.ROWWEAVE_GIFT_URL : undefined;
 
     const samlAuthEnabled = process.env.NC_SSO?.toLowerCase() === 'saml';
     const samlProviderName = samlAuthEnabled
@@ -462,7 +457,9 @@ export class UtilsService {
       defaultGroupByLimit: defaultGroupByLimitConfig,
       timezone: defaultConnectionConfig.timezone,
       ncMin: !!process.env.NC_MIN,
-      teleEnabled: process.env.NC_DISABLE_TELE !== 'true',
+      teleEnabled:
+        process.env.NC_DISABLE_TELE !== 'true' &&
+        !!process.env.ROWWEAVE_TELEMETRY_URL,
       errorReportingEnabled: process.env.NC_DISABLE_ERR_REPORTS !== 'true',
       sentryDSN:
         process.env.NC_DISABLE_ERR_REPORTS !== 'true'
@@ -479,7 +476,9 @@ export class UtilsService {
       disableEmailAuth: this.configService.get('auth.disableEmailAuth', {
         infer: true,
       }),
-      feedEnabled: process.env.NC_DISABLE_PRODUCT_FEED !== 'true',
+      feedEnabled:
+        process.env.NC_DISABLE_PRODUCT_FEED !== 'true' &&
+        !!process.env.ROWWEAVE_PRODUCT_FEED_URL,
       mainSubDomain: this.configService.get('mainSubDomain', { infer: true }),
       dashboardPath: this.configService.get('dashboardPath', { infer: true }),
       inviteOnlySignup: settings.invite_only_signup,
@@ -518,6 +517,12 @@ export class UtilsService {
   }
 
   async feed(req: NcRequest) {
+    const productFeedUrl = process.env.ROWWEAVE_PRODUCT_FEED_URL?.replace(
+      /\/$/,
+      '',
+    );
+    if (!productFeedUrl) return [];
+
     const {
       type = 'all',
       page = '1',
@@ -557,7 +562,7 @@ export class UtilsService {
 
     try {
       response = await axios.post(
-        'https://product-feed.nocodb.com/api/v1/social/feed',
+        `${productFeedUrl}/social/feed`,
         payload,
         {
           params: {
@@ -586,6 +591,12 @@ export class UtilsService {
   }
 
   async cloudFeatures(_req: NcRequest) {
+    const productFeedUrl = process.env.ROWWEAVE_PRODUCT_FEED_URL?.replace(
+      /\/$/,
+      '',
+    );
+    if (!productFeedUrl) return [];
+
     const cacheKey = `${CacheScope.CLOUD_FEATURES}`;
 
     const cachedData = await NocoCache.get(cacheKey, 'json');
@@ -612,7 +623,7 @@ export class UtilsService {
 
     try {
       response = await axios.post(
-        'https://product-feed.nocodb.com/api/v1/cloud/features',
+        `${productFeedUrl}/cloud/features`,
         payload,
       );
     } catch (e) {
