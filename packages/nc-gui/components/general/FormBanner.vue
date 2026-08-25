@@ -31,7 +31,7 @@ const getBannerImageSrc = computed(() => {
       </div>
 
       <div class="w-[91px] flex justify-center">
-        <img class="max-h-full self-center" src="~assets/img/icons/256x256.png" alt="form-banner-logo" />
+        <img class="max-h-full self-center" src="~assets/img/brand/rowweave-mark.svg" alt="RowWeave" />
       </div>
       <div class="flex justify-end -mb-1">
         <img src="~assets/img/form-banner-right.png" alt="form-banner-left'" />

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const { isLoading, appInfo } = useGlobal()
+const { isLoading } = useGlobal()
 
 const { isMobileMode } = storeToRefs(useConfigStore())
 
@@ -43,7 +43,7 @@ onMounted(() => {
   if (sharedView.value?.title) {
     document.title = `${sharedView.value.title}`
   } else {
-    document.title = 'NocoDB'
+    document.title = 'RowWeave'
   }
 })
 </script>
@@ -66,11 +66,11 @@ export default {
           <div class="flex items-center gap-6 h-7 max-w-[calc(100%_-_280px)] xs:max-w-[calc(100%_-_90px)]">
             <a
               class="transition-all duration-200 cursor-pointer transform hover:scale-105"
-              href="https://github.com/nocodb/nocodb"
+              href="https://github.com/geniuskey/rowweave"
               target="_blank"
               rel="noopener noreferrer"
             >
-              <img width="96" alt="NocoDB" src="~/assets/img/brand/nocodb.png" class="flex-none min-w-[96px]" />
+              <img width="112" alt="RowWeave" src="~/assets/img/brand/rowweave-wordmark.svg" class="flex-none min-w-[112px]" />
             </a>
 
             <div class="flex items-center gap-2 text-gray-900 text-sm truncate">
@@ -102,16 +102,6 @@ export default {
 
           <div class="flex items-center gap-3">
             <LazySmartsheetToolbarExportWithProvider v-if="allowCSVDownload" />
-
-            <a
-              v-if="!appInfo.isOnPrem"
-              href="https://app.nocodb.com/#/signin"
-              target="_blank"
-              class="!no-underline xs:hidden"
-              rel="noopener"
-            >
-              <NcButton size="xs"> {{ $t('labels.signUpForFree') }} </NcButton>
-            </a>
           </div>
         </a-layout-header>
         <NcFullScreen v-model="isFullScreen" class="h-full" :page-only="true">

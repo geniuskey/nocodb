@@ -265,10 +265,13 @@ onMounted(async () => {
         </div>
 
         <div class="prose-sm mt-4 text-gray-500">
-          {{ $t('msg.bySigningUp') }}
-          <a class="prose-sm !text-gray-500 underline" target="_blank" href="https://nocodb.com/policy-nocodb" rel="noopener">
-            {{ $t('title.termsOfService') }}</a
-          >
+          RowWeave source license:
+          <a
+            class="prose-sm !text-gray-500 underline"
+            target="_blank"
+            href="https://github.com/geniuskey/rowweave/blob/foundation/LICENSE"
+            rel="noopener"
+          >AGPL-3.0-or-later</a>
         </div>
       </div>
     </NuxtLayout>

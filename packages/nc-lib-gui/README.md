@@ -1,5 +1,8 @@
-# nc-lib-gui
+# RowWeave legacy GUI bundle
 
-This package is the build version of ``nc-gui`` which will be used in ``packages/nocodb``. The built files should be located in ``packages/nc-lib-gui/lib/dist/``. 
+This compatibility package stages the generated RowWeave frontend for the
+Community backend. New source belongs in `packages/nc-gui`; do not develop
+against the committed legacy bundle.
 
-To build the frontend and copy the built files to dist directory, run ``npm run build:copy`` under ``packages/nc-gui/``.
+The `nc-lib-gui` name is retained because the baseline backend resolves it at
+runtime. Licensed under AGPL-3.0-or-later.

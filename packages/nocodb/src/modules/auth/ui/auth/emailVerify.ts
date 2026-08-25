@@ -1,7 +1,7 @@
 export default `<!DOCTYPE html>
 <html>
 <head>
-    <title>NocoDB - Verify Email</title>
+    <title>RowWeave - Verify Email</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
     <link href="<%= ncPublicUrl %>/css/fonts.roboto.css" rel="stylesheet">
     <link href="<%= ncPublicUrl %>/css/materialdesignicons.5.x.min.css" rel="stylesheet">

@@ -25,7 +25,7 @@ export const srcDestMappingColumns: NcTableColumnProps[] = [
     padding: '0px 0px 0px 12px',
   },
   {
-    title: 'NocoDB Field',
+    title: 'RowWeave Field',
     dataIndex: 'destination_column',
     key: 'destination_column',
     minWidth: 200,

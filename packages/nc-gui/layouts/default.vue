@@ -11,7 +11,7 @@ const refreshSidebar = ref(false)
 
 const sidebarReady = ref(false)
 
-useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'NocoDB')
+useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'RowWeave')
 
 watch(hasSidebar, (val) => {
   if (!val) {

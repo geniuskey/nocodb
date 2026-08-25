@@ -24,33 +24,13 @@ export const homeCommands = [
     handler: () => {},
   },
   {
-    id: 'user_account-discord',
-    title: 'Discord',
-    icon: 'discord',
+    id: 'user_account-rowweave',
+    title: 'RowWeave on GitHub',
+    icon: 'github',
     parent: 'user',
     section: 'Community',
     handler: () => {
-      navigateTo('https://discord.gg/5RgZmkW', { external: true })
-    },
-  },
-  {
-    id: 'user_account-twitter',
-    title: '(formerly Twitter)',
-    icon: 'twitter',
-    parent: 'user',
-    section: 'Community',
-    handler: () => {
-      navigateTo('https://twitter.com/NocoDB', { external: true })
-    },
-  },
-  {
-    id: 'user_account-reddit',
-    title: 'Reddit',
-    icon: 'reddit',
-    parent: 'user',
-    section: 'Community',
-    handler: () => {
-      navigateTo('https://www.reddit.com/r/NocoDB/', { external: true })
+      navigateTo('https://github.com/geniuskey/rowweave', { external: true })
     },
   },
 ]

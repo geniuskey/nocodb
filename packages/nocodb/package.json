@@ -1,19 +1,19 @@
 {
   "name": "nocodb",
   "version": "0.265.1",
-  "description": "NocoDB Backend",
+  "description": "RowWeave backend (NocoDB 0.265.1-compatible package identity)",
   "main": "dist/bundle.js",
   "author": {
-    "name": "NocoDB Inc",
-    "url": "https://nocodb.com/"
+    "name": "RowWeave contributors",
+    "url": "https://github.com/geniuskey/rowweave"
   },
-  "homepage": "https://github.com/nocodb/nocodb",
+  "homepage": "https://github.com/geniuskey/rowweave",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nocodb/nocodb.git"
+    "url": "https://github.com/geniuskey/rowweave.git"
   },
   "bugs": {
-    "url": "https://github.com/nocodb/nocodb/issues"
+    "url": "https://github.com/geniuskey/rowweave/issues"
   },
   "engines": {
     "node": ">=22"

@@ -61,8 +61,8 @@ export const BaseInvite = ({
 BaseInvite.PreviewProps = {
   baseTitle: 'Base Title',
   name: 'John Doe',
-  email: 'johndoe@nocodb.com',
-  link: 'https://app.nocodb.com',
+  email: 'johndoe@example.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default BaseInvite;

@@ -1,13 +1,11 @@
 import axios from 'axios';
 
 export const getFeedBackForm = async () => {
+  const feedbackUrl = process.env.ROWWEAVE_FEEDBACK_URL;
+  if (!feedbackUrl) return { disabled: true };
+
   try {
-    const response = await axios.get(
-      'https://nocodb.com/api/v1/feedback_form',
-      {
-        timeout: 5000,
-      },
-    );
+    const response = await axios.get(feedbackUrl, { timeout: 5000 });
     return response.data;
   } catch (e) {
     return { error: e.message };

@@ -229,7 +229,7 @@ export class MailService {
           const { req, user } = payload;
           await mailerAdapter.mailSend({
             to: user.email,
-            subject: 'Welcome to NocoDB!',
+            subject: 'Welcome to RowWeave!',
             html: await this.renderMail('Welcome', {
               email: user.email,
               link: this.buildUrl(req, {}),
@@ -242,7 +242,7 @@ export class MailService {
           const invitee = req.user;
           await mailerAdapter.mailSend({
             to: user.email,
-            subject: 'You have been invited to join NocoDB',
+            subject: 'You have been invited to join RowWeave',
             html: await this.renderMail('OrganizationInvite', {
               name: extractDisplayNameFromEmail(
                 invitee.email,
@@ -261,7 +261,7 @@ export class MailService {
           const invitee = req.user;
           await mailerAdapter.mailSend({
             to: user.email,
-            subject: 'Role updated in NocoDB',
+            subject: 'Role updated in RowWeave',
             html: await this.renderMail('OrganizationRoleUpdate', {
               name: extractDisplayNameFromEmail(
                 invitee.email,
@@ -280,7 +280,7 @@ export class MailService {
 
           await mailerAdapter.mailSend({
             to: emails.join(','),
-            subject: `NocoDB Forms: Someone has responded to ${formView.title}`,
+            subject: `RowWeave Forms: Someone has responded to ${formView.title}`,
             html: await this.renderMail('FormSubmission', {
               formTitle: formView.title,
               tableTitle: model.title,

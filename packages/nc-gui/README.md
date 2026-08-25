@@ -1,42 +1,11 @@
-# Nuxt 3 Minimal Starter
+# RowWeave frontend
 
-Look at the [nuxt 3 documentation](https://v3.nuxtjs.org) to learn more.
+This Nuxt/Vue package is the RowWeave Community frontend. The workspace name
+`nc-gui` and existing route/storage identifiers are retained to avoid breaking
+the AGPL baseline's builds, bookmarks, and browser data.
 
-## Setup
+Run it through the root development and production commands documented in
+[`docs/BUILDING.md`](../../docs/BUILDING.md). Product branding guidance is in
+[`docs/BRANDING.md`](../../docs/BRANDING.md).
 
-Make sure to install the dependencies:
-
-```bash
-# yarn
-yarn install
-
-# npm
-npm install
-
-# pnpm
-pnpm install --shamefully-hoist
-```
-
-## Development Server
-
-Start the development server on http://localhost:3000
-
-```bash
-npm run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-npm run build
-```
-
-Locally preview production build:
-
-```bash
-npm run preview
-```
-
-Checkout the [deployment documentation](https://v3.nuxtjs.org/guide/deploy/presets) for more information.
+Licensed under AGPL-3.0-or-later.

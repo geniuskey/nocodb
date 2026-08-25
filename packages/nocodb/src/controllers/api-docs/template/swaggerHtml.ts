@@ -7,9 +7,9 @@ export default ({
 }): string => `<!DOCTYPE html>
 <html>
 <head>
-    <title>NocoDB : API Docs</title>
+    <title>RowWeave API Documentation</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <link rel="shortcut icon" href="${ncSiteUrl}/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="${ncSiteUrl}/favicon.svg" />
     <link rel="stylesheet" href="${ncSiteUrl}/css/swagger-ui.css"/>
     <script src="${ncSiteUrl}/js/swagger-ui-bundle.js"></script>
 </head>
@@ -52,12 +52,12 @@ xmlhttp.onload = function () {
 xmlhttp.send();
 
   
-  console.log('%c🚀 We are Hiring!!! 🚀%c\\n%cJoin the forces http://careers.nocodb.com', 'color:#1348ba;font-size:3rem;padding:20px;', 'display:none', 'font-size:1.5rem;padding:20px');
+  console.log('%cRowWeave is community-built%c\\n%cContribute at https://github.com/geniuskey/rowweave', 'color:#1348ba;font-size:3rem;padding:20px;', 'display:none', 'font-size:1.5rem;padding:20px');
     const linkEl = document.createElement('a')
-  linkEl.setAttribute('href', "http://careers.nocodb.com")
+  linkEl.setAttribute('href', "https://github.com/geniuskey/rowweave")
   linkEl.setAttribute('target', '_blank')
   linkEl.setAttribute('class', 'we-are-hiring')
-  linkEl.innerHTML = '🚀 We are Hiring!!! 🚀'
+  linkEl.innerHTML = 'RowWeave is community-built'
   const styleEl = document.createElement('style');
   styleEl.innerHTML = \`
 .we-are-hiring {

@@ -137,7 +137,7 @@ API methods as a substitute for schema changes.
 
 ## Database architecture
 
-NocoDB stores two different classes of data:
+The retained baseline stores two different classes of data:
 
 - Metadata: users, bases, sources, tables, columns, views, filters, hooks,
   permissions, jobs, and other application state in the metadata database.

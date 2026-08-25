@@ -1,0 +1,25 @@
+RowWeave attribution and trademark notice
+==========================================
+
+RowWeave is an independent open-source project and is not affiliated with,
+sponsored by, or endorsed by NocoDB Inc.
+
+This repository includes work originally published in the NocoDB repository by
+NocoDB Inc and other NocoDB contributors under the GNU Affero General Public
+License, version 3 or later. RowWeave began from commit
+cdcff441b275fbb672fe4bfffb2eb109d3e31497, the direct parent of the modern
+upstream license-transition commit. Existing copyright, attribution, and
+license notices must be preserved.
+
+NocoDB and related names and logos may be trademarks of NocoDB Inc. References
+to NocoDB in RowWeave documentation, compatibility code, migrations, package
+identifiers, and APIs are informational: they identify historical provenance
+or compatibility with the AGPL-licensed 0.265.1 baseline. They do not imply
+endorsement or compatibility with later NocoDB releases.
+
+The RowWeave name and RowWeave logo are fork-owned project identifiers. The
+logo was independently created for this project and is not derived from the
+NocoDB logo.
+
+The full licensing analysis and reproducible source-history evidence are in
+docs/BASELINE_AUDIT.md. This notice is informational and is not legal advice.

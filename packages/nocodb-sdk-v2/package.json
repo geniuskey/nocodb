@@ -1,14 +1,14 @@
 {
   "name": "nocodb-sdk-v2",
   "version": "0.0.1",
-  "description": "NocoDB SDK",
+  "description": "RowWeave next-generation SDK compatibility prototype",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "author": {
-    "name": "NocoDB Inc",
-    "url": "https://nocodb.com/"
+    "name": "RowWeave contributors",
+    "url": "https://github.com/geniuskey/rowweave"
   },
-  "homepage": "https://github.com/nocodb/nocodb",
+  "homepage": "https://github.com/geniuskey/rowweave",
   "files": ["dist"],
   "exports": {
     ".": {

@@ -61,7 +61,7 @@ export const OrganizationRoleUpdate = ({
             </Row>
           </Section>
           <Text className="text-gray-600 text-center text-sm !mt-0 !mb-6">
-            Your access in NocoDB has been updated to
+            Your access in RowWeave has been updated to
             <span className="font-bold text-gray-800 capitalize">
               {' '}
               {newRole}{' '}
@@ -72,7 +72,7 @@ export const OrganizationRoleUpdate = ({
             className="text-center w-full text-base font-bold bg-brand-500 text-white rounded-lg h-10"
             href={link}
           >
-            <Text className="!my-[8px]">Go to NocoDB</Text>
+            <Text className="!my-[8px]">Go to RowWeave</Text>
           </Button>
         </ContentWrapper>
         <Footer />
@@ -84,9 +84,9 @@ export const OrganizationRoleUpdate = ({
 OrganizationRoleUpdate.PreviewProps = {
   newRole: 'creator',
   oldRole: 'editor',
-  email: 'janedoe@nocodb.com',
+  email: 'janedoe@example.com',
   name: 'Jane Doe',
-  link: 'https://nocodb.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default OrganizationRoleUpdate;

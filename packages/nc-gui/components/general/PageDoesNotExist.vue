@@ -6,7 +6,7 @@ defineProps<{ title?: string; subtitle?: string; containerClass?: string; action
   <div class="nc-h-screen grid place-items-center text-center">
     <div class="flex flex-col items-center gap-5 mx-4" :class="containerClass">
       <slot name="icon">
-        <img width="48" alt="NocoDB" src="~/assets/img/icons/256x256.png" />
+        <img width="48" alt="RowWeave" src="~/assets/img/brand/rowweave-mark.svg" />
       </slot>
 
       <div class="text-xl text-nc-content-gray font-bold">

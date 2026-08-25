@@ -51,8 +51,8 @@ export const PasswordReset = ({ email, link }: PasswordResetTemplateProps) => (
 );
 
 PasswordReset.PreviewProps = {
-  email: 'janedoe@nocodb.com',
-  link: 'https://nocodb.com',
+  email: 'janedoe@example.com',
+  link: 'https://github.com/geniuskey/rowweave',
 };
 
 export default PasswordReset;

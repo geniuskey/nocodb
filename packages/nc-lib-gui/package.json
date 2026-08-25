@@ -1,12 +1,12 @@
 {
   "name": "nc-lib-gui",
   "version": "0.265.1",
-  "description": "NocoDB GUI",
+  "description": "RowWeave legacy GUI library compatibility package",
   "author": {
-    "name": "NocoDB",
-    "url": "https://nocodb.com/"
+    "name": "RowWeave contributors",
+    "url": "https://github.com/geniuskey/rowweave"
   },
-  "homepage": "https://github.com/nocodb/nocodb",
+  "homepage": "https://github.com/geniuskey/rowweave",
   "license": "AGPL-3.0-or-later",
   "main": "lib/XcLibGui.js",
   "directories": {
@@ -18,13 +18,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:nocodb/nocodb.git"
+    "url": "https://github.com/geniuskey/rowweave.git"
   },
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
-    "url": "https://github.com/nocodb/nocodb/issues"
+    "url": "https://github.com/geniuskey/rowweave/issues"
   },
   "dependencies": {
     "express": "^4.17.1"

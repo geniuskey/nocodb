@@ -8,7 +8,9 @@ import TeleBatchProcessor from '~/utils/TeleBatchProcessor';
 import { isEE } from '~/utils';
 import { getRedisURL } from '~/helpers/redisHelpers';
 
-const isDisabled = !!process.env.NC_DISABLE_TELE;
+const telemetryUrl = process.env.ROWWEAVE_TELEMETRY_URL;
+const isDisabled =
+  process.env.NC_DISABLE_TELE === 'true' || !telemetryUrl;
 const cache = !!getRedisURL();
 const executable = !!process.env.NC_BINARY_BUILD;
 const litestream = !!(
@@ -90,7 +92,7 @@ class Tele {
               global.NC_COUNT = msg.count;
             }
 
-            await axios.post('https://telemetry.nocodb.com/api/v1/telemetry', {
+            await axios.post(telemetryUrl, {
               ...teleData,
               evt_type: 'started',
               payload: {
@@ -111,14 +113,7 @@ class Tele {
             if (payload.check) {
               teleData.machine_id = `${machineIdSync()},,`;
             }
-            if (
-              isDisabled &&
-              !(
-                payload.evt_type &&
-                payload.evt_type.startsWith('a:sync-request:')
-              )
-            )
-              return;
+            if (isDisabled) return;
 
             if (payload.evt_type === 'project:invite') {
               global.NC_COUNT = payload.count || global.NC_COUNT;
@@ -127,7 +122,7 @@ class Tele {
               global.NC_COUNT = +global.NC_COUNT || 1;
             }
 
-            await axios.post('https://telemetry.nocodb.com/api/v1/telemetry', {
+            await axios.post(telemetryUrl, {
               ...teleData,
               evt_type: payload.evt_type,
               payload: { ...instanceMeta, ...(payload || {}) },
@@ -156,22 +151,14 @@ class Tele {
               time_taken: data.timeTaken,
             };
             if (isDisabled) return;
-            await axios.post(
-              'https://telemetry.nocodb.com/api/v1/telemetry/apis_created',
-              stats,
-            );
+            await axios.post(`${telemetryUrl}/apis_created`, stats);
           } catch (e) {}
         });
 
         Tele.emitter.on('evt_subscribe', async (email) => {
           try {
-            if (isDisabled) return;
-            await axios.post(
-              'https://telemetry.nocodb.com/api/v1/newsletter/sdhjh34u3yuy34bj343jhj4iwolaAdsdj3434uiut4nn',
-              {
-                email,
-              },
-            );
+            if (isDisabled || !process.env.ROWWEAVE_NEWSLETTER_URL) return;
+            await axios.post(process.env.ROWWEAVE_NEWSLETTER_URL, { email });
           } catch (e) {}
         });
 
@@ -193,14 +180,7 @@ class Tele {
         });
         Tele.emitter.on('ph_event', async (payload: Record<string, any>) => {
           try {
-            if (
-              isDisabled &&
-              !(
-                payload.evt_type &&
-                payload.evt_type.startsWith('a:sync-request:')
-              )
-            )
-              return;
+            if (isDisabled) return;
             const instanceMeta = await this.getInstanceMeta();
             let id = payload.id;
 

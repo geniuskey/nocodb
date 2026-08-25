@@ -1,62 +1,12 @@
-<script setup lang="ts">
-const scriptTag = ref()
-
-const timelineStatus = reactive({
-  isLoaded: false,
-  isError: false,
-})
-
-const handleIframeLoad = () => {
-  setTimeout(() => {
-    timelineStatus.isLoaded = true
-  }, 2000)
-}
-
-const triggerReload = () => {
-  timelineStatus.isLoaded = false
-  timelineStatus.isError = false
-  nextTick(() => {
-    scriptTag.value.src = 'https://platform.twitter.com/widgets.js'
-  })
-}
-
-onMounted(() => {
-  scriptTag.value.src = 'https://platform.twitter.com/widgets.js'
-})
-
-const handleError = () => {
-  timelineStatus.isLoaded = true
-  timelineStatus.isError = true
-}
-</script>
-
 <template>
-  <div
-    ref="scrollContainer"
-    :style="{
-      height: 'calc(100dvh - var(--toolbar-height) - 3.25rem)',
-    }"
-    class="overflow-y-auto nc-scrollbar-md w-full"
-  >
-    <div v-if="!timelineStatus.isLoaded" class="flex items-center justify-center h-full w-full">
-      <GeneralLoader size="xlarge" />
-    </div>
-    <div v-else-if="timelineStatus.isError" class="h-full flex justify-center items-center">
-      <FeedError page="twitter" @reload="triggerReload" />
-    </div>
-
-    <div class="mx-auto flex flex-col my-6 items-center">
-      <div style="min-width: 650px">
-        <a data-chrome="nofooter" class="twitter-timeline" href="https://twitter.com/nocodb?ref_src=twsrc%5Etfw"></a>
-        <Script
-          v-if="!timelineStatus.isError"
-          ref="scriptTag"
-          async
-          charset="utf-8"
-          @load="handleIframeLoad"
-          @error="handleError"
-        ></Script>
-      </div>
+  <div class="h-full flex items-center justify-center p-8">
+    <div class="max-w-lg text-center">
+      <GeneralIcon icon="github" class="w-12 h-12 mx-auto text-nc-content-gray" />
+      <h2 class="text-xl font-semibold mt-4">Follow RowWeave development</h2>
+      <p class="text-nc-content-gray-subtle2 mt-2">Releases, issues, and implementation discussions live in the project repository.</p>
+      <a href="https://github.com/geniuskey/rowweave" target="_blank" rel="noopener noreferrer" class="inline-block mt-5">
+        <NcButton type="primary">Open GitHub</NcButton>
+      </a>
     </div>
   </div>
 </template>
