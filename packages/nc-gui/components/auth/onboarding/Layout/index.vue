@@ -77,7 +77,7 @@ watch(stepIndex, (newIndex, oldIndex, cleanup) => {
         data-testid="nc-onboarding-flow-header"
         class="px-4 pt-4 pb-2 lg:(pt-8 pb-2 px-8) flex items-center justify-between w-full max-w-[672px] lg:max-w-[704px] mx-auto sticky top-0 bg-white z-10"
       >
-        <GeneralIcon icon="nocodb1" class="w-12 h-12 flex-none" />
+        <img src="~/assets/img/brand/rowweave-mark.svg" alt="RowWeave" class="w-12 h-12 flex-none" />
 
         <div class="w-[200px] text-bodyBold pr-1">
           <a-progress

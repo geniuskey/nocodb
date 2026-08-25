@@ -1012,7 +1012,7 @@ const easterEgg = computed(() => easterEggCount.value >= 2)
               <div class="flex flex-col gap-1">
                 <div class="text-nc-content-gray text-base font-bold">Failed to add fields</div>
                 <div class="text-nc-content-gray-muted text-sm">
-                  NocoDB was unable to add {{ predicted.length }} fields to the table. Please retry adding the fields.
+                  RowWeave was unable to add {{ predicted.length }} fields to the table. Please retry adding the fields.
                 </div>
               </div>
               <NcButton size="xsmall" type="text" class="!px-1" @click.stop="failedToSaveFields = false">

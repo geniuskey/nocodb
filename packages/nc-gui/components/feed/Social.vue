@@ -5,34 +5,10 @@ const { isDark } = useTheme()
 
 const socialIcons = [
   {
-    name: '@nocodb',
-    icon: iconMap.iconTwitter,
-    link: 'https://twitter.com/nocodb',
-    e: 'c:nocodb:twitter-open',
-  },
-  {
-    name: 'NocoDB',
-    icon: iconMap.youtube,
-    e: 'c:nocodb:youtube-open',
-    link: 'https://www.youtube.com/@nocodb',
-  },
-  {
-    name: 'NocoDB',
-    icon: iconMap.iconDiscord,
-    e: 'c:nocodb:discord-open',
-    link: 'http://discord.nocodb.com',
-  },
-  {
-    name: 'r/NocoDB',
-    icon: iconMap.iconReddit,
-    e: 'c:nocodb:reddit-open',
-    link: 'https://www.reddit.com/r/NocoDB/',
-  },
-  {
-    name: 'Forum',
-    icon: iconMap.nocodb1,
-    e: 'c:nocodb:forum-open',
-    link: 'https://community.nocodb.com/',
+    name: 'RowWeave on GitHub',
+    icon: iconMap.github,
+    e: 'c:rowweave:github-open',
+    link: 'https://github.com/geniuskey/rowweave',
   },
 ]
 

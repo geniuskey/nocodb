@@ -79,11 +79,11 @@ const hasTableCreatePermission = computed(() => {
           >
             <a
               class="w-24 min-w-10 transition-all duration-200 p-1 transform"
-              href="https://github.com/nocodb/nocodb"
+              href="https://github.com/geniuskey/rowweave"
               target="_blank"
               rel="noopener noreferrer"
             >
-              <img alt="NocoDB" src="~/assets/img/brand/nocodb.png" />
+              <img alt="RowWeave" src="~/assets/img/brand/rowweave-wordmark.svg" />
             </a>
 
             <div class="flex flex-grow"></div>

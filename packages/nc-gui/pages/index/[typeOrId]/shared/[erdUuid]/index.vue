@@ -42,7 +42,7 @@ onMounted(async () => {
       <template #title>
         {{ appInfo.version }}
       </template>
-      <img width="50" alt="NocoDB" src="~/assets/img/icons/256x256.png" />
+      <img width="50" alt="RowWeave" src="~/assets/img/brand/rowweave-mark.svg" />
     </a-tooltip>
     <div class="ml-2 font-bold text-gray-500 uppercase">{{ base.title }}</div>
   </div>

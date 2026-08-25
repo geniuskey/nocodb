@@ -17,7 +17,7 @@ const email = computed(() => user.value?.email ?? '---')
 
 const refreshSidebar = ref(false)
 
-useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'NocoDB')
+useTitle(route.meta?.title && te(route.meta.title) ? `${t(route.meta.title)}` : 'RowWeave')
 
 const isPublic = computed(() => route.meta?.public)
 
@@ -50,7 +50,7 @@ export default {
       <div class="flex w-full h-full items-center nc-header-content">
         <div class="flex-1 min-w-0 w-50">
           <nuxt-link :to="isPublic ? '' : '/'">
-            <img src="~/assets/img/brand/nocodb-full.png" class="h-11" />
+            <img src="~/assets/img/brand/rowweave-wordmark.svg" class="h-10" alt="RowWeave" />
           </nuxt-link>
         </div>
 

@@ -3150,7 +3150,7 @@ const headerFilteredOrSortedClass = (colId: string) => {
             </div>
           </div>
           <div class="flex items-center justify-center gap-3">
-            <a href="https://nocodb.com/pricing" target="_blank">
+            <a href="https://github.com/geniuskey/rowweave/blob/foundation/docs/FEATURE_MATRIX.md" target="_blank">
               <NcButton size="small" type="secondary">
                 {{ $t('msg.learnMore') }}
               </NcButton>

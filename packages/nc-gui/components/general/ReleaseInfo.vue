@@ -54,7 +54,7 @@ onMounted(async () => await fetchReleaseInfo())
             no-prefetch
             no-rel
             class="!text-primary !no-underline"
-            to="https://github.com/nocodb/nocodb/releases"
+            to="https://github.com/geniuskey/rowweave/releases"
             target="_blank"
           >
             <div class="nc-menu-item">
@@ -67,7 +67,7 @@ onMounted(async () => await fetchReleaseInfo())
             no-prefetch
             rel="noopener"
             class="!text-primary !no-underline"
-            to="https://nocodb.com/docs/self-hosting/upgrading"
+            to="https://github.com/geniuskey/rowweave/blob/foundation/docs/BUILDING.md"
             target="_blank"
           >
             <div class="nc-menu-item">

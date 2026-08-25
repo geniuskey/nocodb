@@ -30,7 +30,7 @@ const handleRedirect = (proceedToLink = false) => {
 <template>
   <div class="flex flex-col items-center justify-center gap-3 max-w-[420px] mx-auto text-center">
     <div>
-      <img class="dark:hidden" width="56px" height="56px" alt="NocoDB" src="~/assets/img/icons/256x256.png" />
+      <img width="56px" height="56px" alt="RowWeave" src="~/assets/img/brand/rowweave-mark.svg" />
     </div>
     <div class="text-xl font-bold text-nc-content-gray">{{ $t('title.youAreLeavingNocoDB') }}</div>
     <div class="text-sm font-weight-500 text-nc-content-gray-subtle2">{{ $t('title.onlyProceedIfYouTrustThisLink') }}</div>

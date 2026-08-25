@@ -7,7 +7,7 @@ const { appInfo } = useGlobal()
 <template>
   <div v-if="isMiniSidebar" class="nc-mini-sidebar-btn-full-width">
     <div data-testid="nc-workspace-menu" class="nc-workspace-menu nc-mini-sidebar-ws-item">
-      <a href="https://github.com/nocodb/nocodb" target="_blank" rel="noopener noreferrer">
+      <a href="https://github.com/geniuskey/rowweave" target="_blank" rel="noopener noreferrer">
         <NcTooltip :disabled="!appInfo?.version || isEeUI" placement="right" hide-on-click>
           <template #title>{{ appInfo?.version }}</template>
 
@@ -33,13 +33,13 @@ const { appInfo } = useGlobal()
       >
         <a
           class="transition-all duration-200 transform w-24 min-w-10"
-          href="https://github.com/nocodb/nocodb"
+          href="https://github.com/geniuskey/rowweave"
           target="_blank"
           rel="noopener noreferrer"
         >
           <NcTooltip :disabled="!appInfo?.version || isEeUI">
             <template #title>{{ appInfo?.version }}</template>
-            <img alt="NocoDB" src="~/assets/img/brand/nocodb.png" />
+            <img alt="RowWeave" src="~/assets/img/brand/rowweave-wordmark.svg" />
           </NcTooltip>
         </a>
         <div class="flex flex-grow"></div>

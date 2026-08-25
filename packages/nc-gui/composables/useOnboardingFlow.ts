@@ -146,7 +146,7 @@ export const useOnboardingFlow = createSharedComposable(() => {
     const list: OnboardingQuestionType[] = [
       {
         id: 1,
-        question: 'Hey! What do you plan on using NocoDB for?',
+        question: 'Hey! What do you plan on using RowWeave for?',
         inputType: 'singleSelect',
         options: [
           {
@@ -740,7 +740,7 @@ export const useOnboardingFlow = createSharedComposable(() => {
           // },
           {
             value: 'Import Data',
-            description: 'Bring your existing spreadsheets or databases into NocoDB.',
+            description: 'Bring your existing spreadsheets or databases into RowWeave.',
             icons: [
               {
                 icon: 'ncDownload',

@@ -38,7 +38,7 @@ const helpItems = computed<CategoryItemType[]>(() => {
           title: t('labels.documentation'),
           icon: 'file',
           e: 'e:nocodb:docs-open',
-          link: 'https://nocodb.com/docs/product-docs',
+          link: 'https://github.com/geniuskey/rowweave/tree/foundation/docs',
         },
         {
           title: t('labels.apis'),
@@ -49,12 +49,12 @@ const helpItems = computed<CategoryItemType[]>(() => {
             {
               title: t('labels.dataApiV2'),
               e: 'c:nocodb:data-api-open',
-              link: 'https://nocodb.com/apis/v2/data',
+              link: 'https://github.com/geniuskey/rowweave/blob/foundation/packages/nocodb/src/schema/swagger-v2.json',
             },
             {
               title: t('labels.metaApiV2'),
               e: 'c:nocodb:meta-api-open',
-              link: 'https://nocodb.com/apis/v2/meta',
+              link: 'https://github.com/geniuskey/rowweave/blob/foundation/packages/nocodb/src/schema/swagger.json',
             },
           ],
         },
@@ -64,38 +64,18 @@ const helpItems = computed<CategoryItemType[]>(() => {
       category: t('general.community'),
       items: [
         {
-          title: t('title.forum'),
-          icon: 'ncDiscordForum',
+          title: 'RowWeave repository',
+          icon: 'github',
           e: 'c:nocodb:forum-open',
-          link: 'https://community.nocodb.com/',
+          link: 'https://github.com/geniuskey/rowweave',
         },
         {
-          title: t('general.youtube'),
-          icon: 'ncYoutube',
-          e: 'c:nocodb:youtube-open',
-          link: 'https://www.youtube.com/@nocodb',
-        },
-        {
-          title: 'X',
-          icon: 'ncLogoTwitter',
-          link: 'https://twitter.com/nocodb',
-          e: 'c:nocodb:twitter',
+          title: 'Report an issue',
+          icon: 'github',
+          e: 'c:rowweave:issues-open',
+          link: 'https://github.com/geniuskey/rowweave/issues',
         },
       ],
-    },
-    {
-      category: t('general.contactSupport'),
-      items: [
-        {
-          title: 'support@nocodb.com',
-          icon: 'ncMail',
-          e: 'c:nocodb:contact-us-mail-copy',
-          link: '',
-          copyBtn: true,
-          tooltip: t('labels.clickToCopy'),
-        },
-      ],
-      hidden: !isEeUI,
     },
     {
       category: t('title.whatsNew'),

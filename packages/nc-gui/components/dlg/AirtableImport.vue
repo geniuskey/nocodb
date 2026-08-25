@@ -55,7 +55,7 @@ const syncSource = ref({
   type: 'Airtable',
   details: {
     syncInterval: '15mins',
-    syncDirection: 'Airtable to NocoDB',
+    syncDirection: 'Airtable to RowWeave',
     syncRetryCount: 1,
     apiKey: '',
     appId: '',
@@ -227,7 +227,7 @@ async function loadSyncSrc() {
       type: 'Airtable',
       details: {
         syncInterval: '15mins',
-        syncDirection: 'Airtable to NocoDB',
+        syncDirection: 'Airtable to RowWeave',
         syncRetryCount: 1,
         apiKey: '',
         appId: '',

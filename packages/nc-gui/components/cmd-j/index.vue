@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { Client } from 'typesense'
 import { useVModel } from '@vueuse/core'
-import type { SortedResult } from '#imports'
 
 const props = defineProps<{
   open: boolean
@@ -9,27 +7,28 @@ const props = defineProps<{
 }>()
 
 const emits = defineEmits(['update:open'])
-
 const vOpen = useVModel(props, 'open', emits)
-
 const { user } = useGlobal()
 
 const modalEl = ref<HTMLElement | null>(null)
-const cmdInputEl = ref<HTMLElement | null>(null)
+const cmdInputEl = ref<HTMLInputElement | null>(null)
+const search = ref('')
 const selectedIndex = ref(0)
 
-const typesenseClient = new Client({
-  apiKey: 'lNKDTZdJrE76Sg8WEyeN9mXT29l1xq7Q',
-  nodes: [
-    {
-      host: 'rqf5uvajyeczwt3xp-1.a1.typesense.net',
-      port: 443,
-      protocol: 'https',
-    },
-  ],
-})
+const documents = [
+  { title: 'Building RowWeave', url: 'docs/BUILDING.md' },
+  { title: 'Architecture', url: 'docs/ARCHITECTURE.md' },
+  { title: 'Compatibility contract', url: 'docs/COMPATIBILITY.md' },
+  { title: 'Feature matrix and roadmap', url: 'docs/FEATURE_MATRIX.md' },
+  { title: 'AGPL baseline audit', url: 'docs/BASELINE_AUDIT.md' },
+  { title: 'Branding', url: 'docs/BRANDING.md' },
+]
 
-const { search, query } = useTypesenseSearch(typesenseClient, 'noco-docs-v2')
+const results = computed(() => {
+  const term = search.value.trim().toLocaleLowerCase()
+  if (!term) return documents
+  return documents.filter((document) => document.title.toLocaleLowerCase().includes(term))
+})
 
 const hide = () => {
   vOpen.value = false
@@ -37,188 +36,86 @@ const hide = () => {
   selectedIndex.value = 0
 }
 
-const navigateToResult = (result: SortedResult) => {
-  window.open(`https://nocodb.com${result.url}`, '_blank')
+const openDocument = (url: string) => {
+  window.open(`https://github.com/geniuskey/rowweave/blob/foundation/${url}`, '_blank', 'noopener,noreferrer')
   hide()
 }
 
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (!vOpen.value || !query.data?.value?.length) return
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!vOpen.value) return
 
-  switch (e.key) {
-    case 'ArrowDown':
-      e.preventDefault()
-      selectedIndex.value = Math.min(selectedIndex.value + 1, query.data.value.length - 1)
-      break
-    case 'ArrowUp':
-      e.preventDefault()
-      selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
-      break
-    case 'Enter':
-      e.preventDefault()
-      if (query.data.value[selectedIndex.value]) {
-        navigateToResult(query.data.value[selectedIndex.value])
-      }
-      break
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    selectedIndex.value = Math.min(selectedIndex.value + 1, results.value.length - 1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+  } else if (event.key === 'Enter' && results.value[selectedIndex.value]) {
+    event.preventDefault()
+    openDocument(results.value[selectedIndex.value].url)
   }
-
-  document.querySelector(`.cmdj-action.selected`)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'nearest',
-  })
 }
 
-onClickOutside(modalEl, () => {
-  hide()
-})
+onClickOutside(modalEl, hide)
 
-useEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.key === 'Escape') {
+useEventListener('keydown', (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
     hide()
-  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    hide()
-  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
-    hide()
-  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
-    if (vOpen.value || !user?.value?.id) {
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'j') {
+    if (vOpen.value || !user.value?.id) {
       hide()
       return
     }
+
     vOpen.value = true
-    nextTick(() => {
-      cmdInputEl.value?.focus()
-    })
+    nextTick(() => cmdInputEl.value?.focus())
   } else {
-    handleKeyDown(e)
+    handleKeyDown(event)
   }
 })
 
-watch(vOpen, () => {
-  if (vOpen.value) {
-    nextTick(() => {
-      cmdInputEl.value?.focus()
-    })
-  } else {
-    selectedIndex.value = 0
-  }
+watch(vOpen, (open) => {
+  if (open) nextTick(() => cmdInputEl.value?.focus())
+  else selectedIndex.value = 0
+})
+
+watch(results, () => {
+  selectedIndex.value = 0
 })
 </script>
 
 <template>
-  <div v-if="vOpen" class="cmdk-modal cmdj-modal" :class="{ 'cmdk-modal-active cmdj-modal-active': vOpen }">
-    <div ref="modalEl" class="cmdk-modal-content cmdj-modal-content relative h-[25.25rem]">
-      <div class="cmdk-input-wrapper border-b-1 border-gray-200">
+  <div v-if="vOpen" class="fixed inset-0 z-1100 bg-white/50 flex items-start justify-center pt-[12vh]">
+    <div ref="modalEl" class="w-[min(42rem,calc(100vw-2rem))] bg-white rounded-xl shadow-xl border-1 border-gray-200 overflow-hidden">
+      <div class="flex items-center gap-3 px-4 border-b-1 border-gray-200">
         <GeneralIcon class="h-4 w-4 text-gray-500" icon="search" />
-        <input ref="cmdInputEl" v-model="search" class="cmdk-input cmdj-input" placeholder="Search through docs" type="text" />
+        <input
+          ref="cmdInputEl"
+          v-model="search"
+          class="w-full py-4 outline-none"
+          placeholder="Search RowWeave documentation"
+          type="text"
+        />
       </div>
 
-      <div class="cmdk-results-container overflow-y-auto max-h-80">
-        <div v-if="!search?.length" class="flex flex-col p-4 gap-4 items-center justify-center text-sm">
-          <img
-            src="~assets/img/placeholder/no-search-result-found.png"
-            class="!w-[240px] flex-none"
-            alt="Search through our documentation"
-          />
-          <div>Search through our documentation</div>
-        </div>
-        <div
-          v-else-if="(query.data.value === 'empty' || query.data.value?.length === 0) && !query.isLoading.value"
-          class="flex flex-col p-4 items-start justify-center text-sm"
+      <div class="max-h-80 overflow-y-auto p-2">
+        <button
+          v-for="(document, index) in results"
+          :key="document.url"
+          type="button"
+          class="w-full flex items-center gap-3 text-left rounded-lg px-3 py-3 hover:bg-gray-100"
+          :class="{ 'bg-gray-100': selectedIndex === index }"
+          @click="openDocument(document.url)"
+          @mouseenter="selectedIndex = index"
         >
-          Your search did not match any results
-        </div>
+          <GeneralIcon icon="file" class="h-4 w-4 flex-none" />
+          <span>{{ document.title }}</span>
+        </button>
 
-        <div v-else-if="!query.isLoading.value" class="cmdk-results">
-          <template v-for="(result, index) in query.data.value" :key="result.id">
-            <div
-              class="cmdk-action cmdj-action"
-              :class="{ 'selected': selectedIndex === index, 'pl-4': result.type !== 'page' }"
-              @click="navigateToResult(result)"
-              @mouseenter="selectedIndex = index"
-            >
-              <div class="cmdk-action-content">
-                <div v-if="result.type === 'page'" class="pr-4">
-                  <GeneralIcon icon="file" class="h-4 w-4" />
-                </div>
-                <div
-                  :class="{
-                    'pl-4': result.type !== 'page',
-                  }"
-                  class="cmdk-action-text flex-1"
-                >
-                  <div class="cmdk-action-title text-md">{{ result.content }}</div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-        <div v-else class="flex flex-col p-4 gap-4 justify-center text-sm">
-          <div>Searching...</div>
-        </div>
+        <div v-if="results.length === 0" class="p-6 text-center text-gray-500">No matching RowWeave document</div>
       </div>
 
       <CmdFooter active-cmd="cmd-j" :set-active-cmd-view="setActiveCmdView" />
     </div>
   </div>
 </template>
-
-<style lang="scss">
-/* TODO Move styles to Windi Classes */
-
-:root {
-  --cmdk-secondary-background-color: rgb(230, 230, 230);
-  --cmdk-secondary-text-color: rgb(101, 105, 111);
-  --cmdk-selected-background: rgb(245, 245, 245);
-
-  --cmdk-icon-color: var(--cmdk-secondary-text-color);
-  --cmdk-icon-size: 1.2em;
-
-  --cmdk-modal-background: #fff;
-}
-.cmdk-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.5);
-  z-index: 1100;
-
-  color: rgb(60, 65, 73);
-  font-size: 16px;
-
-  .cmdk-action {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    outline: none;
-    transition: all 0.1s ease;
-    width: 100%;
-    font-size: 0.9em;
-    border-left: 4px solid transparent;
-    cursor: pointer;
-
-    &:hover,
-    &.selected {
-      cursor: pointer;
-      background-color: rgb(248, 249, 251);
-      border-left: 4px solid #3366ff;
-      outline: none;
-    }
-
-    .cmdk-action-content {
-      display: flex;
-      align-items: center;
-      flex-shrink: 0.01;
-      flex-grow: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding: 0.75em 1em;
-      width: 640px;
-    }
-  }
-}
-</style>
