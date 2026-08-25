@@ -325,6 +325,17 @@ export default class Source implements SourceType {
       const config = { ...metaConfig };
       if (config.client === 'sqlite3') {
         config.connection = metaConfig;
+      } else if (this.is_local && config.client === 'pg') {
+        const sourceConfig = this.getConfig(true);
+        const searchPath =
+          sourceConfig?.searchPath ??
+          (sourceConfig?.schema ? [sourceConfig.schema] : undefined);
+
+        if (searchPath?.length) {
+          config.searchPath = Array.isArray(searchPath)
+            ? searchPath
+            : [searchPath];
+        }
       }
       return config;
     }

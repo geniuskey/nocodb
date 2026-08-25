@@ -11,7 +11,7 @@ import type { Condition } from '~/db/CustomKnex';
 import XcMigrationSource from '~/meta/migrations/XcMigrationSource';
 import XcMigrationSourcev2 from '~/meta/migrations/XcMigrationSourcev2';
 import { XKnex } from '~/db/CustomKnex';
-import { NcConfig } from '~/utils/nc-config';
+import { mysqlTypeCast, NcConfig } from '~/utils/nc-config';
 import { MetaTable, RootScopes, RootScopeTables } from '~/utils/globals';
 import { NcError } from '~/helpers/catchError';
 import { isWorker } from '~/utils';
@@ -33,8 +33,18 @@ export class MetaService {
     @Optional() nested = 0,
   ) {
     this._config = config;
+    const dbConfig = this._config.meta.db;
     this._knex = XKnex({
-      ...this._config.meta.db,
+      ...dbConfig,
+      ...(['mysql', 'mysql2'].includes(dbConfig.client)
+        ? {
+            connection: {
+              ...dbConfig.connection,
+              password: dbConfig.connection?.password,
+              typeCast: mysqlTypeCast,
+            },
+          }
+        : {}),
       useNullAsDefault: true,
     });
     this.trx = trx;

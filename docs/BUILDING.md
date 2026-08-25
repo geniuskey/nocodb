@@ -149,7 +149,7 @@ pnpm --filter nocodb run test:unit
 
 Use an explicit `DB_CLIENT` so a missing server database cannot add a connection
 timeout or silently change which database is under test. PostgreSQL and MySQL
-commands, pinned container versions, and the known retained-suite failures are
+commands, pinned container versions, and verified complete-suite results are
 recorded in [DB_COMPATIBILITY.md](./DB_COMPATIBILITY.md).
 
 Backend Jest command:
@@ -263,6 +263,10 @@ the minimal build changes:
 | Backend unit tests probed MySQL before silently falling back to SQLite                                 | Select SQLite explicitly; server-DB diagnostics set `DB_REQUIRE_CONNECTION=true`                         |
 | PostgreSQL/MySQL fixture paths failed on Windows                                                       | Resolve the fixture directory structurally instead of replacing a POSIX-only path string                 |
 | Repeated SQLite fixture resets failed with `EBUSY` on Windows                                          | Close the test and application data-source connections before replacing the fixture                      |
+| Local PostgreSQL tests ignored a source's configured schema                                            | Retain the schema/search path and use a dedicated schema-aware source connection                         |
+| MySQL returned driver-specific buffer, decimal, bit, and boolean values                                | Use one retained value conversion path for metadata and source connections                               |
+| MySQL percent-unique and median generated invalid or non-portable SQL                                  | Use a scalar subquery and MySQL 8 window functions without changing dependencies                         |
+| Windows attachment reads rejected valid files or reset multipart connections                           | Validate attachment paths with platform path semantics and exercise the auth gate without an unused body |
 | Type-checking `tests/unit/tsconfig.json` alone reports retained `rootDir` and source-map option errors | Treat it as the Mocha runtime compiler configuration; use the backend root `tsconfig.json` command above |
 
 Warnings about duplicated Pinia imports, deprecated Nuxt helpers, circular SDK
@@ -279,7 +283,8 @@ versions and performs the following on a clean Ubuntu runner:
 
 1. frozen dependency installation;
 2. SDK and nested integration builds;
-3. backend type-check, SDK Jest, and explicit SQLite backend Mocha tests;
+3. backend type-check, SDK Jest, and complete backend Mocha tests against
+   SQLite, PostgreSQL 14.7, and MySQL 8.3.0;
 4. Community production build and the authentication/Base/table/record CRUD
    verifier with SQLite, PostgreSQL 14.7, and MySQL 8.3.0 metadata stores;
 5. source-built Community Docker image plus the same verifier against the

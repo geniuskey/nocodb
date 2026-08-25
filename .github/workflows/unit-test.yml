@@ -34,6 +34,89 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-server-databases:
+    name: Test backend (${{ matrix.name }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PostgreSQL 14.7
+            client: pg
+            image: postgres:14.7@sha256:5ac16ee311340b09e3670d660c76f77a611202fd07b05d486e934eece99bea7c
+            port: 5432
+            user: postgres
+            health-command: pg_isready -U postgres -d nocodb
+          - name: MySQL 8.3.0
+            client: mysql2
+            image: mysql:8.3.0@sha256:9de9d54fecee6253130e65154b930978b1fcc336bcc86dfd06e89b72a2588ebe
+            port: 3306
+            user: root
+            health-command: mysqladmin ping -h 127.0.0.1 -uroot -ppassword --silent
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_DB: nocodb
+          POSTGRES_PASSWORD: password
+          MYSQL_DATABASE: nocodb
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - ${{ matrix.port }}:${{ matrix.port }}
+        options: >-
+          --health-cmd "${{ matrix.health-command }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "true"
+      NODE_OPTIONS: "--max-old-space-size=16384"
+      DB_CLIENT: ${{ matrix.client }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${{ matrix.port }}
+      DB_USER: ${{ matrix.user }}
+      DB_PASSWORD: password
+      DB_REQUIRE_CONNECTION: "true"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.27.0
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            packages/noco-integrations/pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: |
+          pnpm run build:sdk
+          pnpm run integrations:build
+
+      - name: Match retained MySQL SQL mode
+        if: matrix.client == 'mysql2'
+        run: >-
+          pnpm --filter nocodb exec node -e
+          "const mysql = require('mysql2/promise');
+          mysql.createConnection({host: '127.0.0.1', port: 3306, user: 'root', password: 'password'})
+          .then(async connection => { await connection.query(\"SET GLOBAL sql_mode = ''\"); await connection.end(); })"
+
+      - name: Run complete backend suite
+        run: pnpm --filter nocodb run test:unit
+
   verify-community:
     name: Verify Community foundation
     runs-on: ubuntu-22.04

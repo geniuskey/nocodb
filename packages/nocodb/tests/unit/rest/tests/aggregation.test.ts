@@ -110,21 +110,29 @@ const verificationData = {
     sum: {
       sqlite3: 5.8580000000000005,
       pg: 5.858,
+      mysql2: 5.858,
     },
     min: 2.718,
     max: 3.14,
     avg: {
       sqlite3: 2.9290000000000003,
       pg: 2.929,
+      mysql2: 2.929,
     },
-    median: 2.9290000000000003,
+    median: {
+      sqlite3: 2.9290000000000003,
+      pg: 2.929,
+      mysql2: 2.929,
+    },
     std_dev: {
       sqlite3: 0.21100000000000008,
       pg: 0.211,
+      mysql2: 0.211,
     },
     range: {
       sqlite3: 0.42200000000000015,
       pg: 0.422,
+      mysql2: 0.422,
     },
   },
   Checkbox: {
@@ -168,8 +176,16 @@ const verificationData = {
     percent_unique: 100,
     percent_filled: 100,
     percent_empty: 0,
-    earliest_date: '2024-01-01 10:00:00+00:00',
-    latest_date: '2024-02-02 12:00:00+00:00',
+    earliest_date: {
+      sqlite3: '2024-01-01 10:00:00+00:00',
+      pg: '2024-01-01 10:00:00+00:00',
+      mysql2: '2024-01-01 10:00:00',
+    },
+    latest_date: {
+      sqlite3: '2024-02-02 12:00:00+00:00',
+      pg: '2024-02-02 12:00:00+00:00',
+      mysql2: '2024-02-02 12:00:00',
+    },
     date_range: 32,
     month_range: 1,
   },
@@ -441,10 +457,22 @@ function aggregationTests() {
             .expect(200)
         ).body;
 
-        expect(aggregate[colName]).to.equal(
-          y[1] instanceof Object ? y[1][db] : y[1],
-          `Failed for ${colName} ${y[0]}`,
-        );
+        const expected = y[1] instanceof Object ? y[1][db] : y[1];
+        if (
+          typeof aggregate[colName] === 'number' &&
+          typeof expected === 'number'
+        ) {
+          expect(aggregate[colName]).to.be.closeTo(
+            expected,
+            1e-9,
+            `Failed for ${colName} ${y[0]}`,
+          );
+        } else {
+          expect(aggregate[colName]).to.equal(
+            expected,
+            `Failed for ${colName} ${y[0]}`,
+          );
+        }
       }
     }
   });
