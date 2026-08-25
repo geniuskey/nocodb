@@ -1,21 +1,21 @@
 {
   "name": "nocodb-sdk",
   "version": "0.265.1",
-  "description": "NocoDB SDK",
+  "description": "RowWeave SDK with NocoDB 0.265.1 API compatibility",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
   "author": {
-    "name": "NocoDB Inc",
-    "url": "https://nocodb.com/"
+    "name": "RowWeave contributors",
+    "url": "https://github.com/geniuskey/rowweave"
   },
-  "homepage": "https://github.com/nocodb/nocodb",
+  "homepage": "https://github.com/geniuskey/rowweave",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nocodb/nocodb.git"
+    "url": "https://github.com/geniuskey/rowweave.git"
   },
   "bugs": {
-    "url": "https://github.com/nocodb/nocodb/issues"
+    "url": "https://github.com/geniuskey/rowweave/issues"
   },
   "engines": {
     "node": ">=18"

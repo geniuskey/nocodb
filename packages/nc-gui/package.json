@@ -2,19 +2,19 @@
   "name": "nc-gui",
   "private": true,
   "packageManager": "pnpm@9.6.0",
-  "description": "NocoDB Frontend",
+  "description": "RowWeave frontend (legacy package name retained for compatibility)",
   "author": {
-    "name": "NocoDB",
-    "url": "https://nocodb.com/"
+    "name": "RowWeave contributors",
+    "url": "https://github.com/geniuskey/rowweave"
   },
   "license": "AGPL-3.0-or-later",
-  "homepage": "https://github.com/nocodb/nocodb",
+  "homepage": "https://github.com/geniuskey/rowweave",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nocodb/nocodb.git"
+    "url": "https://github.com/geniuskey/rowweave.git"
   },
   "bugs": {
-    "url": "https://github.com/nocodb/nocodb/issues"
+    "url": "https://github.com/geniuskey/rowweave/issues"
   },
   "engines": {
     "node": ">=18"
