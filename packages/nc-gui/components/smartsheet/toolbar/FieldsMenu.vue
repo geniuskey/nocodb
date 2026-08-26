@@ -82,7 +82,12 @@ onBeforeUnmount(() => {
 })
 
 const gridDisplayValueField = computed(() => {
-  if (activeView.value?.type !== ViewTypes.GRID && activeView.value?.type !== ViewTypes.CALENDAR) return null
+  if (
+    activeView.value?.type !== ViewTypes.GRID &&
+    activeView.value?.type !== ViewTypes.LIST &&
+    activeView.value?.type !== ViewTypes.CALENDAR
+  )
+    return null
 
   const pvCol = Object.values(metaColumnById.value)?.find((col) => col?.pv)
 

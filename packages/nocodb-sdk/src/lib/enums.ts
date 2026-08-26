@@ -164,6 +164,9 @@ export enum AppEvents {
   FORM_DUPLICATE = 'form.duplicate',
   CALENDAR_UPDATE = 'calendar.update',
   CALENDAR_DELETE = 'calendar.delete',
+  LIST_CREATE = 'list.create',
+  LIST_UPDATE = 'list.update',
+  LIST_DELETE = 'list.delete',
   FORM_DELETE = 'form.delete',
 
   SOURCE_CREATE = 'source.create',

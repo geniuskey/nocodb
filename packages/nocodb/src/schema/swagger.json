@@ -7735,6 +7735,134 @@
         ]
       }
     },
+    "/api/v1/db/meta/tables/{tableId}/lists": {
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": "tableId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Table ID"
+        }
+      ],
+      "post": {
+        "summary": "Create List View",
+        "operationId": "db-view-list-create",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/View"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViewCreateReq"
+              }
+            }
+          }
+        },
+        "description": "Create a RowWeave List view in a table",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      }
+    },
+    "/api/v1/db/meta/lists/{viewId}": {
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique List View ID"
+        }
+      ],
+      "get": {
+        "summary": "Get List View",
+        "operationId": "db-view-list-read",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update List View",
+        "operationId": "db-view-list-update",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/View"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListUpdateReq"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      }
+    },
     "/api/v1/db/meta/tables/{tableId}/grids": {
       "parameters": [
         {
@@ -23714,6 +23842,54 @@
           }
         }
       },
+      "ListUpdateReq": {
+        "description": "Model for RowWeave List View Update",
+        "title": "List View Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "row_height": {
+            "type": "number",
+            "description": "Row height preset",
+            "example": 1
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta",
+            "description": "Versioned List view metadata"
+          }
+        }
+      },
+      "List": {
+        "description": "RowWeave List View metadata",
+        "title": "List View Model",
+        "type": "object",
+        "required": [
+          "fk_view_id"
+        ],
+        "properties": {
+          "fk_view_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "base_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "row_height": {
+            "type": "number"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GridColumn"
+            }
+          }
+        }
+      },
       "Hook": {
         "description": "Model for Hook",
         "examples": [
@@ -28213,6 +28389,9 @@
               },
               {
                 "$ref": "#/components/schemas/Calendar"
+              },
+              {
+                "$ref": "#/components/schemas/List"
               }
             ],
             "description": "Associated View Model"
@@ -28572,6 +28751,13 @@
             "description": "The order of the list of views.",
             "example": 1,
             "minimum": 0
+          },
+          "width": {
+            "description": "Column width for Grid and List views.",
+            "example": "200px",
+            "maxLength": 255,
+            "pattern": "^[0-9]+(px|%)$",
+            "type": "string"
           }
         }
       },

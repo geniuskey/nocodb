@@ -120,6 +120,16 @@ async function onOpenModal({
             <GeneralIcon v-else class="plus" icon="plus" />
           </div>
         </NcMenuItem>
+        <NcMenuItem data-testid="sidebar-view-create-list" @click.stop="onOpenModal({ type: ViewTypes.LIST })">
+          <div class="item">
+            <div class="item-inner">
+              <GeneralViewIcon :meta="{ type: ViewTypes.LIST }" />
+              <div>{{ $t('objects.viewType.list') }}</div>
+            </div>
+            <GeneralLoader v-if="toBeCreateType === ViewTypes.LIST && isViewListLoading" />
+            <GeneralIcon v-else class="plus" icon="plus" />
+          </div>
+        </NcMenuItem>
 
         <NcTooltip
           :title="isSyncedTable ? $t('tooltip.formViewCreationNotSupportedForSyncedTable') : $t('tooltip.sourceDataIsReadonly')"

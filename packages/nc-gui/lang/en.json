@@ -489,6 +489,7 @@
     "sidebar": "Sidebar",
     "viewType": {
       "grid": "Grid",
+      "list": "List",
       "gallery": "Gallery",
       "form": "Form",
       "kanban": "Kanban",
@@ -1278,6 +1279,8 @@
     "duplicateGridView": "Duplicate Grid View",
     "createGridView": "Create Grid View",
     "createGridViewPlural": "Create Grid View(s)",
+    "duplicateListView": "Duplicate List View",
+    "createListView": "Create List View",
     "duplicateGalleryView": "Duplicate Gallery View",
     "createGalleryView": "Create Gallery View",
     "createGalleryViewPlural": "Create Gallery View(s)",

@@ -60,7 +60,7 @@ const updateRowHeight = async (rh: number, undo = false) => {
     try {
       await updateViewMeta(
         view.value.id,
-        ViewTypes.GRID,
+        view.value.type === ViewTypes.LIST ? ViewTypes.LIST : ViewTypes.GRID,
         {
           row_height: rh,
         },

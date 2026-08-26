@@ -65,6 +65,24 @@ try {
   });
   assert(table?.id, 'Table creation did not return an ID.');
 
+  const listView = await api.dbView.listCreate(table.id, {
+    title: `List ${titleSuffix}`,
+  });
+  assert(listView?.id, 'List view creation did not return an ID.');
+
+  const listMetadata = await api.dbView.listRead(listView.id);
+  assert(
+    listMetadata?.fk_view_id === listView.id,
+    `Unexpected List metadata: ${JSON.stringify(listMetadata)}`,
+  );
+
+  await api.dbView.listUpdate(listView.id, { row_height: 2 });
+  const updatedListMetadata = await api.dbView.listRead(listView.id);
+  assert(
+    updatedListMetadata?.row_height === 2,
+    `List row height was not updated: ${JSON.stringify(updatedListMetadata)}`,
+  );
+
   const created = await api.dbDataTableRow.create(table.id, { Title: 'Created' });
   const rowId = created?.Id;
   assert(rowId, `Record creation did not return an ID: ${JSON.stringify(created)}`);
@@ -87,6 +105,7 @@ try {
         signin: 'ok',
         base: 'created',
         table: 'created',
+        list: 'create/read/update ok',
         records: 'create/read/update/delete ok',
       },
       null,
