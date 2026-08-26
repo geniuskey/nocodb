@@ -3741,6 +3741,35 @@ export interface GridUpdateReqType {
 }
 
 /**
+ * Model for RowWeave List View Update
+ */
+export interface ListUpdateReqType {
+  /**
+   * Row height preset
+   * @example 1
+   */
+  row_height?: number;
+  /** Versioned List view metadata */
+  meta?: MetaType;
+}
+
+/**
+ * RowWeave List View metadata
+ */
+export interface ListType {
+  /** Model for ID */
+  fk_view_id: IdType;
+  /** Model for ID */
+  base_id?: IdType;
+  /** Model for ID */
+  source_id?: IdType;
+  row_height?: number;
+  /** Model for Meta */
+  meta?: MetaType;
+  columns?: GridColumnType[];
+}
+
+/**
  * Model for Hook
  */
 export interface HookType {
@@ -5234,7 +5263,14 @@ export interface ViewType {
     | KanbanType
     | MapType
     | CalendarType
-    | (FormType & GalleryType & GridType & KanbanType & MapType & CalendarType);
+    | ListType
+    | (FormType &
+        GalleryType &
+        GridType &
+        KanbanType &
+        MapType &
+        CalendarType &
+        ListType);
   /** ID of view owner user */
   owned_by?: IdType;
   /** The row coloring mode whether it is select, condition or not set */
@@ -5334,6 +5370,12 @@ export interface ViewColumnUpdateReqType {
    * @example 1
    */
   order?: number;
+  /**
+   * Column width for Grid and List views.
+   * @pattern ^[0-9]+(px|%)$
+   * @example 200px
+   */
+  width?: string;
 }
 
 /**
@@ -9455,6 +9497,102 @@ export class Api<
         path: `/api/v1/db/meta/views/${viewId}/hide-all`,
         method: 'POST',
         query: query,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * @description Create a RowWeave List view in a table
+ *
+ * @tags DB View
+ * @name ListCreate
+ * @summary Create List View
+ * @request POST:/api/v1/db/meta/tables/{tableId}/lists
+ * @response `200` `ViewType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    listCreate: (
+      tableId: IdType,
+      data: ViewCreateReqType,
+      params: RequestParams = {}
+    ) =>
+      this.request<
+        ViewType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/tables/${tableId}/lists`,
+        method: 'POST',
+        body: data,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * No description
+ *
+ * @tags DB View
+ * @name ListRead
+ * @summary Get List View
+ * @request GET:/api/v1/db/meta/lists/{viewId}
+ * @response `200` `ListType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    listRead: (viewId: IdType, params: RequestParams = {}) =>
+      this.request<
+        ListType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/lists/${viewId}`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * No description
+ *
+ * @tags DB View
+ * @name ListUpdate
+ * @summary Update List View
+ * @request PATCH:/api/v1/db/meta/lists/{viewId}
+ * @response `200` `ViewType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    listUpdate: (
+      viewId: IdType,
+      data: ListUpdateReqType,
+      params: RequestParams = {}
+    ) =>
+      this.request<
+        ViewType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/lists/${viewId}`,
+        method: 'PATCH',
+        body: data,
+        type: ContentType.Json,
         format: 'json',
         ...params,
       }),

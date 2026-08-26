@@ -13,6 +13,7 @@ export const viewIcons: Record<number | string, { icon: any; color: string }> = 
   [ViewTypes.GALLERY]: { icon: iconMap.gallery, color: '#FC3AC6' },
   [ViewTypes.MAP]: { icon: iconMap.map, color: 'blue' },
   [ViewTypes.KANBAN]: { icon: iconMap.kanban, color: '#FF9052' },
+  [ViewTypes.LIST]: { icon: iconMap.list, color: '#16A085' },
   view: { icon: iconMap.view, color: 'blue' },
 }
 

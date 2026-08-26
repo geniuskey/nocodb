@@ -13,6 +13,7 @@ import formulaTests from './tests/formula.test';
 import typeCastsTest from './tests/typeCasts.test';
 import readOnlyTest from './tests/readOnlySource.test';
 import aggregationTest from './tests/aggregation.test';
+import listViewTests from './tests/listView.test';
 
 import dataAPIsV3Test from './tests/dataAPIsV3.test';
 import bulkV1Test from './tests/bulk-v1.test';
@@ -55,6 +56,7 @@ function restTests() {
     typeCastsTest();
     readOnlyTest();
     aggregationTest();
+    listViewTests();
     bulkAggregationTest();
     columnTest();
     integrationTest();

@@ -53,13 +53,15 @@ Important retained signals are:
 - `packages/nocodb/src/models` contains `Audit`, `Dashboard`, `Permission`,
   `Script`, `MCPToken`, and integration/sync models. These are only capability
   signals until a Community API and acceptance flow proves the complete path.
-- the retained tree has no List, Timeline, or Gantt view discriminator or
-  matching Community controller/model set.
+- the retained baseline had no List, Timeline, or Gantt view discriminator or
+  matching Community controller/model set. RowWeave now has an independently
+  implemented additive flat List foundation; hierarchy remains pending.
 - the retained metadata model contains an `is_snapshot` marker, but no
   Community snapshot controller/service acceptance path was found.
 - no Community trash or workflow persistence/controller/service set was found.
 - the foundation acceptance verifier proves local authentication, Base and
-  table creation, and record create/read/update/delete on SQLite.
+  table creation, List create/read/update, and record
+  create/read/update/delete on SQLite.
 
 See `ARCHITECTURE.md`, `BUILDING.md`, and `BASELINE_AUDIT.md` for reproducible
 commands and the legal baseline.
@@ -78,7 +80,7 @@ commands and the legal baseline.
 | Realtime presence | Missing | Member presence, focused-cell markers, open-record state, navigation, and non-locking semantics | 1 | [Realtime Presence](https://nocodb.com/docs/product/tables/table-operations/realtime-presence) |
 | Base/sidebar and view folders | Missing | Collapsible ordering-only folders with move/reorder and no permission side effects | 1 | [Folders](https://nocodb.com/docs/product/bases/folders) |
 | Comments and record revisions | Present | Test author-only mutation, deep links, permissions, and attachment security | 1/10 | [Expanded record](https://nocodb.com/docs/product/records/expand-record) |
-| List view | Missing | Linked hierarchy first, then same-table nested records | 2 | [List](https://nocodb.com/docs/product/views/view-types/list) |
+| List view | Partial; flat metadata/API accepted on SQLite, PostgreSQL, MySQL, and Docker; UI compiles | Linked hierarchy first, then same-table nested records | 2 | [List](https://nocodb.com/docs/product/tables/views/view-types/list) |
 | Timeline view | Missing | Date/range bars, zoom/navigation, grouping, create/move/resize, undo/redo | 3 | [Timeline](https://nocodb.com/docs/product/views/view-types/timeline) |
 | Gantt view | Missing | Scheduling bars, milestones, dependency links, rescheduling, and validation | 4 | [Gantt](https://nocodb.com/docs/product/tables/views/view-types/gantt) |
 | Base trash and restore | Missing | Recover records first, then schema and application resources, with explicit conflict handling | 5 | [Base Trash](https://nocodb.com/docs/product/bases/base-trash) |

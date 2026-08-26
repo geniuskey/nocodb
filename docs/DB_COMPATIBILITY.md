@@ -23,8 +23,9 @@ and runs the same acceptance flow:
 2. sign up and sign in;
 3. create a Base and its default source;
 4. create a table;
-5. create, read, update, and delete a record;
-6. remove the temporary Base.
+5. create, read, and update a List view;
+6. create, read, update, and delete a record;
+7. remove the temporary Base.
 
 SQLite, PostgreSQL, and MySQL must all pass this flow. The source-built
 Community container is additionally checked with SQLite.
@@ -82,6 +83,32 @@ The pending tests are tests intentionally skipped by the retained suite, not
 runtime failures. The PostgreSQL and MySQL versions above are the pinned images
 listed at the top of this document. MySQL uses the empty SQL mode declared by
 the retained test Compose configuration.
+
+## List view slice verification
+
+The independent flat List slice was verified on Windows on 2026-08-26:
+
+| Database/runtime | Scope | Result |
+| --- | --- | --- |
+| SQLite | Complete backend suite | 558 passing, 21 pending, 0 failing |
+| PostgreSQL 14.7 | Focused `List view foundation` suite | 2 passing, 0 failing |
+| MySQL 8.3.0 | Focused `List view foundation` suite | 2 passing, 0 failing |
+| Community Docker image with SQLite | Production HTTP acceptance | Login, Base, table, List metadata, and record CRUD passed |
+
+Run the focused suite against any configured metadata database with:
+
+```sh
+DB_CLIENT=<sqlite3|pg|mysql2> DB_REQUIRE_CONNECTION=true \
+  pnpm --filter nocodb exec mocha --require @swc-node/register \
+  tests/unit/index.test.ts --recursive --timeout 300000 --exit --delay \
+  --grep "List view foundation"
+```
+
+Omit `DB_REQUIRE_CONNECTION` for SQLite. PostgreSQL and MySQL were tested
+against clean containers because the retained PostgreSQL Sakila init directory
+contains two schema/data pairs that collide on a fresh Docker volume. That
+pre-existing fixture defect does not affect application migrations or the
+focused List suite, which creates isolated test databases itself.
 
 ## Test-harness portability
 

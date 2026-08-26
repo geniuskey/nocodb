@@ -23,6 +23,7 @@ import type {
   GridViewUpdateEvent,
   IntegrationUpdateEvent,
   KanbanViewUpdateEvent,
+  ListViewUpdateEvent,
   MetaDiffEvent,
   OrgUserInviteEvent,
   PluginEvent,
@@ -330,6 +331,7 @@ export class AppHooksService {
     event:
       | AppEvents.FORM_CREATE
       | AppEvents.GRID_CREATE
+      | AppEvents.LIST_CREATE
       | AppEvents.CALENDAR_CREATE
       | AppEvents.GALLERY_CREATE
       | AppEvents.KANBAN_CREATE
@@ -340,6 +342,7 @@ export class AppHooksService {
     event:
       | AppEvents.FORM_DELETE
       | AppEvents.GRID_DELETE
+      | AppEvents.LIST_DELETE
       | AppEvents.CALENDAR_DELETE
       | AppEvents.GALLERY_DELETE
       | AppEvents.KANBAN_DELETE
@@ -349,6 +352,7 @@ export class AppHooksService {
   emit(
     event:
       | AppEvents.GRID_UPDATE
+      | AppEvents.LIST_UPDATE
       | AppEvents.CALENDAR_UPDATE
       | AppEvents.GALLERY_UPDATE
       | AppEvents.KANBAN_UPDATE
@@ -356,6 +360,7 @@ export class AppHooksService {
     data:
       | ViewUpdateEvent
       | GridViewUpdateEvent
+      | ListViewUpdateEvent
       | GalleryViewUpdateEvent
       | KanbanViewUpdateEvent
       | CalendarViewUpdateEvent
@@ -401,6 +406,7 @@ export class AppHooksService {
     event:
       | AppEvents.FORM_UPDATE
       | AppEvents.GRID_UPDATE
+      | AppEvents.LIST_UPDATE
       | AppEvents.CALENDAR_UPDATE
       | AppEvents.GALLERY_UPDATE
       | AppEvents.KANBAN_UPDATE
@@ -408,6 +414,7 @@ export class AppHooksService {
     data:
       | ViewUpdateEvent
       | GridViewUpdateEvent
+      | ListViewUpdateEvent
       | GalleryViewUpdateEvent
       | KanbanViewUpdateEvent
       | CalendarViewUpdateEvent

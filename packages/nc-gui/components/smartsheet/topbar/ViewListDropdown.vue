@@ -199,6 +199,12 @@ async function onOpenModal({
                     {{ $t('objects.viewType.grid') }}
                   </div>
                 </a-menu-item>
+                <a-menu-item data-testid="topbar-view-create-list" @click.stop="onOpenModal({ type: ViewTypes.LIST })">
+                  <div class="flex items-center gap-2">
+                    <GeneralViewIcon :meta="{ type: ViewTypes.LIST }" />
+                    <span>{{ $t('objects.viewType.list') }}</span>
+                  </div>
+                </a-menu-item>
 
                 <NcTooltip
                   :title="

@@ -5,6 +5,7 @@ import GalleryViewColumn from '../models/GalleryViewColumn';
 import KanbanViewColumn from '../models/KanbanViewColumn';
 import MapViewColumn from '../models/MapViewColumn';
 import FormViewColumn from '../models/FormViewColumn';
+import ListViewColumn from '../models/ListViewColumn';
 import type {
   CalendarColumnReqType,
   FormColumnReqType,
@@ -281,6 +282,29 @@ export class ViewColumnsService {
             } else {
               updateOrInsertOptions.push(
                 GridViewColumn.insert(
+                  context,
+                  {
+                    ...(column as GridColumnReqType),
+                    fk_view_id: viewId,
+                    fk_column_id: columnId,
+                  },
+                  ncMeta,
+                ),
+              );
+            }
+            break;
+          case ViewTypes.LIST:
+            validatePayload(
+              'swagger.json#/components/schemas/GridColumnReq',
+              column,
+            );
+            if (existingCol) {
+              updateOrInsertOptions.push(
+                ListViewColumn.update(context, existingCol.id, column, ncMeta),
+              );
+            } else {
+              updateOrInsertOptions.push(
+                ListViewColumn.insert(
                   context,
                   {
                     ...(column as GridColumnReqType),
