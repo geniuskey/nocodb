@@ -423,7 +423,9 @@ const copyCustomUrl = async (custUrl = '') => {
         <div
           v-if="
             activeView &&
-            [ViewTypes.GRID, ViewTypes.KANBAN, ViewTypes.GALLERY, ViewTypes.MAP, ViewTypes.CALENDAR].includes(activeView.type)
+            [ViewTypes.GRID, ViewTypes.KANBAN, ViewTypes.GALLERY, ViewTypes.MAP, ViewTypes.CALENDAR, ViewTypes.LIST].includes(
+              activeView.type,
+            )
           "
           class="flex flex-col justify-between gap-y-3 mt-1 py-2 px-3 bg-gray-50 rounded-md"
         >

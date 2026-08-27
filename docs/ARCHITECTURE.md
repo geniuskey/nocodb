@@ -123,6 +123,14 @@ Timeline and Gantt remain future independent designs. New views must span the
 shared type, metadata, API, service, and UI layers rather than exist as isolated
 frontend modes.
 
+Public List sharing reuses the retained shared-view metadata and record-query
+providers through `components/shared-view/List.vue`. It is deliberately flat:
+the public metadata service removes configured List levels, the List renderer
+does not mount hierarchy nodes in public mode, and the generic public relation
+endpoints do not accept List views. A future public hierarchy must introduce a
+relation-scoped authorization contract instead of widening those generic
+paths.
+
 ## SDK and API generation
 
 `packages/nocodb-sdk` is both a shared library and the generated API client.

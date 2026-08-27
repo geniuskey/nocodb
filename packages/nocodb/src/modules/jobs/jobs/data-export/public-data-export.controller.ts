@@ -44,7 +44,8 @@ export class PublicDataExportController {
       view.type !== ViewTypes.KANBAN &&
       view.type !== ViewTypes.GALLERY &&
       view.type !== ViewTypes.CALENDAR &&
-      view.type !== ViewTypes.MAP
+      view.type !== ViewTypes.MAP &&
+      view.type !== ViewTypes.LIST
     )
       NcError.notFound('Not found');
 

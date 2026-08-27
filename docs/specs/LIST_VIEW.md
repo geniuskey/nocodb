@@ -1,7 +1,7 @@
 # RowWeave List View specification
 
-Status: flat foundation and linked hierarchy implemented; browser acceptance
-and sharing pending, 2026-08-27.
+Status: flat foundation, linked hierarchy, keyboard interaction, and flat
+public sharing implemented; browser acceptance pending, 2026-08-27.
 
 ## Provenance and clean-room boundary
 
@@ -59,8 +59,16 @@ not from another product's source or visual implementation.
 
 ### Slice 3: interaction and sharing
 
-- Add keyboard navigation that keeps the active record visible.
+- Use one roving tab stop for root records. Arrow Up/Down, Home, and End move
+  focus while keeping the active record visible; Enter or Space opens it.
 - Add creation, rename, duplicate, delete, share, and lock acceptance coverage.
+- Reuse the retained shared-view UUID, password, filter, sort, search, paging,
+  and field-projection contracts for a read-only flat List.
+- Do not expose configured hierarchy levels in a public List yet. A later
+  security-specific API must prove that every requested child relation belongs
+  to the shared view's configured hierarchy, including levels whose relation
+  field belongs to a different table. The authenticated hierarchy remains
+  available and unchanged.
 - Support portable export/import metadata with an explicit schema version.
 
 ## Slice 1 storage design
@@ -127,8 +135,13 @@ effective hierarchy depth to three, and stops repeated record identities.
 - All metadata queries include workspace/base context and obtain `source_id`
   from the parent view when omitted.
 - A List view cannot reference a field outside its parent model/source.
-- Public sharing is enabled only after the generic public-data path has explicit
-  List acceptance tests.
+- Flat public sharing is enabled only after the generic public metadata, row,
+  count, read, field projection, and password paths have explicit List
+  acceptance tests.
+- Public hierarchy is fail-closed: the server removes levels from public List
+  metadata, the client does not request or render them, and the generic public
+  linked-record endpoints reject List views until a hierarchy-scoped public
+  endpoint and authorization tests exist.
 
 ## Acceptance criteria
 
@@ -144,20 +157,22 @@ effective hierarchy depth to three, and stops repeated record identities.
 
 ## Current verification status
 
-The flat slice is accepted on SQLite, PostgreSQL 14.7, and MySQL 8.3.0. The
-linked hierarchy backend path also passes on all three databases. The focused
-four-test suite covers List metadata create/read/update/delete, per-field
-visibility and width, compatible record CRUD, filtering, sorting,
-hidden-field projection, validated Has-Many configuration, v2 lazy linked-row
-loading, cleanup, and bounded self-referential recursion. The previously run
-full SQLite backend suite passes with 558 tests and 21 intentional pending
-tests.
+The flat slice, linked hierarchy backend path, and flat public sharing pass on
+SQLite, PostgreSQL 14.7, and MySQL 8.3.0. The focused five-test suite covers
+List metadata create/read/update/delete, per-field visibility and width,
+compatible record CRUD, filtering, sorting, hidden-field projection,
+validated Has-Many configuration, v2 lazy linked-row loading, cleanup,
+bounded self-referential recursion, shared UUID and password access, paging,
+counting, and fail-closed public hierarchy metadata and linked-row access. The
+previously run full SQLite backend suite passes with 558 tests and 21
+intentional pending tests.
 
 The SDK, backend type check, Nuxt production build, complete Community build,
 and source-built Community Docker image pass. The Docker acceptance flow covers
 sign-up/sign-in, Base and table creation, List create/read/update, and record
-create/read/update/delete. Browser-level UI acceptance could not run because no
-browser runtime was connected in the verification environment. The hierarchy
-UI production build passes, but expansion, paging, cycle messaging, settings
-interaction, keyboard navigation, and sharing still require browser-level
-automation before the overall List capability can be marked complete.
+create/read/update/delete. The List interaction and shared-view UI compile in
+the complete Community production build. Browser-level UI acceptance could not
+run because no browser runtime was connected in the verification environment.
+Expansion, paging, cycle messaging, settings interaction, keyboard navigation,
+and flat sharing still require browser-level automation before the overall
+List capability can be marked complete.

@@ -11,6 +11,7 @@ import {
 import type {
   CalendarView,
   LinkToAnotherRecordColumn,
+  ListView,
   LookupColumn,
   RollupColumn,
 } from '~/models';
@@ -57,6 +58,14 @@ export class PublicMetasService {
     await view.getSorts(context);
 
     await view.getViewWithInfo(context);
+
+    // Public List sharing is flat until a hierarchy-scoped public API can
+    // authorize every configured relation. Do not disclose hierarchy config
+    // through the generic public metadata response in the meantime.
+    if (view.type === ViewTypes.LIST) {
+      (view.view as ListView).levels = [];
+    }
+
     await view.getColumns(context);
     await view.getModelWithInfo(context);
     await view.model.getColumns(context);
