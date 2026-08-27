@@ -82,7 +82,7 @@ commands and the legal baseline.
 | Base/sidebar and view folders | Missing | Collapsible ordering-only folders with move/reorder and no permission side effects | 1 | [Folders](https://nocodb.com/docs/product/bases/folders) |
 | Comments and record revisions | Present | Test author-only mutation, deep links, permissions, and attachment security | 1/10 | [Expanded record](https://nocodb.com/docs/product/records/expand-record) |
 | List view | Partial; flat, linked hierarchy, flat public sharing, lifecycle, and role APIs accepted on SQLite, PostgreSQL, and MySQL; keyboard and locked-state UI compile | Browser interaction and permission UI acceptance; public hierarchy remains fail-closed | 2 | [List](https://nocodb.com/docs/product/tables/views/view-types/list) |
-| Timeline view | Missing | Date/range bars, zoom/navigation, grouping, create/move/resize, undo/redo | 3 | [Timeline](https://nocodb.com/docs/product/views/view-types/timeline) |
+| Timeline view | Specified; independent metadata, API, permissions, date/range, and phased UI contract documented | Implement additive metadata/API and a flat month renderer, then navigation, interaction, grouping, and sharing | 3 | [Timeline](https://www.nocodb.com/docs/product/tables/views/view-types/timeline) |
 | Gantt view | Missing | Scheduling bars, milestones, dependency links, rescheduling, and validation | 4 | [Gantt](https://nocodb.com/docs/product/tables/views/view-types/gantt) |
 | Base trash and restore | Missing | Recover records first, then schema and application resources, with explicit conflict handling | 5 | [Base Trash](https://nocodb.com/docs/product/bases/base-trash) |
 | Per-table trash retention | Missing | Opt-in/out policy, scheduled expiry, permanent deletion, and owner-only settings | 5 | [Trash settings](https://nocodb.com/docs/product/bases/trash-settings) |
@@ -170,11 +170,12 @@ Implement in reviewable slices:
 
 ### Phase 3 — Timeline
 
-Reuse the view contract established by List. The first complete slice supports
-a start date and optional end date, records without dates, deterministic date
-math, navigation, and read-only rendering. Editing, grouping, zoom levels,
-row colour, create-by-drag, move, resize, undo/redo, sharing, and permissions
-follow as separate PRs.
+The independent contract is recorded in `docs/specs/TIMELINE_VIEW.md` and
+reuses the generic view lifecycle established by List. The first complete
+implementation slice adds a start date, optional end date, records without
+dates, deterministic date math, and a read-only flat month renderer. Complete
+navigation and zoom, editing interactions, grouping, row colour, sharing, and
+browser acceptance follow as separate reviewable slices.
 
 ### Phase 4 — Gantt
 
