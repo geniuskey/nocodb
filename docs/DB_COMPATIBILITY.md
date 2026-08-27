@@ -123,6 +123,35 @@ contains two schema/data pairs that collide on a fresh Docker volume. That
 pre-existing fixture defect does not affect application migrations or the
 focused List suite, which creates isolated test databases itself.
 
+## Timeline view slice verification
+
+The independent Timeline Slice 1 was verified on Windows on 2026-08-28:
+
+| Database/runtime | Scope | Result |
+| --- | --- | --- |
+| SQLite | Complete backend suite after Slice 1 | 568 passing, 21 pending, 0 failing |
+| SQLite | Focused `Timeline view foundation` suite | 5 passing, 0 failing |
+| PostgreSQL 14.7 | Focused `Timeline view foundation` suite | 5 passing, 0 failing |
+| MySQL 8.3.0 | Focused `Timeline view foundation` suite | 5 passing, 0 failing |
+
+The cases cover date-field validation before insert, additive metadata CRUD,
+field presentation, required-field visibility, same-table duplication,
+cross-type rejection without partial metadata, deletion, fail-closed public
+sharing, generic view-aware reads for dated and undated records, and viewer and
+creator role boundaries. PostgreSQL and MySQL used the pinned clean images at
+the top of this document.
+
+Run the focused suite against any configured metadata database with:
+
+```sh
+DB_CLIENT=<sqlite3|pg|mysql2> DB_REQUIRE_CONNECTION=true \
+  pnpm --filter nocodb exec mocha --require @swc-node/register \
+  tests/unit/index.test.ts --recursive --timeout 300000 --exit --delay \
+  --grep "Timeline view foundation"
+```
+
+Omit `DB_REQUIRE_CONNECTION` for SQLite.
+
 ## Test-harness portability
 
 The retained fixture loader derived the `tests` directory by replacing the

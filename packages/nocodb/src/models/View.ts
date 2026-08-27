@@ -39,6 +39,8 @@ import MapViewColumn from '~/models/MapViewColumn';
 import ListView from '~/models/ListView';
 import ListViewColumn from '~/models/ListViewColumn';
 import ListViewLevel from '~/models/ListViewLevel';
+import TimelineView from '~/models/TimelineView';
+import TimelineViewColumn from '~/models/TimelineViewColumn';
 import { extractProps } from '~/helpers/extractProps';
 import NocoCache from '~/cache/NocoCache';
 import {
@@ -104,7 +106,8 @@ export default class View implements ViewType {
     | GalleryView
     | MapView
     | CalendarView
-    | ListView;
+    | ListView
+    | TimelineView;
   columns?: Array<
     | FormViewColumn
     | GridViewColumn
@@ -113,6 +116,7 @@ export default class View implements ViewType {
     | MapViewColumn
     | CalendarViewColumn
     | ListViewColumn
+    | TimelineViewColumn
   >;
 
   sorts: Sort[];
@@ -288,6 +292,7 @@ export default class View implements ViewType {
           | KanbanView
           | MapView
           | CalendarView
+          | TimelineView
         > & {
           copy_from_id?: string;
           fk_grp_col_id?: string;
@@ -370,6 +375,17 @@ export default class View implements ViewType {
             {
               ...((copyFromView?.view as ListView) || {}),
               ...(view as ListView),
+              fk_view_id: view_id,
+            },
+            ncMeta,
+          );
+          break;
+        case ViewTypes.TIMELINE:
+          await TimelineView.insert(
+            context,
+            {
+              ...((copyFromView?.view as TimelineView) || {}),
+              ...(view as TimelineView),
               fk_view_id: view_id,
             },
             ncMeta,
@@ -769,6 +785,9 @@ export default class View implements ViewType {
         case ViewTypes.LIST:
           await ListViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
+        case ViewTypes.TIMELINE:
+          await TimelineViewColumn.insert(context, modifiedInsertObj, ncMeta);
+          break;
         case ViewTypes.GALLERY:
           await GalleryViewColumn.insert(context, modifiedInsertObj, ncMeta);
           break;
@@ -836,6 +855,13 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         col = await ListViewColumn.insert(
+          context,
+          { ...param, fk_view_id: view.id },
+          ncMeta,
+        );
+        break;
+      case ViewTypes.TIMELINE:
+        col = await TimelineViewColumn.insert(
           context,
           { ...param, fk_view_id: view.id },
           ncMeta,
@@ -944,6 +970,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         columns = await ListViewColumn.list(context, viewId, ncMeta);
         break;
+      case ViewTypes.TIMELINE:
+        columns = await TimelineViewColumn.list(context, viewId, ncMeta);
+        break;
       case ViewTypes.GALLERY:
         columns = await GalleryViewColumn.list(context, viewId, ncMeta);
         break;
@@ -989,6 +1018,10 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         tableName = MetaTable.LIST_VIEW_COLUMNS;
         cacheScope = CacheScope.LIST_VIEW_COLUMN;
+        break;
+      case ViewTypes.TIMELINE:
+        tableName = MetaTable.TIMELINE_VIEW_COLUMNS;
+        cacheScope = CacheScope.TIMELINE_VIEW_COLUMN;
         break;
       case ViewTypes.GALLERY:
         tableName = MetaTable.GALLERY_VIEW_COLUMNS;
@@ -1063,6 +1096,10 @@ export default class View implements ViewType {
         table = MetaTable.LIST_VIEW_COLUMNS;
         cacheScope = CacheScope.LIST_VIEW_COLUMN;
         break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW_COLUMNS;
+        cacheScope = CacheScope.TIMELINE_VIEW_COLUMN;
+        break;
       case ViewTypes.MAP:
         table = MetaTable.MAP_VIEW_COLUMNS;
         cacheScope = CacheScope.MAP_VIEW_COLUMN;
@@ -1084,7 +1121,11 @@ export default class View implements ViewType {
         cacheScope = CacheScope.CALENDAR_VIEW_COLUMN;
     }
     let updateObj = extractProps(colData, ['order', 'show']);
-    if (view.type === ViewTypes.GRID || view.type === ViewTypes.LIST) {
+    if (
+      view.type === ViewTypes.GRID ||
+      view.type === ViewTypes.LIST ||
+      view.type === ViewTypes.TIMELINE
+    ) {
       updateObj = {
         ...updateObj,
         ...extractProps(colData, ['width']),
@@ -1092,7 +1133,11 @@ export default class View implements ViewType {
     }
 
     // keep primary_value_column always visible and first in grid view
-    if (view.type === ViewTypes.GRID || view.type === ViewTypes.LIST) {
+    if (
+      view.type === ViewTypes.GRID ||
+      view.type === ViewTypes.LIST ||
+      view.type === ViewTypes.TIMELINE
+    ) {
       const primary_value_column_meta = await ncMeta.metaGet2(
         context.workspace_id,
         context.base_id,
@@ -1106,9 +1151,7 @@ export default class View implements ViewType {
       const primary_value_column = await ncMeta.metaGet2(
         context.workspace_id,
         context.base_id,
-        view.type === ViewTypes.GRID
-          ? MetaTable.GRID_VIEW_COLUMNS
-          : MetaTable.LIST_VIEW_COLUMNS,
+        table,
         {
           fk_view_id: view.id,
           fk_column_id: primary_value_column_meta.id,
@@ -1120,7 +1163,23 @@ export default class View implements ViewType {
         updateObj.show = true;
       }
     }
-    if (view.type === ViewTypes.CALENDAR) {
+    if (view.type === ViewTypes.TIMELINE) {
+      const timeline = await TimelineView.get(context, view.id, ncMeta);
+      const timelineColumn = await TimelineViewColumn.get(
+        context,
+        colId,
+        ncMeta,
+      );
+      if (
+        timelineColumn &&
+        [timeline?.fk_start_date_col_id, timeline?.fk_end_date_col_id].includes(
+          timelineColumn.fk_column_id,
+        )
+      ) {
+        updateObj.show = true;
+      }
+    }
+    if (view.type === ViewTypes.CALENDAR || view.type === ViewTypes.TIMELINE) {
       updateObj = {
         ...updateObj,
         ...extractProps(colData, ['underline', 'bold', 'italic']),
@@ -1156,6 +1215,8 @@ export default class View implements ViewType {
         return GridViewColumn.get(context, colId, ncMeta);
       case ViewTypes.LIST:
         return ListViewColumn.get(context, colId, ncMeta);
+      case ViewTypes.TIMELINE:
+        return TimelineViewColumn.get(context, colId, ncMeta);
       case ViewTypes.MAP:
         return MapViewColumn.get(context, colId, ncMeta);
       case ViewTypes.GALLERY:
@@ -1236,6 +1297,17 @@ export default class View implements ViewType {
           );
         case ViewTypes.LIST:
           return await ListViewColumn.insert(
+            context,
+            {
+              fk_view_id: viewId,
+              fk_column_id: fkColId,
+              order: colData.order,
+              show: colData.show,
+            },
+            ncMeta,
+          );
+        case ViewTypes.TIMELINE:
+          return await TimelineViewColumn.insert(
             context,
             {
               fk_view_id: viewId,
@@ -2206,6 +2278,14 @@ export default class View implements ViewType {
           insertObjs,
         );
         break;
+      case ViewTypes.TIMELINE:
+        await ncMeta.bulkMetaInsert(
+          context.workspace_id,
+          context.base_id,
+          MetaTable.TIMELINE_VIEW_COLUMNS,
+          insertObjs,
+        );
+        break;
       case ViewTypes.GALLERY:
         await ncMeta.bulkMetaInsert(
           context.workspace_id,
@@ -2264,6 +2344,7 @@ export default class View implements ViewType {
           | MapView
           | CalendarView
           | ListView
+          | TimelineView
         > & {
           copy_from_id?: string;
           fk_grp_col_id?: string;
@@ -2380,6 +2461,17 @@ export default class View implements ViewType {
           {
             ...((copyFromView?.view as ListView) || {}),
             ...(view as ListView),
+            fk_view_id: view_id,
+          },
+          ncMeta,
+        );
+        break;
+      case ViewTypes.TIMELINE:
+        await TimelineView.insert(
+          context,
+          {
+            ...((copyFromView?.view as TimelineView) || {}),
+            ...(view as TimelineView),
             fk_view_id: view_id,
           },
           ncMeta,
@@ -2630,6 +2722,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         table = MetaTable.LIST_VIEW_COLUMNS;
         break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW_COLUMNS;
+        break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW_COLUMNS;
         break;
@@ -2657,6 +2752,9 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         table = MetaTable.LIST_VIEW;
+        break;
+      case ViewTypes.TIMELINE:
+        table = MetaTable.TIMELINE_VIEW;
         break;
       case ViewTypes.GALLERY:
         table = MetaTable.GALLERY_VIEW;
@@ -2686,6 +2784,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         scope = CacheScope.LIST_VIEW_COLUMN;
         break;
+      case ViewTypes.TIMELINE:
+        scope = CacheScope.TIMELINE_VIEW_COLUMN;
+        break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW_COLUMN;
         break;
@@ -2713,6 +2814,9 @@ export default class View implements ViewType {
         break;
       case ViewTypes.LIST:
         scope = CacheScope.LIST_VIEW;
+        break;
+      case ViewTypes.TIMELINE:
+        scope = CacheScope.TIMELINE_VIEW;
         break;
       case ViewTypes.GALLERY:
         scope = CacheScope.GALLERY_VIEW;
@@ -2760,6 +2864,9 @@ export default class View implements ViewType {
       case ViewTypes.LIST:
         this.view = await ListView.get(context, this.id, ncMeta);
         break;
+      case ViewTypes.TIMELINE:
+        this.view = await TimelineView.get(context, this.id, ncMeta);
+        break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);
         break;
@@ -2782,13 +2889,18 @@ export default class View implements ViewType {
   async getViewWithInfo(
     context: NcContext,
     ncMeta = Noco.ncMeta,
-  ): Promise<FormView | GridView | KanbanView | GalleryView | ListView> {
+  ): Promise<
+    FormView | GridView | KanbanView | GalleryView | ListView | TimelineView
+  > {
     switch (this.type) {
       case ViewTypes.GRID:
         this.view = await GridView.getWithInfo(context, this.id, ncMeta);
         break;
       case ViewTypes.LIST:
         this.view = await ListView.get(context, this.id, ncMeta);
+        break;
+      case ViewTypes.TIMELINE:
+        this.view = await TimelineView.get(context, this.id, ncMeta);
         break;
       case ViewTypes.KANBAN:
         this.view = await KanbanView.get(context, this.id, ncMeta);

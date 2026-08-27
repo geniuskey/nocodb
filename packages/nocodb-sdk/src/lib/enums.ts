@@ -167,6 +167,9 @@ export enum AppEvents {
   LIST_CREATE = 'list.create',
   LIST_UPDATE = 'list.update',
   LIST_DELETE = 'list.delete',
+  TIMELINE_CREATE = 'timeline.create',
+  TIMELINE_UPDATE = 'timeline.update',
+  TIMELINE_DELETE = 'timeline.delete',
   FORM_DELETE = 'form.delete',
 
   SOURCE_CREATE = 'source.create',

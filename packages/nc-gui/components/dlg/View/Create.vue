@@ -14,6 +14,7 @@ import {
   PlanFeatureTypes,
   type SerializedAiViewType,
   type TableType,
+  type TimelineType,
   stringToViewTypeMap,
   viewTypeToStringMap,
 } from 'nocodb-sdk'
@@ -53,7 +54,7 @@ interface Props {
 interface Emits {
   (event: 'update:modelValue', value: boolean): void
 
-  (event: 'created', value: GridType | KanbanType | GalleryType | FormType | MapType | CalendarType): void
+  (event: 'created', value: GridType | KanbanType | GalleryType | FormType | MapType | CalendarType | TimelineType): void
 }
 
 interface Form {
@@ -71,6 +72,12 @@ interface Form {
     fk_to_column_id: string | null // for ee only
   }>
   fk_cover_image_col_id: string | null | undefined
+
+  // for timeline view only
+  fk_start_date_col_id?: string
+  fk_end_date_col_id?: string | null
+  zoom?: 'month'
+  initial_mode?: 'closest_record' | 'today'
 }
 
 type AiSuggestedViewType = SerializedAiViewType & {
@@ -123,6 +130,7 @@ const errorMessages = {
   [ViewTypes.KANBAN]: t('msg.warning.kanbanNoFields'),
   [ViewTypes.MAP]: t('msg.warning.mapNoFields'),
   [ViewTypes.CALENDAR]: t('msg.warning.calendarNoFields'),
+  [ViewTypes.TIMELINE]: t('msg.warning.timelineNoFields'),
 }
 
 const form = reactive<Form>({
@@ -133,6 +141,10 @@ const form = reactive<Form>({
   fk_geo_data_col_id: null,
   calendar_range: props.calendarRange || [],
   fk_cover_image_col_id: undefined,
+  fk_start_date_col_id: undefined,
+  fk_end_date_col_id: null,
+  zoom: 'month',
+  initial_mode: 'today',
   description: props.description || '',
 })
 
@@ -157,6 +169,8 @@ const groupingFieldColumnRules = [{ required: true, message: `${t('general.group
 
 const geoDataFieldColumnRules = [{ required: true, message: `${t('general.geoDataField')} ${t('general.required')}` }]
 
+const timelineStartFieldRules = [{ required: true, message: `${t('activity.startDate')} ${t('general.required')}` }]
+
 const typeAlias = computed(
   () =>
     ({
@@ -167,6 +181,7 @@ const typeAlias = computed(
       [ViewTypes.KANBAN]: 'kanban',
       [ViewTypes.MAP]: 'map',
       [ViewTypes.CALENDAR]: 'calendar',
+      [ViewTypes.TIMELINE]: 'timeline',
       // Todo: add ai view docs route
       AI: '',
     }[props.type]),
@@ -334,7 +349,7 @@ onMounted(async () => {
   }
 
   if (
-    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR].includes(props.type) ||
+    [ViewTypes.GALLERY, ViewTypes.KANBAN, ViewTypes.MAP, ViewTypes.CALENDAR, ViewTypes.TIMELINE].includes(props.type) ||
     aiIntegrationAvailable.value
   ) {
     isMetaLoading.value = true
@@ -504,6 +519,28 @@ onMounted(async () => {
         } else {
           // if there is no grouping field column, disable the create button
           isNecessaryColumnsPresent.value = false
+        }
+      }
+
+      if (props.type === ViewTypes.TIMELINE) {
+        viewSelectFieldOptions.value = meta
+          .value!.columns!.filter((column) =>
+            [UITypes.DateTime, UITypes.Date, UITypes.CreatedTime, UITypes.LastModifiedTime].includes(column.uidt),
+          )
+          .map((field) => ({
+            value: field.id,
+            label: field.title,
+            uidt: field.uidt,
+            col: field,
+          }))
+
+        if (!form.copy_from_id) {
+          if (viewSelectFieldOptions.value.length) {
+            form.fk_start_date_col_id = viewSelectFieldOptions.value[0].value as string
+            form.fk_end_date_col_id = null
+          } else {
+            isNecessaryColumnsPresent.value = false
+          }
         }
       }
     } catch (e) {
@@ -812,6 +849,14 @@ watch(activeBaseId, () => {
               {{ $t('labels.createListView') }}
             </template>
           </template>
+          <template v-else-if="form.type === ViewTypes.TIMELINE">
+            <template v-if="form.copy_from_id">
+              {{ $t('labels.duplicateTimelineView') }}
+            </template>
+            <template v-else>
+              {{ $t('labels.createTimelineView') }}
+            </template>
+          </template>
           <template v-else-if="form.type === ViewTypes.GALLERY">
             <template v-if="form.copy_from_id">
               {{ $t('labels.duplicateGalleryView') }}
@@ -977,6 +1022,45 @@ watch(activeBaseId, () => {
               class="nc-select-shadow w-full"
             />
           </a-form-item>
+          <template v-if="form.type === ViewTypes.TIMELINE && !form.copy_from_id">
+            <a-form-item :label="$t('activity.startDate')" :rules="timelineStartFieldRules" name="fk_start_date_col_id">
+              <NcSelect
+                v-model:value="form.fk_start_date_col_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                show-search
+                :placeholder="$t('placeholder.notSelected')"
+                class="nc-select-shadow w-full"
+                data-testid="nc-timeline-start-field-select"
+              >
+                <a-select-option v-for="option of viewSelectFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon v-if="option.col" :column="option.col" />
+                    <span class="truncate">{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+            <a-form-item :label="$t('activity.endDate')" name="fk_end_date_col_id">
+              <NcSelect
+                v-model:value="form.fk_end_date_col_id"
+                :disabled="isMetaLoading"
+                :loading="isMetaLoading"
+                allow-clear
+                show-search
+                :placeholder="$t('placeholder.notSelected')"
+                class="nc-select-shadow w-full"
+                data-testid="nc-timeline-end-field-select"
+              >
+                <a-select-option v-for="option of viewSelectFieldOptions" :key="option.value" :value="option.value">
+                  <div class="flex items-center gap-2">
+                    <SmartsheetHeaderIcon v-if="option.col" :column="option.col" />
+                    <span class="truncate">{{ option.label }}</span>
+                  </div>
+                </a-select-option>
+              </NcSelect>
+            </a-form-item>
+          </template>
           <template v-if="form.type === ViewTypes.CALENDAR && !form.copy_from_id">
             <div
               v-for="(range, index) in form.calendar_range"

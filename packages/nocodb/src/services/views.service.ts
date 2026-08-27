@@ -129,13 +129,18 @@ export class ViewsService {
     context: NcContext,
     param: { viewId: string; user: UserType; req: NcRequest },
   ) {
-    const res = await View.share(context, param.viewId);
-
     const view = await View.get(context, param.viewId);
 
     if (!view) {
       NcError.viewNotFound(param.viewId);
     }
+    if (view.type === ViewTypes.TIMELINE) {
+      NcError.get(context).invalidRequestBody(
+        'Timeline public sharing is not available in this foundation slice',
+      );
+    }
+
+    const res = await View.share(context, param.viewId);
 
     this.appHooksService.emit(AppEvents.SHARED_VIEW_CREATE, {
       user: param.user,
@@ -344,6 +349,8 @@ export class ViewsService {
       deleteEvent = AppEvents.MAP_DELETE;
     } else if (view.type === ViewTypes.LIST) {
       deleteEvent = AppEvents.LIST_DELETE;
+    } else if (view.type === ViewTypes.TIMELINE) {
+      deleteEvent = AppEvents.TIMELINE_DELETE;
     }
 
     let owner = param.req.user;

@@ -6,6 +6,7 @@ import KanbanViewColumn from '../models/KanbanViewColumn';
 import MapViewColumn from '../models/MapViewColumn';
 import FormViewColumn from '../models/FormViewColumn';
 import ListViewColumn from '../models/ListViewColumn';
+import TimelineViewColumn from '../models/TimelineViewColumn';
 import type {
   CalendarColumnReqType,
   FormColumnReqType,
@@ -308,6 +309,34 @@ export class ViewColumnsService {
                   context,
                   {
                     ...(column as GridColumnReqType),
+                    fk_view_id: viewId,
+                    fk_column_id: columnId,
+                  },
+                  ncMeta,
+                ),
+              );
+            }
+            break;
+          case ViewTypes.TIMELINE:
+            validatePayload(
+              'swagger.json#/components/schemas/CalendarColumnReq',
+              column,
+            );
+            if (existingCol) {
+              updateOrInsertOptions.push(
+                TimelineViewColumn.update(
+                  context,
+                  existingCol.id,
+                  column,
+                  ncMeta,
+                ),
+              );
+            } else {
+              updateOrInsertOptions.push(
+                TimelineViewColumn.insert(
+                  context,
+                  {
+                    ...(column as CalendarColumnReqType),
                     fk_view_id: viewId,
                     fk_column_id: columnId,
                   },

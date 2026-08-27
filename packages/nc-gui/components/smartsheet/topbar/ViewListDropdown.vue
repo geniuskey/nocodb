@@ -205,6 +205,12 @@ async function onOpenModal({
                     <span>{{ $t('objects.viewType.list') }}</span>
                   </div>
                 </a-menu-item>
+                <a-menu-item data-testid="topbar-view-create-timeline" @click.stop="onOpenModal({ type: ViewTypes.TIMELINE })">
+                  <div class="flex items-center gap-2">
+                    <GeneralViewIcon :meta="{ type: ViewTypes.TIMELINE }" />
+                    <span>{{ $t('objects.viewType.timeline') }}</span>
+                  </div>
+                </a-menu-item>
 
                 <NcTooltip
                   :title="

@@ -222,6 +222,10 @@ const hasDashboardCreateAccess = computed(() => {
                 <GeneralViewIcon :meta="{ type: ViewTypes.LIST }" />
                 <span>{{ $t('objects.viewType.list') }}</span>
               </NcMenuItem>
+              <NcMenuItem data-testid="mini-sidebar-view-create-timeline" @click.stop="onOpenModal({ type: ViewTypes.TIMELINE })">
+                <GeneralViewIcon :meta="{ type: ViewTypes.TIMELINE }" />
+                <span>{{ $t('objects.viewType.timeline') }}</span>
+              </NcMenuItem>
               <NcTooltip :title="$t('tooltip.sourceDataIsReadonly')" :disabled="!activeSource?.is_data_readonly && !isSqlView">
                 <NcMenuItem
                   :disabled="!!activeSource?.is_data_readonly || isSqlView"

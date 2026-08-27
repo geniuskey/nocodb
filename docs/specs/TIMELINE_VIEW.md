@@ -1,6 +1,6 @@
 # RowWeave Timeline View specification
 
-Status: foundation design
+Status: Slice 1 implemented; later slices remain design
 
 This specification defines an independent Timeline view for the frozen AGPL
 baseline. It describes behaviour and data contracts, not another product's
@@ -138,6 +138,10 @@ Timeline metadata. Existing View enum values and existing tables do not change.
 ## Delivery slices
 
 ### Slice 1: metadata and flat month renderer
+
+Implemented and API-tested on SQLite, PostgreSQL, and MySQL. The production
+frontend compiler accepts the renderer. Interactive browser acceptance remains
+pending and is not treated as complete UI acceptance.
 
 - Add the enum, schemas, migration, model, service, controller, ACL entries,
   creation menus, route selection, and a flat month-scale renderer.

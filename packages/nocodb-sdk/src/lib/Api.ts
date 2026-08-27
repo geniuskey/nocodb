@@ -3806,6 +3806,60 @@ export interface ListType {
 }
 
 /**
+ * Model for RowWeave Timeline View creation
+ */
+export interface TimelineCreateReqType {
+  title: string;
+  /** Model for TextOrNull */
+  description?: TextOrNullType;
+  /** Model for StringOrNull */
+  copy_from_id?: StringOrNullType;
+  /** Model for ID */
+  fk_start_date_col_id?: IdType;
+  /** Model for StringOrNull */
+  fk_end_date_col_id?: StringOrNullType;
+  zoom?: 'month';
+  initial_mode?: 'closest_record' | 'today';
+  /** Model for Meta */
+  meta?: MetaType;
+}
+
+/**
+ * Model for RowWeave Timeline View update
+ */
+export interface TimelineUpdateReqType {
+  /** Model for ID */
+  fk_start_date_col_id?: IdType;
+  /** Model for StringOrNull */
+  fk_end_date_col_id?: StringOrNullType;
+  zoom?: 'month';
+  initial_mode?: 'closest_record' | 'today';
+  /** Model for Meta */
+  meta?: MetaType;
+}
+
+/**
+ * RowWeave Timeline View metadata
+ */
+export interface TimelineType {
+  /** Model for ID */
+  fk_view_id: IdType;
+  /** Model for ID */
+  base_id?: IdType;
+  /** Model for ID */
+  source_id?: IdType;
+  /** Model for ID */
+  fk_start_date_col_id: IdType;
+  /** Model for StringOrNull */
+  fk_end_date_col_id?: StringOrNullType;
+  zoom?: string;
+  initial_mode?: string;
+  /** Model for Meta */
+  meta?: MetaType;
+  columns?: GridColumnType[];
+}
+
+/**
  * Model for Hook
  */
 export interface HookType {
@@ -6071,7 +6125,7 @@ export class Api<
   auth = {
     /**
  * @description Create a new user with provided email and password and first user is marked as super admin. 
- * 
+ *
  * @tags Auth
  * @name Signup
  * @summary Signup
@@ -6112,7 +6166,7 @@ export class Api<
 
     /**
  * @description Clear refresh token from the database and cookie.
- * 
+ *
  * @tags Auth
  * @name Signout
  * @summary Signout
@@ -6153,7 +6207,7 @@ export class Api<
 
     /**
  * @description Authenticate existing user with their email and password. Successful login will return a JWT access-token. 
- * 
+ *
  * @tags Auth
  * @name Signin
  * @summary Signin
@@ -6196,7 +6250,7 @@ export class Api<
 
     /**
  * @description Returns authenticated user info
- * 
+ *
  * @tags Auth
  * @name Me
  * @summary Get User Info
@@ -6231,7 +6285,7 @@ export class Api<
 
     /**
  * @description Emails user with a reset url.
- * 
+ *
  * @tags Auth
  * @name PasswordForgot
  * @summary Forget Password
@@ -6274,7 +6328,7 @@ export class Api<
 
     /**
  * @description Change password of authenticated user with a new one.
- * 
+ *
  * @tags Auth
  * @name PasswordChange
  * @summary Change Password
@@ -9626,6 +9680,102 @@ export class Api<
         }
       >({
         path: `/api/v1/db/meta/lists/${viewId}`,
+        method: 'PATCH',
+        body: data,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * @description Create an independent RowWeave Timeline view in a table
+ *
+ * @tags DB View
+ * @name TimelineCreate
+ * @summary Create Timeline View
+ * @request POST:/api/v1/db/meta/tables/{tableId}/timelines
+ * @response `200` `ViewType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    timelineCreate: (
+      tableId: IdType,
+      data: TimelineCreateReqType,
+      params: RequestParams = {}
+    ) =>
+      this.request<
+        ViewType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/tables/${tableId}/timelines`,
+        method: 'POST',
+        body: data,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * No description
+ *
+ * @tags DB View
+ * @name TimelineRead
+ * @summary Get Timeline View
+ * @request GET:/api/v1/db/meta/timelines/{viewId}
+ * @response `200` `TimelineType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    timelineRead: (viewId: IdType, params: RequestParams = {}) =>
+      this.request<
+        TimelineType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/timelines/${viewId}`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+ * No description
+ *
+ * @tags DB View
+ * @name TimelineUpdate
+ * @summary Update Timeline View
+ * @request PATCH:/api/v1/db/meta/timelines/{viewId}
+ * @response `200` `ViewType` OK
+ * @response `400` `{
+  \** @example BadRequest [Error]: <ERROR MESSAGE> *\
+  msg: string,
+
+}`
+ */
+    timelineUpdate: (
+      viewId: IdType,
+      data: TimelineUpdateReqType,
+      params: RequestParams = {}
+    ) =>
+      this.request<
+        ViewType,
+        {
+          /** @example BadRequest [Error]: <ERROR MESSAGE> */
+          msg: string;
+        }
+      >({
+        path: `/api/v1/db/meta/timelines/${viewId}`,
         method: 'PATCH',
         body: data,
         type: ContentType.Json,

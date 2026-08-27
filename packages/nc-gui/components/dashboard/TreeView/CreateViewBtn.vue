@@ -130,6 +130,16 @@ async function onOpenModal({
             <GeneralIcon v-else class="plus" icon="plus" />
           </div>
         </NcMenuItem>
+        <NcMenuItem data-testid="sidebar-view-create-timeline" @click.stop="onOpenModal({ type: ViewTypes.TIMELINE })">
+          <div class="item">
+            <div class="item-inner">
+              <GeneralViewIcon :meta="{ type: ViewTypes.TIMELINE }" />
+              <div>{{ $t('objects.viewType.timeline') }}</div>
+            </div>
+            <GeneralLoader v-if="toBeCreateType === ViewTypes.TIMELINE && isViewListLoading" />
+            <GeneralIcon v-else class="plus" icon="plus" />
+          </div>
+        </NcMenuItem>
 
         <NcTooltip
           :title="isSyncedTable ? $t('tooltip.formViewCreationNotSupportedForSyncedTable') : $t('tooltip.sourceDataIsReadonly')"
