@@ -3741,6 +3741,40 @@ export interface GridUpdateReqType {
 }
 
 /**
+ * A linked-record hierarchy level for a List view
+ */
+export interface ListViewLevelType {
+  /** Model for ID */
+  id?: IdType;
+  /** Model for ID */
+  fk_view_id?: IdType;
+  /** Model for ID */
+  fk_relation_column_id: IdType;
+  /** Model for ID */
+  fk_related_model_id?: IdType;
+  order?: number;
+  fields?: IdType[];
+  where?: string;
+  sort?: string | string[];
+  /** Model for Bool */
+  show_empty?: BoolType;
+  /**
+   * @min 1
+   * @max 100
+   */
+  page_size?: number;
+  /** Model for Bool */
+  recursive?: BoolType;
+  /**
+   * @min 1
+   * @max 3
+   */
+  max_depth?: number;
+  /** Model for Meta */
+  meta?: MetaType;
+}
+
+/**
  * Model for RowWeave List View Update
  */
 export interface ListUpdateReqType {
@@ -3751,6 +3785,7 @@ export interface ListUpdateReqType {
   row_height?: number;
   /** Versioned List view metadata */
   meta?: MetaType;
+  levels?: ListViewLevelType[];
 }
 
 /**
@@ -3767,6 +3802,7 @@ export interface ListType {
   /** Model for Meta */
   meta?: MetaType;
   columns?: GridColumnType[];
+  levels?: ListViewLevelType[];
 }
 
 /**

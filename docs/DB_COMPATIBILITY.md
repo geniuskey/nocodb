@@ -86,14 +86,20 @@ the retained test Compose configuration.
 
 ## List view slice verification
 
-The independent flat List slice was verified on Windows on 2026-08-26:
+The independent flat List slice was verified on Windows on 2026-08-26. Its
+linked hierarchy extension was verified on 2026-08-27:
 
 | Database/runtime | Scope | Result |
 | --- | --- | --- |
 | SQLite | Complete backend suite | 558 passing, 21 pending, 0 failing |
-| PostgreSQL 14.7 | Focused `List view foundation` suite | 2 passing, 0 failing |
-| MySQL 8.3.0 | Focused `List view foundation` suite | 2 passing, 0 failing |
+| SQLite | Focused `List view foundation` suite with hierarchy | 4 passing, 0 failing |
+| PostgreSQL 14.7 | Focused `List view foundation` suite with hierarchy | 4 passing, 0 failing |
+| MySQL 8.3.0 | Focused `List view foundation` suite with hierarchy | 4 passing, 0 failing |
 | Community Docker image with SQLite | Production HTTP acceptance | Login, Base, table, List metadata, and record CRUD passed |
+
+The hierarchy cases cover Has-Many validation and persistence, field-table
+isolation, rejection of non-Has-Many and non-self recursive configuration,
+the v2 lazy linked-record endpoint, level cleanup, and bounded self-reference.
 
 Run the focused suite against any configured metadata database with:
 

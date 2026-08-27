@@ -1,6 +1,7 @@
 import type { ListType, MetaType } from 'nocodb-sdk';
 import type { NcContext } from '~/interface/config';
 import ListViewColumn from '~/models/ListViewColumn';
+import ListViewLevel from '~/models/ListViewLevel';
 import View from '~/models/View';
 import Noco from '~/Noco';
 import NocoCache from '~/cache/NocoCache';
@@ -16,6 +17,7 @@ export default class ListView implements ListType {
   meta?: MetaType;
   row_height?: number;
   columns?: ListViewColumn[];
+  levels?: ListViewLevel[];
 
   constructor(data: ListView) {
     Object.assign(this, data);
@@ -23,6 +25,17 @@ export default class ListView implements ListType {
 
   async getColumns(context: NcContext): Promise<ListViewColumn[]> {
     return (this.columns = await ListViewColumn.list(context, this.fk_view_id));
+  }
+
+  async getLevels(
+    context: NcContext,
+    ncMeta = Noco.ncMeta,
+  ): Promise<ListViewLevel[]> {
+    return (this.levels = await ListViewLevel.list(
+      context,
+      this.fk_view_id,
+      ncMeta,
+    ));
   }
 
   static async get(context: NcContext, viewId: string, ncMeta = Noco.ncMeta) {
@@ -41,7 +54,10 @@ export default class ListView implements ListType {
       );
       await NocoCache.set(`${CacheScope.LIST_VIEW}:${viewId}`, view);
     }
-    return view && new ListView(view);
+    if (!view) return undefined;
+    const listView = new ListView(view);
+    await listView.getLevels(context, ncMeta);
+    return listView;
   }
 
   static async insert(
@@ -66,13 +82,21 @@ export default class ListView implements ListType {
       prepareForDb(insertObj),
       true,
     );
+    if (view.levels?.length) {
+      await ListViewLevel.replace(
+        context,
+        view.fk_view_id,
+        view.levels,
+        ncMeta,
+      );
+    }
     return this.get(context, view.fk_view_id, ncMeta);
   }
 
   static async update(
     context: NcContext,
     viewId: string,
-    body: Partial<ListView>,
+    body: Pick<Partial<ListView>, 'row_height' | 'meta'>,
     ncMeta = Noco.ncMeta,
   ) {
     const updateObj = extractProps(body, ['row_height', 'meta']);

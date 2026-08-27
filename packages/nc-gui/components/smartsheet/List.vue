@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PermissionEntity, PermissionKey, ViewTypes, isVirtualCol } from 'nocodb-sdk'
-import type { ColumnType } from 'nocodb-sdk'
+import type { ColumnType, ListType, ListViewLevelType, TableType } from 'nocodb-sdk'
 
 const meta = inject(MetaInj, ref())
 const view = inject(ActiveViewInj, ref())
@@ -47,6 +47,11 @@ const expandedFormOnRowIdDlg = computed({
 const visibleFields = computed(() => fields.value.filter(Boolean))
 const displayField = computed(() => visibleFields.value.find((field) => field.pv) ?? visibleFields.value[0])
 const detailFields = computed(() => visibleFields.value.filter((field) => field.id !== displayField.value?.id))
+const hierarchyLevels = computed<ListViewLevelType[]>(() => (view.value?.view as ListType | undefined)?.levels ?? [])
+
+const recordPath = (record: Record<string, any>) => [
+  `${meta.value?.id}:${extractPkFromRow(record, meta.value?.columns as ColumnType[])}`,
+]
 
 const expandForm = (row: Row) => {
   const rowId = extractPkFromRow(row.row, meta.value?.columns as ColumnType[])
@@ -141,61 +146,70 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="mx-auto flex max-w-6xl flex-col gap-2">
-        <div
-          v-for="(record, index) in formattedData"
-          :key="extractPkFromRow(record.row, meta?.columns as ColumnType[]) || index"
-          role="listitem"
-          tabindex="0"
-          class="group w-full rounded-lg border border-nc-border-gray-medium bg-nc-bg-default px-4 py-3 text-left shadow-sm transition hover:border-nc-border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-nc-content-brand"
-          :data-list-row-index="index"
-          :data-testid="`nc-list-row-${index}`"
-          @click="expandForm(record)"
-          @keydown.down="focusSibling($event, index, 1)"
-          @keydown.up="focusSibling($event, index, -1)"
-          @keydown.enter="expandForm(record)"
-        >
-          <LazySmartsheetRow :row="record">
-            <div class="flex min-w-0 items-center gap-4">
-              <div class="min-w-0 flex-1">
-                <div v-if="displayField" class="min-h-6 truncate font-medium text-nc-content-gray-emphasis">
-                  <LazySmartsheetVirtualCell
-                    v-if="isVirtualCol(displayField)"
-                    v-model="record.row[displayField.title!]"
-                    :column="displayField"
-                    :row="record"
-                  />
-                  <LazySmartsheetCell
-                    v-else
-                    v-model="record.row[displayField.title!]"
-                    :column="displayField"
-                    :edit-enabled="false"
-                    :read-only="true"
-                  />
-                </div>
-                <div class="mt-1 flex min-w-0 flex-wrap gap-x-6 gap-y-1 text-small text-nc-content-gray-subtle">
-                  <div v-for="field in detailFields" :key="field.id" class="flex min-w-32 max-w-64 items-center gap-2">
-                    <span class="shrink-0 truncate text-nc-content-gray-muted">{{ field.title }}</span>
-                    <span class="min-w-0 truncate text-nc-content-gray">
-                      <LazySmartsheetVirtualCell
-                        v-if="isVirtualCol(field)"
-                        v-model="record.row[field.title!]"
-                        :column="field"
-                        :row="record"
-                      />
-                      <LazySmartsheetCell
-                        v-else
-                        v-model="record.row[field.title!]"
-                        :column="field"
-                        :edit-enabled="false"
-                        :read-only="true"
-                      />
-                    </span>
+        <div v-for="(record, index) in formattedData" :key="extractPkFromRow(record.row, meta?.columns as ColumnType[]) || index">
+          <div
+            role="listitem"
+            tabindex="0"
+            class="group w-full rounded-lg border border-nc-border-gray-medium bg-nc-bg-default px-4 py-3 text-left shadow-sm transition hover:border-nc-border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-nc-content-brand"
+            :data-list-row-index="index"
+            :data-testid="`nc-list-row-${index}`"
+            @click="expandForm(record)"
+            @keydown.down="focusSibling($event, index, 1)"
+            @keydown.up="focusSibling($event, index, -1)"
+            @keydown.enter="expandForm(record)"
+          >
+            <LazySmartsheetRow :row="record">
+              <div class="flex min-w-0 items-center gap-4">
+                <div class="min-w-0 flex-1">
+                  <div v-if="displayField" class="min-h-6 truncate font-medium text-nc-content-gray-emphasis">
+                    <LazySmartsheetVirtualCell
+                      v-if="isVirtualCol(displayField)"
+                      v-model="record.row[displayField.title!]"
+                      :column="displayField"
+                      :row="record"
+                    />
+                    <LazySmartsheetCell
+                      v-else
+                      v-model="record.row[displayField.title!]"
+                      :column="displayField"
+                      :edit-enabled="false"
+                      :read-only="true"
+                    />
+                  </div>
+                  <div class="mt-1 flex min-w-0 flex-wrap gap-x-6 gap-y-1 text-small text-nc-content-gray-subtle">
+                    <div v-for="field in detailFields" :key="field.id" class="flex min-w-32 max-w-64 items-center gap-2">
+                      <span class="shrink-0 truncate text-nc-content-gray-muted">{{ field.title }}</span>
+                      <span class="min-w-0 truncate text-nc-content-gray">
+                        <LazySmartsheetVirtualCell
+                          v-if="isVirtualCol(field)"
+                          v-model="record.row[field.title!]"
+                          :column="field"
+                          :row="record"
+                        />
+                        <LazySmartsheetCell
+                          v-else
+                          v-model="record.row[field.title!]"
+                          :column="field"
+                          :edit-enabled="false"
+                          :read-only="true"
+                        />
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <GeneralIcon icon="chevronRight" class="h-4 w-4 shrink-0 text-nc-content-gray-muted" />
               </div>
-              <GeneralIcon icon="chevronRight" class="h-4 w-4 shrink-0 text-nc-content-gray-muted" />
-            </div>
-          </LazySmartsheetRow>
+            </LazySmartsheetRow>
+          </div>
+          <SmartsheetListHierarchyNode
+            v-if="hierarchyLevels.length && meta"
+            :record="record.row"
+            :table-meta="meta as TableType"
+            :levels="hierarchyLevels"
+            :level-index="0"
+            :depth="1"
+            :path="recordPath(record.row)"
+          />
         </div>
       </div>
     </div>

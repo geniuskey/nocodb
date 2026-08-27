@@ -38,6 +38,7 @@ import MapView from '~/models/MapView';
 import MapViewColumn from '~/models/MapViewColumn';
 import ListView from '~/models/ListView';
 import ListViewColumn from '~/models/ListViewColumn';
+import ListViewLevel from '~/models/ListViewLevel';
 import { extractProps } from '~/helpers/extractProps';
 import NocoCache from '~/cache/NocoCache';
 import {
@@ -1536,6 +1537,9 @@ export default class View implements ViewType {
     const tableScope = this.extractViewTableNameScope(view);
     const columnTable = this.extractViewColumnsTableName(view);
     const columnTableScope = this.extractViewColumnsTableNameScope(view);
+    if (view.type === ViewTypes.LIST) {
+      await ListViewLevel.deleteAll(context, viewId, ncMeta);
+    }
     await RowColorViewHelpers.withContext(context, { ncMeta }).viewDeleted(
       view,
     );
