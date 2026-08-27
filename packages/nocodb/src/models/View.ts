@@ -56,6 +56,7 @@ import {
 } from '~/utils/modelUtils';
 import { CustomUrl, LinkToAnotherRecordColumn } from '~/models';
 import { cleanCommandPaletteCache } from '~/helpers/commandPaletteHelpers';
+import { NcError } from '~/helpers/catchError';
 import { isEE } from '~/utils';
 import { cleanBaseSchemaCacheForBase } from '~/helpers/scriptHelper';
 
@@ -2326,6 +2327,18 @@ export default class View implements ViewType {
 
     const copyFromView =
       view.copy_from_id && (await View.get(context, view.copy_from_id, ncMeta));
+
+    if (
+      view.copy_from_id &&
+      (!copyFromView ||
+        copyFromView.type !== view.type ||
+        copyFromView.fk_model_id !== view.fk_model_id)
+    ) {
+      NcError.get(context).invalidRequestBody(
+        'A view can only be duplicated from the same view type and table',
+      );
+    }
+
     await copyFromView?.getView(context);
 
     const table = await Model.getByIdOrName(
