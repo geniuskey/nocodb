@@ -55,8 +55,8 @@ Important retained signals are:
   signals until a Community API and acceptance flow proves the complete path.
 - the retained baseline had no List, Timeline, or Gantt view discriminator or
   matching Community controller/model set. RowWeave now has independently
-  implemented additive flat List and linked Has-Many hierarchy foundations;
-  browser acceptance and sharing remain pending.
+  implemented additive flat List and linked Has-Many hierarchy foundations,
+  plus flat read-only sharing; browser acceptance remains pending.
 - the retained metadata model contains an `is_snapshot` marker, but no
   Community snapshot controller/service acceptance path was found.
 - no Community trash or workflow persistence/controller/service set was found.
@@ -81,7 +81,7 @@ commands and the legal baseline.
 | Realtime presence | Missing | Member presence, focused-cell markers, open-record state, navigation, and non-locking semantics | 1 | [Realtime Presence](https://nocodb.com/docs/product/tables/table-operations/realtime-presence) |
 | Base/sidebar and view folders | Missing | Collapsible ordering-only folders with move/reorder and no permission side effects | 1 | [Folders](https://nocodb.com/docs/product/bases/folders) |
 | Comments and record revisions | Present | Test author-only mutation, deep links, permissions, and attachment security | 1/10 | [Expanded record](https://nocodb.com/docs/product/records/expand-record) |
-| List view | Partial; flat and linked hierarchy APIs accepted on SQLite, PostgreSQL, and MySQL; flat Docker flow and hierarchy UI build pass | Browser interaction, keyboard navigation, sharing, and permission acceptance | 2 | [List](https://nocodb.com/docs/product/tables/views/view-types/list) |
+| List view | Partial; flat, linked hierarchy, and flat public sharing APIs accepted on SQLite, PostgreSQL, and MySQL; keyboard UI and production build pass | Browser interaction and permission acceptance; public hierarchy remains fail-closed | 2 | [List](https://nocodb.com/docs/product/tables/views/view-types/list) |
 | Timeline view | Missing | Date/range bars, zoom/navigation, grouping, create/move/resize, undo/redo | 3 | [Timeline](https://nocodb.com/docs/product/views/view-types/timeline) |
 | Gantt view | Missing | Scheduling bars, milestones, dependency links, rescheduling, and validation | 4 | [Gantt](https://nocodb.com/docs/product/tables/views/view-types/gantt) |
 | Base trash and restore | Missing | Recover records first, then schema and application resources, with explicit conflict handling | 5 | [Base Trash](https://nocodb.com/docs/product/bases/base-trash) |
@@ -162,9 +162,11 @@ Implement in reviewable slices:
 2. flat list rendering and field configuration using existing record/query
    abstractions;
 3. linked hierarchy with up to three configured Has-Many levels (implemented);
-4. same-table parent/child nesting, cycle detection, and progressive loading
-   (implemented); keyboard navigation and browser acceptance remain;
-5. share, lock, filter, sort, colour, permission, and database acceptance.
+4. same-table parent/child nesting, cycle detection, and progressive loading;
+   keyboard navigation is implemented, while browser acceptance remains;
+5. flat share, lock, filter, sort, colour, permission, and database acceptance.
+   Flat sharing and its database acceptance are implemented; public hierarchy
+   stays disabled until it has a hierarchy-scoped authorization contract.
 
 ### Phase 3 — Timeline
 

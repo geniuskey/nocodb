@@ -34,6 +34,8 @@ const { formattedData, paginationData, loadData, changePage, navigateToSiblingRo
 
 const expandedFormDlg = ref(false)
 const expandedFormRow = ref<Row>()
+const listContainer = ref<HTMLElement>()
+const activeRowIndex = ref(0)
 
 const expandedFormOnRowIdDlg = computed({
   get: () => !!route.query.rowId,
@@ -47,7 +49,9 @@ const expandedFormOnRowIdDlg = computed({
 const visibleFields = computed(() => fields.value.filter(Boolean))
 const displayField = computed(() => visibleFields.value.find((field) => field.pv) ?? visibleFields.value[0])
 const detailFields = computed(() => visibleFields.value.filter((field) => field.id !== displayField.value?.id))
-const hierarchyLevels = computed<ListViewLevelType[]>(() => (view.value?.view as ListType | undefined)?.levels ?? [])
+const hierarchyLevels = computed<ListViewLevelType[]>(() =>
+  isPublic.value ? [] : (view.value?.view as ListType | undefined)?.levels ?? [],
+)
 
 const recordPath = (record: Record<string, any>) => [
   `${meta.value?.id}:${extractPkFromRow(record, meta.value?.columns as ColumnType[])}`,
@@ -55,7 +59,7 @@ const recordPath = (record: Record<string, any>) => [
 
 const expandForm = (row: Row) => {
   const rowId = extractPkFromRow(row.row, meta.value?.columns as ColumnType[])
-  if (rowId && !isPublic.value) {
+  if (rowId !== null && rowId !== undefined && rowId !== '' && !isPublic.value) {
     expandedFormRow.value = undefined
     router.push({ query: { ...route.query, rowId } })
   } else {
@@ -77,11 +81,31 @@ const openNewRecord = () => {
   })
 }
 
+const focusRow = (index: number) => {
+  if (!formattedData.value.length) return
+
+  const nextIndex = Math.min(Math.max(index, 0), formattedData.value.length - 1)
+  activeRowIndex.value = nextIndex
+  nextTick(() => {
+    const target = listContainer.value?.querySelector<HTMLElement>(`[data-list-row-index="${nextIndex}"]`)
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
 const focusSibling = (event: KeyboardEvent, index: number, delta: number) => {
   event.preventDefault()
-  const target = document.querySelector<HTMLElement>(`[data-list-row-index="${index + delta}"]`)
-  target?.focus({ preventScroll: true })
-  target?.scrollIntoView({ block: 'nearest' })
+  focusRow(index + delta)
+}
+
+const openRecordFromKeyboard = (event: KeyboardEvent, record: Row) => {
+  event.preventDefault()
+  expandForm(record)
+}
+
+const openRecord = (record: Row, index: number) => {
+  activeRowIndex.value = index
+  expandForm(record)
 }
 
 const reload = async () => {
@@ -99,6 +123,13 @@ watch(
     if (id && view.value?.type === ViewTypes.LIST) await reload()
   },
   { immediate: true },
+)
+
+watch(
+  () => formattedData.value.length,
+  (length) => {
+    activeRowIndex.value = length ? Math.min(activeRowIndex.value, length - 1) : 0
+  },
 )
 
 const onReloadEvent = () => reload()
@@ -119,7 +150,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="nc-list-view flex h-full min-h-0 w-full flex-col bg-nc-bg-gray-extralight" data-testid="nc-list-wrapper">
-    <div class="min-h-0 flex-1 overflow-auto p-3 md:p-5" role="list" aria-label="Records">
+    <div ref="listContainer" class="min-h-0 flex-1 overflow-auto p-3 md:p-5" role="list" aria-label="Records">
       <div v-if="isViewDataLoading || isPaginationLoading" class="space-y-2" aria-busy="true">
         <a-skeleton v-for="index in 6" :key="index" active :paragraph="{ rows: 1 }" />
       </div>
@@ -146,17 +177,22 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="mx-auto flex max-w-6xl flex-col gap-2">
-        <div v-for="(record, index) in formattedData" :key="extractPkFromRow(record.row, meta?.columns as ColumnType[]) || index">
+        <div v-for="(record, index) in formattedData" :key="extractPkFromRow(record.row, meta?.columns as ColumnType[]) ?? index">
           <div
             role="listitem"
-            tabindex="0"
+            :tabindex="index === activeRowIndex ? 0 : -1"
+            :aria-current="index === activeRowIndex ? 'true' : undefined"
             class="group w-full rounded-lg border border-nc-border-gray-medium bg-nc-bg-default px-4 py-3 text-left shadow-sm transition hover:border-nc-border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-nc-content-brand"
             :data-list-row-index="index"
             :data-testid="`nc-list-row-${index}`"
-            @click="expandForm(record)"
+            @click="openRecord(record, index)"
+            @focus="activeRowIndex = index"
             @keydown.down="focusSibling($event, index, 1)"
             @keydown.up="focusSibling($event, index, -1)"
-            @keydown.enter="expandForm(record)"
+            @keydown.home.prevent="focusRow(0)"
+            @keydown.end.prevent="focusRow(formattedData.length - 1)"
+            @keydown.enter="openRecordFromKeyboard($event, record)"
+            @keydown.space="openRecordFromKeyboard($event, record)"
           >
             <LazySmartsheetRow :row="record">
               <div class="flex min-w-0 items-center gap-4">

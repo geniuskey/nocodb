@@ -11,7 +11,7 @@ definePageMeta({
 
 const route = useRoute()
 
-const { loadSharedView, meta, triggerNotFound } = useSharedView()
+const { loadSharedView, meta, sharedView, triggerNotFound } = useSharedView()
 const { isViewDataLoading } = storeToRefs(useViewsStore())
 
 provide(MetaInj, meta)
@@ -41,6 +41,8 @@ onMounted(async () => {
   <div v-if="showPassword">
     <LazySharedViewAskPassword v-model="showPassword" />
   </div>
+
+  <LazySharedViewList v-else-if="meta && sharedView?.type === ViewTypes.LIST" />
 
   <LazySharedViewGrid v-else-if="meta" :view-type="ViewTypes.GRID" />
 </template>

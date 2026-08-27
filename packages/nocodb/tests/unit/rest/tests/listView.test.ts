@@ -181,6 +181,116 @@ export default function listViewTests() {
       ).to.equal(false);
     });
 
+    it('shares a flat List with projection, paging, sorting, and password protection', async function () {
+      const sharedTable = await createTable(context, base, {
+        table_name: 'list_shared_records',
+        title: 'List Shared Records',
+        columns: [
+          { column_name: 'id', title: 'Id', uidt: UITypes.ID },
+          {
+            column_name: 'title',
+            title: 'Title',
+            uidt: UITypes.SingleLineText,
+          },
+          {
+            column_name: 'notes',
+            title: 'Notes',
+            uidt: UITypes.LongText,
+          },
+        ],
+      });
+      const view = await createView(context, {
+        title: 'Shared List',
+        table: sharedTable,
+        type: ViewTypes.LIST,
+      });
+      const alpha = await createRow(context, {
+        base,
+        table: sharedTable,
+      });
+      const beta = await createRow(context, {
+        base,
+        table: sharedTable,
+      });
+
+      await request(context.app)
+        .patch(`/api/v1/db/data/noco/${base.id}/${sharedTable.id}/${alpha.Id}`)
+        .set('xc-auth', context.token)
+        .send({ title: 'Shared Alpha', notes: 'private alpha note' })
+        .expect(200);
+      await request(context.app)
+        .patch(`/api/v1/db/data/noco/${base.id}/${sharedTable.id}/${beta.Id}`)
+        .set('xc-auth', context.token)
+        .send({ title: 'Shared Beta', notes: 'private beta note' })
+        .expect(200);
+
+      const notesColumn = (await sharedTable.getColumns(ctx)).find(
+        (column) => column.title === 'Notes',
+      );
+      const notesViewColumn = (await view.getColumns(ctx)).find(
+        (column) => column.fk_column_id === notesColumn?.id,
+      );
+      await request(context.app)
+        .patch(
+          `/api/v1/db/meta/views/${view.id}/columns/${notesViewColumn?.id}`,
+        )
+        .set('xc-auth', context.token)
+        .send({ show: false })
+        .expect(200);
+
+      const share = await request(context.app)
+        .post(`/api/v1/db/meta/views/${view.id}/share`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      expect(share.body.uuid).to.be.a('string').and.not.empty;
+
+      const publicMeta = await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/meta`)
+        .expect(200);
+      expect(publicMeta.body.type).to.equal(ViewTypes.LIST);
+      expect(
+        publicMeta.body.model.columns.map((column) => column.title),
+      ).to.include.members(['Id', 'Title']);
+      expect(
+        publicMeta.body.model.columns.map((column) => column.title),
+      ).not.to.include('Notes');
+
+      const firstPage = await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/rows`)
+        .query({ fields: ['Title'], sort: '-Title', limit: 1, offset: 0 })
+        .expect(200);
+      expect(firstPage.body.list).to.have.length(1);
+      expect(firstPage.body.list[0].Title).to.equal('Shared Beta');
+      expect(firstPage.body.list[0]).not.to.have.property('Notes');
+      expect(firstPage.body.pageInfo.totalRows).to.equal(2);
+
+      const publicCount = await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/count`)
+        .expect(200);
+      expect(publicCount.body.count).to.equal(2);
+
+      const secondPage = await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/rows`)
+        .query({ fields: ['Title'], sort: '-Title', limit: 1, offset: 1 })
+        .expect(200);
+      expect(secondPage.body.list).to.have.length(1);
+      expect(secondPage.body.list[0].Title).to.equal('Shared Alpha');
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/views/${view.id}/share`)
+        .set('xc-auth', context.token)
+        .send({ password: 'list-secret' })
+        .expect(200);
+
+      await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/rows`)
+        .expect(403);
+      await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/rows`)
+        .set('xc-password', 'list-secret')
+        .expect(200);
+    });
+
     it('validates and persists a lazy Has-Many hierarchy', async function () {
       const parentTable = await createTable(context, base, {
         table_name: 'list_parents',
@@ -331,6 +441,21 @@ export default function listViewTests() {
         .expect(200);
       expect(v2Nested.body.list).to.have.length(1);
       expect(v2Nested.body.list[0].Id).to.equal(childRow.Id);
+
+      const share = await request(context.app)
+        .post(`/api/v1/db/meta/views/${view.id}/share`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      const publicMeta = await request(context.app)
+        .get(`/api/v2/public/shared-view/${share.body.uuid}/meta`)
+        .expect(200);
+      expect(publicMeta.body.view.levels).to.deep.equal([]);
+
+      await request(context.app)
+        .get(
+          `/api/v2/public/shared-view/${share.body.uuid}/rows/${parentRow.Id}/hm/${relation.id}`,
+        )
+        .expect(404);
 
       await request(context.app)
         .delete(`/api/v1/db/meta/views/${view.id}`)

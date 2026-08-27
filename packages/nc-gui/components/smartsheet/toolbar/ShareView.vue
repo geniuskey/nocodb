@@ -348,6 +348,7 @@ const copyIframeCode = async () => {
             v-if="
               shared &&
               (shared.type === ViewTypes.GRID ||
+                shared.type === ViewTypes.LIST ||
                 shared.type === ViewTypes.KANBAN ||
                 shared.type === ViewTypes.GALLERY ||
                 shared.type === ViewTypes.MAP)
