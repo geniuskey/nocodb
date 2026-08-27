@@ -62,6 +62,13 @@ not from another product's source or visual implementation.
 - Use one roving tab stop for root records. Arrow Up/Down, Home, and End move
   focus while keeping the active record visible; Enter or Space opens it.
 - Add creation, rename, duplicate, delete, share, and lock acceptance coverage.
+- Duplicate only from a List on the same table. Preserve List metadata,
+  hierarchy levels, visible-field configuration, filters, and sorts while
+  assigning new view and level identities.
+- A locked List remains readable and navigable but does not expose record or
+  view mutation entry points. Backend role checks remain authoritative for
+  direct API requests: viewers may read, editors may mutate records, and
+  creators/owners may manage view metadata and lifecycle.
 - Reuse the retained shared-view UUID, password, filter, sort, search, paging,
   and field-projection contracts for a read-only flat List.
 - Do not expose configured hierarchy levels in a public List yet. A later
@@ -157,15 +164,17 @@ effective hierarchy depth to three, and stops repeated record identities.
 
 ## Current verification status
 
-The flat slice, linked hierarchy backend path, and flat public sharing pass on
-SQLite, PostgreSQL 14.7, and MySQL 8.3.0. The focused five-test suite covers
-List metadata create/read/update/delete, per-field visibility and width,
-compatible record CRUD, filtering, sorting, hidden-field projection,
-validated Has-Many configuration, v2 lazy linked-row loading, cleanup,
-bounded self-referential recursion, shared UUID and password access, paging,
-counting, and fail-closed public hierarchy metadata and linked-row access. The
-previously run full SQLite backend suite passes with 558 tests and 21
-intentional pending tests.
+The flat slice, linked hierarchy backend path, flat public sharing, and view
+lifecycle and role contracts pass on SQLite, PostgreSQL 14.7, and MySQL 8.3.0.
+The focused seven-test suite covers List metadata create/read/update/delete,
+per-field visibility and width, compatible record CRUD, filtering, sorting,
+hidden-field projection, same-table and same-type duplication with independent
+hierarchy identities, rename and lock persistence, viewer/creator permission
+boundaries, validated Has-Many configuration, v2 lazy linked-row loading,
+cleanup, bounded self-referential recursion, shared UUID and password access,
+paging, counting, and fail-closed public hierarchy metadata and linked-row
+access. The previously run full SQLite backend suite passes with 558 tests and
+21 intentional pending tests.
 
 The SDK, backend type check, Nuxt production build, complete Community build,
 and source-built Community Docker image pass. The Docker acceptance flow covers
@@ -174,5 +183,5 @@ create/read/update/delete. The List interaction and shared-view UI compile in
 the complete Community production build. Browser-level UI acceptance could not
 run because no browser runtime was connected in the verification environment.
 Expansion, paging, cycle messaging, settings interaction, keyboard navigation,
-and flat sharing still require browser-level automation before the overall
-List capability can be marked complete.
+locked-state interaction, and flat sharing still require browser-level
+automation before the overall List capability can be marked complete.

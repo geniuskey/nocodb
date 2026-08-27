@@ -1,14 +1,14 @@
 import 'mocha';
 import { expect } from 'chai';
 import request from 'supertest';
-import { UITypes, ViewTypes } from 'nocodb-sdk';
+import { ProjectRoles, UITypes, ViewLockType, ViewTypes } from 'nocodb-sdk';
 import init from '../../init';
 import { createProject } from '../../factory/base';
 import { createTable } from '../../factory/table';
 import { createChildRow, createRow } from '../../factory/row';
 import { createLtarColumn } from '../../factory/column';
 import { createView } from '../../factory/view';
-import { ListView, ListViewLevel, View } from '../../../../src/models';
+import { Filter, ListView, ListViewLevel, View } from '../../../../src/models';
 
 export default function listViewTests() {
   describe('List view foundation', function () {
@@ -179,6 +179,264 @@ export default function listViewTests() {
       expect(
         afterDelete.body.list.some((record) => record.Id === row.Id),
       ).to.equal(false);
+    });
+
+    it('renames, locks, duplicates, and deletes a List without losing configuration', async function () {
+      const view = await createView(context, {
+        title: 'Lifecycle List',
+        table,
+        type: ViewTypes.LIST,
+      });
+      const columns = await table.getColumns(ctx);
+      const titleColumn = columns.find((column) => column.title === 'Title');
+      const notesColumn = columns.find((column) => column.title === 'Notes');
+      const notesViewColumn = (await view.getColumns(ctx)).find(
+        (column) => column.fk_column_id === notesColumn?.id,
+      );
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({ row_height: 2, meta: { schemaVersion: 1 } })
+        .expect(200);
+      await request(context.app)
+        .patch(
+          `/api/v1/db/meta/views/${view.id}/columns/${notesViewColumn?.id}`,
+        )
+        .set('xc-auth', context.token)
+        .send({ show: false, width: '280px' })
+        .expect(200);
+      await request(context.app)
+        .post(`/api/v1/db/meta/views/${view.id}/sorts`)
+        .set('xc-auth', context.token)
+        .send({ fk_column_id: titleColumn?.id, direction: 'desc' })
+        .expect(200);
+      await request(context.app)
+        .post(`/api/v1/db/meta/views/${view.id}/filters`)
+        .set('xc-auth', context.token)
+        .send({
+          fk_column_id: titleColumn?.id,
+          comparison_op: 'like',
+          value: 'Lifecycle',
+          logical_op: 'and',
+        })
+        .expect(200);
+
+      const renamed = await request(context.app)
+        .patch(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({ title: 'Lifecycle List Renamed' })
+        .expect(200);
+      expect(renamed.body.title).to.equal('Lifecycle List Renamed');
+
+      const duplicateResponse = await request(context.app)
+        .post(`/api/v1/db/meta/tables/${table.id}/lists`)
+        .set('xc-auth', context.token)
+        .send({
+          title: 'Lifecycle List Copy',
+          type: ViewTypes.LIST,
+          copy_from_id: view.id,
+        })
+        .expect(200);
+      const duplicate = await View.get(ctx, duplicateResponse.body.id);
+      const duplicateMeta = await ListView.get(ctx, duplicate.id!);
+      expect(duplicateMeta.row_height).to.equal(2);
+      expect(duplicateMeta.meta).to.deep.equal({ schemaVersion: 1 });
+
+      const duplicateNotes = (await duplicate.getColumns(ctx)).find(
+        (column) => column.fk_column_id === notesColumn?.id,
+      );
+      expect(Boolean(duplicateNotes?.show)).to.equal(false);
+      expect(duplicateNotes?.width).to.equal('280px');
+      const duplicateSorts = await duplicate.getSorts(ctx);
+      expect(duplicateSorts).to.have.length(1);
+      expect(duplicateSorts[0]).to.include({
+        fk_column_id: titleColumn?.id,
+        direction: 'desc',
+      });
+      const duplicateFilters = await Filter.rootFilterList(ctx, {
+        viewId: duplicate.id!,
+      });
+      expect(duplicateFilters).to.have.length(1);
+      expect(duplicateFilters[0]).to.include({
+        fk_column_id: titleColumn?.id,
+        comparison_op: 'like',
+        value: 'Lifecycle',
+      });
+
+      const locked = await request(context.app)
+        .patch(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({ lock_type: ViewLockType.Locked })
+        .expect(200);
+      expect(locked.body.lock_type).to.equal(ViewLockType.Locked);
+
+      const grid = await createView(context, {
+        title: 'Invalid List copy source',
+        table,
+        type: ViewTypes.GRID,
+      });
+      await request(context.app)
+        .post(`/api/v1/db/meta/tables/${table.id}/lists`)
+        .set('xc-auth', context.token)
+        .send({
+          title: 'Invalid List Copy',
+          type: ViewTypes.LIST,
+          copy_from_id: grid.id,
+        })
+        .expect(400);
+      expect(
+        await View.getByTitleOrId(ctx, {
+          titleOrId: 'Invalid List Copy',
+          fk_model_id: table.id,
+        }),
+      ).to.equal(undefined);
+
+      const otherTable = await createTable(context, base, {
+        table_name: 'list_copy_source_other_table',
+        title: 'List Copy Source Other Table',
+        columns: [
+          { column_name: 'id', title: 'Id', uidt: UITypes.ID },
+          {
+            column_name: 'title',
+            title: 'Title',
+            uidt: UITypes.SingleLineText,
+          },
+        ],
+      });
+      const otherList = await createView(context, {
+        title: 'Other table List',
+        table: otherTable,
+        type: ViewTypes.LIST,
+      });
+      await request(context.app)
+        .post(`/api/v1/db/meta/tables/${table.id}/lists`)
+        .set('xc-auth', context.token)
+        .send({
+          title: 'Invalid Cross-table List Copy',
+          type: ViewTypes.LIST,
+          copy_from_id: otherList.id,
+        })
+        .expect(400);
+      expect(
+        await View.getByTitleOrId(ctx, {
+          titleOrId: 'Invalid Cross-table List Copy',
+          fk_model_id: table.id,
+        }),
+      ).to.equal(undefined);
+
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${duplicate.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${grid.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${otherList.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+    });
+
+    it('allows viewers to read and creators to manage List views', async function () {
+      const view = await createView(context, {
+        title: 'Role List',
+        table,
+        type: ViewTypes.LIST,
+      });
+
+      const invite = async (email: string, role: ProjectRoles) => {
+        const credentials = {
+          email,
+          password: 'A1234abh2@dsad',
+        };
+        await request(context.app)
+          .post('/api/v1/auth/user/signup')
+          .send(credentials)
+          .expect(200);
+        await request(context.app)
+          .post(`/api/v1/db/meta/projects/${base.id}/users`)
+          .set('xc-auth', context.token)
+          .send({
+            roles: role,
+            email,
+            base_id: base.id,
+            baseName: base.title,
+          })
+          .expect(200);
+        return (
+          await request(context.app)
+            .post('/api/v1/auth/user/signin')
+            .send(credentials)
+            .expect(200)
+        ).body.token;
+      };
+
+      const viewerToken = await invite(
+        'list-viewer@example.com',
+        ProjectRoles.VIEWER,
+      );
+      await request(context.app)
+        .get(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', viewerToken)
+        .expect(200);
+      await request(context.app)
+        .get(`/api/v1/db/data/noco/${base.id}/${table.id}/views/${view.id}`)
+        .set('xc-auth', viewerToken)
+        .expect(200);
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', viewerToken)
+        .send({ row_height: 3 })
+        .expect(403);
+      await request(context.app)
+        .patch(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', viewerToken)
+        .send({ title: 'Viewer must not rename' })
+        .expect(403);
+      await request(context.app)
+        .post(`/api/v1/db/meta/tables/${table.id}/lists`)
+        .set('xc-auth', viewerToken)
+        .send({ title: 'Viewer must not create', type: ViewTypes.LIST })
+        .expect(403);
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', viewerToken)
+        .expect(403);
+
+      const creatorToken = await invite(
+        'list-creator@example.com',
+        ProjectRoles.CREATOR,
+      );
+      const created = await request(context.app)
+        .post(`/api/v1/db/meta/tables/${table.id}/lists`)
+        .set('xc-auth', creatorToken)
+        .send({ title: 'Creator List', type: ViewTypes.LIST })
+        .expect(200);
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${created.body.id}`)
+        .set('xc-auth', creatorToken)
+        .send({ row_height: 1 })
+        .expect(200);
+      await request(context.app)
+        .patch(`/api/v1/db/meta/views/${created.body.id}`)
+        .set('xc-auth', creatorToken)
+        .send({ title: 'Creator List Renamed' })
+        .expect(200);
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${created.body.id}`)
+        .set('xc-auth', creatorToken)
+        .expect(200);
+
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
     });
 
     it('shares a flat List with projection, paging, sorting, and password protection', async function () {
@@ -456,6 +714,33 @@ export default function listViewTests() {
           `/api/v2/public/shared-view/${share.body.uuid}/rows/${parentRow.Id}/hm/${relation.id}`,
         )
         .expect(404);
+
+      const duplicateResponse = await request(context.app)
+        .post(`/api/v1/db/meta/tables/${parentTable.id}/lists`)
+        .set('xc-auth', context.token)
+        .send({
+          title: 'Parent hierarchy copy',
+          type: ViewTypes.LIST,
+          copy_from_id: view.id,
+        })
+        .expect(200);
+      const duplicateLevels = await ListViewLevel.list(
+        ctx,
+        duplicateResponse.body.id,
+      );
+      expect(duplicateLevels).to.have.length(1);
+      expect(duplicateLevels[0]).to.include({
+        fk_relation_column_id: relation.id,
+        fk_related_model_id: childTable.id,
+        page_size: 10,
+        show_empty: true,
+      });
+      expect(duplicateLevels[0].id).not.to.equal(update.body.view.levels[0].id);
+
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${duplicateResponse.body.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
 
       await request(context.app)
         .delete(`/api/v1/db/meta/views/${view.id}`)

@@ -11,6 +11,7 @@ const openNewRecordFormHook = inject(OpenNewRecordFormHookInj, createEventHook()
 const route = useRoute()
 const router = useRouter()
 const isPublic = inject(IsPublicInj, ref(false))
+const isLocked = inject(IsLockedInj, ref(false))
 const { user } = useGlobal()
 const { isUIAllowed } = useRoles()
 const { isSyncedTable, xWhere, allFilters, validFiltersFromUrlParams, eventBus } = useSmartsheetStoreOrThrow()
@@ -69,6 +70,8 @@ const expandForm = (row: Row) => {
 }
 
 const openNewRecord = () => {
+  if (isLocked.value || isPublic.value) return
+
   const rowFilters = getPlaceholderNewRow(
     [...allFilters.value, ...validFiltersFromUrlParams.value],
     meta.value?.columns as ColumnType[],
@@ -169,7 +172,7 @@ onBeforeUnmount(() => {
           :permission="PermissionKey.TABLE_RECORD_ADD"
         >
           <template #default="{ isAllowed }">
-            <NcButton size="small" type="primary" :disabled="!isAllowed" @click="openNewRecord">
+            <NcButton size="small" type="primary" :disabled="isLocked || !isAllowed" @click="openNewRecord">
               {{ $t('activity.newRecord') }}
             </NcButton>
           </template>
@@ -254,7 +257,7 @@ onBeforeUnmount(() => {
       <template v-if="isUIAllowed('dataInsert') && !isSyncedTable" #add-record>
         <PermissionsTooltip :entity="PermissionEntity.TABLE" :entity-id="meta?.id" :permission="PermissionKey.TABLE_RECORD_ADD">
           <template #default="{ isAllowed }">
-            <NcButton class="ml-1" size="small" type="secondary" :disabled="!isAllowed" @click="openNewRecord">
+            <NcButton class="ml-1" size="small" type="secondary" :disabled="isLocked || !isAllowed" @click="openNewRecord">
               {{ $t('activity.newRecord') }}
             </NcButton>
           </template>

@@ -20,7 +20,7 @@ export default class ListView implements ListType {
   levels?: ListViewLevel[];
 
   constructor(data: ListView) {
-    Object.assign(this, data);
+    Object.assign(this, prepareForResponse(data));
   }
 
   async getColumns(context: NcContext): Promise<ListViewColumn[]> {
