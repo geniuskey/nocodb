@@ -116,10 +116,12 @@ stages `.output/public` into `packages/nc-lib-gui/lib/dist`. The backend then
 serves that local source-built output. The committed or npm-published GUI
 artifact is not a build input.
 
-The AGPL baseline defines these view types in the shared SDK: Grid, Form,
-Gallery, Kanban, Map, and Calendar. List, Timeline, and Gantt must be added as
-new independent designs across the shared type, metadata, API, service, and UI
-layers rather than as isolated frontend modes.
+The frozen AGPL baseline defines these view types in the shared SDK: Grid,
+Form, Gallery, Kanban, Map, and Calendar. RowWeave adds List as an independent,
+additive view with flat metadata and a separate ordered linked-level model.
+Timeline and Gantt remain future independent designs. New views must span the
+shared type, metadata, API, service, and UI layers rather than exist as isolated
+frontend modes.
 
 ## SDK and API generation
 

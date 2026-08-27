@@ -1,12 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { AppEvents, EventType, ViewTypes } from 'nocodb-sdk';
-import type { ListUpdateReqType, ViewCreateReqType } from 'nocodb-sdk';
+import {
+  AppEvents,
+  EventType,
+  isLinksOrLTAR,
+  RelationTypes,
+  ViewTypes,
+} from 'nocodb-sdk';
+import type {
+  ListViewLevelType,
+  ListUpdateReqType,
+  ViewCreateReqType,
+} from 'nocodb-sdk';
 import type { NcContext, NcRequest } from '~/interface/config';
 import type { MetaService } from '~/meta/meta.service';
 import { AppHooksService } from '~/services/app-hooks/app-hooks.service';
 import { validatePayload } from '~/helpers';
 import { NcError } from '~/helpers/catchError';
-import { ListView, Model, User, View } from '~/models';
+import { ListView, ListViewLevel, Model, User, View } from '~/models';
 import NocoCache from '~/cache/NocoCache';
 import { CacheScope } from '~/utils/globals';
 import NocoSocket from '~/socket/NocoSocket';
@@ -14,6 +24,131 @@ import NocoSocket from '~/socket/NocoSocket';
 @Injectable()
 export class ListsService {
   constructor(private readonly appHooksService: AppHooksService) {}
+
+  private async validateLevels(
+    context: NcContext,
+    view: View,
+    levels: ListViewLevelType[],
+    ncMeta?: MetaService,
+  ): Promise<Partial<ListViewLevel>[]> {
+    if (levels.length > 3) {
+      NcError.get(context).invalidRequestBody(
+        'A List hierarchy supports at most three linked levels',
+      );
+    }
+
+    let currentModel = await Model.get(context, view.fk_model_id, ncMeta);
+    if (!currentModel) NcError.tableNotFound(view.fk_model_id);
+    const visitedModels = new Set<string>([currentModel.id]);
+    let effectiveDepth = 0;
+    const normalized: Partial<ListViewLevel>[] = [];
+
+    for (const [index, level] of levels.entries()) {
+      const relationColumnId = level.fk_relation_column_id;
+      const columns = await currentModel.getColumns(context, ncMeta);
+      const relation = columns.find((column) => column.id === relationColumnId);
+      const relationOptions = relation?.colOptions as
+        | { type?: RelationTypes; fk_related_model_id?: string }
+        | undefined;
+
+      if (
+        !relation ||
+        !isLinksOrLTAR(relation) ||
+        relationOptions?.type !== RelationTypes.HAS_MANY ||
+        !relationOptions.fk_related_model_id
+      ) {
+        NcError.get(context).invalidRequestBody(
+          `Hierarchy level ${
+            index + 1
+          } must reference a Has-Many field on the preceding table`,
+        );
+      }
+
+      const relatedModel = await Model.get(
+        context,
+        relationOptions.fk_related_model_id,
+        ncMeta,
+      );
+      if (!relatedModel) {
+        NcError.get(context).invalidRequestBody(
+          `Hierarchy level ${index + 1} references a table outside this base`,
+        );
+      }
+
+      const selfReference = relatedModel.id === currentModel.id;
+      const recursive = Boolean(level.recursive);
+      if (recursive && !selfReference) {
+        NcError.get(context).invalidRequestBody(
+          'Recursive expansion is only valid for a self-referential Has-Many field',
+        );
+      }
+      if (recursive && index !== levels.length - 1) {
+        NcError.get(context).invalidRequestBody(
+          'A recursive hierarchy level must be the final configured level',
+        );
+      }
+      if (!selfReference && visitedModels.has(relatedModel.id)) {
+        NcError.get(context).invalidRequestBody(
+          'A table may appear only once in a List hierarchy',
+        );
+      }
+
+      const maxDepth = recursive ? Number(level.max_depth ?? 1) : 1;
+      if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > 3) {
+        NcError.get(context).invalidRequestBody(
+          'Hierarchy max_depth must be an integer from 1 to 3',
+        );
+      }
+      effectiveDepth += maxDepth;
+      if (effectiveDepth > 3) {
+        NcError.get(context).invalidRequestBody(
+          'A List hierarchy supports at most three effective levels',
+        );
+      }
+
+      const pageSize = Number(level.page_size ?? 25);
+      if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+        NcError.get(context).invalidRequestBody(
+          'Hierarchy page_size must be an integer from 1 to 100',
+        );
+      }
+
+      const relatedColumns = await relatedModel.getColumns(context, ncMeta);
+      const fieldIds = level.fields ?? [];
+      if (new Set(fieldIds).size !== fieldIds.length) {
+        NcError.get(context).invalidRequestBody(
+          `Hierarchy level ${index + 1} contains duplicate fields`,
+        );
+      }
+      if (
+        fieldIds.some(
+          (fieldId) => !relatedColumns.some((column) => column.id === fieldId),
+        )
+      ) {
+        NcError.get(context).invalidRequestBody(
+          `Hierarchy level ${index + 1} contains a field from another table`,
+        );
+      }
+
+      normalized.push({
+        fk_relation_column_id: relation.id,
+        fk_related_model_id: relatedModel.id,
+        fields: fieldIds,
+        where: level.where?.trim() || undefined,
+        sort: level.sort,
+        show_empty: Boolean(level.show_empty),
+        page_size: pageSize,
+        recursive,
+        max_depth: maxDepth,
+        meta: level.meta,
+      });
+
+      visitedModels.add(relatedModel.id);
+      currentModel = relatedModel;
+    }
+
+    return normalized;
+  }
 
   async listViewGet(
     context: NcContext,
@@ -108,6 +243,15 @@ export class ListsService {
       NcError.viewNotFound(param.listViewId);
     }
     const oldListView = await ListView.get(context, param.listViewId, ncMeta);
+    if ('levels' in param.list) {
+      const levels = await this.validateLevels(
+        context,
+        view,
+        param.list.levels ?? [],
+        ncMeta,
+      );
+      await ListViewLevel.replace(context, param.listViewId, levels, ncMeta);
+    }
     await ListView.update(context, param.listViewId, param.list, ncMeta);
     let owner = param.req.user;
     if (view.owned_by && view.owned_by !== param.req.user?.id) {

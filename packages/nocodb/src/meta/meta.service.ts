@@ -339,6 +339,7 @@ export class MetaService {
       [MetaTable.CALENDAR_VIEW_RANGE]: 'cvr',
       [MetaTable.LIST_VIEW]: 'lv',
       [MetaTable.LIST_VIEW_COLUMNS]: 'lvc',
+      [MetaTable.LIST_VIEW_LEVELS]: 'lvl',
       [MetaTable.USERS]: 'us',
       [MetaTable.ORGS_OLD]: 'org',
       [MetaTable.TEAMS]: 'tm',

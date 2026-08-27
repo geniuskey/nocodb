@@ -5,9 +5,10 @@ import { UITypes, ViewTypes } from 'nocodb-sdk';
 import init from '../../init';
 import { createProject } from '../../factory/base';
 import { createTable } from '../../factory/table';
-import { createRow } from '../../factory/row';
+import { createChildRow, createRow } from '../../factory/row';
+import { createLtarColumn } from '../../factory/column';
 import { createView } from '../../factory/view';
-import { ListView, View } from '../../../../src/models';
+import { ListView, ListViewLevel, View } from '../../../../src/models';
 
 export default function listViewTests() {
   describe('List view foundation', function () {
@@ -149,7 +150,9 @@ export default function listViewTests() {
         (column) => column.fk_column_id === notesColumn?.id,
       );
       await request(context.app)
-        .patch(`/api/v1/db/meta/views/${view.id}/columns/${listNotesColumn?.id}`)
+        .patch(
+          `/api/v1/db/meta/views/${view.id}/columns/${listNotesColumn?.id}`,
+        )
         .set('xc-auth', context.token)
         .send({ show: false })
         .expect(200);
@@ -176,6 +179,229 @@ export default function listViewTests() {
       expect(
         afterDelete.body.list.some((record) => record.Id === row.Id),
       ).to.equal(false);
+    });
+
+    it('validates and persists a lazy Has-Many hierarchy', async function () {
+      const parentTable = await createTable(context, base, {
+        table_name: 'list_parents',
+        title: 'List Parents',
+        columns: [
+          { column_name: 'id', title: 'Id', uidt: UITypes.ID },
+          {
+            column_name: 'title',
+            title: 'Title',
+            uidt: UITypes.SingleLineText,
+          },
+        ],
+      });
+      const childTable = await createTable(context, base, {
+        table_name: 'list_children',
+        title: 'List Children',
+        columns: [
+          { column_name: 'id', title: 'Id', uidt: UITypes.ID },
+          {
+            column_name: 'title',
+            title: 'Title',
+            uidt: UITypes.SingleLineText,
+          },
+        ],
+      });
+      const relation = await createLtarColumn(context, {
+        title: 'Children',
+        parentTable,
+        childTable,
+        type: 'hm',
+      });
+      const childTitle = (await childTable.getColumns(ctx)).find(
+        (column) => column.title === 'Title',
+      );
+      const parentTitle = (await parentTable.getColumns(ctx)).find(
+        (column) => column.title === 'Title',
+      );
+      const view = await createView(context, {
+        title: 'Parent hierarchy',
+        table: parentTable,
+        type: ViewTypes.LIST,
+      });
+
+      const update = await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: relation.id,
+              fields: [childTitle?.id],
+              where: '(Title,like,Child)',
+              sort: ['-Title'],
+              page_size: 10,
+              show_empty: true,
+            },
+          ],
+        })
+        .expect(200);
+      expect(update.body.view.levels).to.have.length(1);
+      expect(update.body.view.levels[0]).to.include({
+        fk_relation_column_id: relation.id,
+        fk_related_model_id: childTable.id,
+        order: 1,
+        page_size: 10,
+        show_empty: true,
+      });
+      expect(update.body.view.levels[0].fields).to.deep.equal([childTitle?.id]);
+
+      const read = await request(context.app)
+        .get(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      expect(read.body.levels[0].sort).to.deep.equal(['-Title']);
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: relation.id,
+              fields: [parentTitle?.id],
+            },
+          ],
+        })
+        .expect(400);
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: relation.id,
+              recursive: true,
+              max_depth: 2,
+            },
+          ],
+        })
+        .expect(400);
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: parentTitle?.id,
+            },
+          ],
+        })
+        .expect(400);
+
+      const parentRow = await createRow(context, {
+        base,
+        table: parentTable,
+      });
+      const childRow = await createRow(context, {
+        base,
+        table: childTable,
+      });
+      await createChildRow(context, {
+        base,
+        table: parentTable,
+        childTable,
+        column: relation,
+        rowId: parentRow.Id,
+        childRowId: childRow.Id,
+        type: 'hm',
+      });
+      const nested = await request(context.app)
+        .get(
+          `/api/v1/db/data/noco/${base.id}/${parentTable.id}/${parentRow.Id}/hm/${relation.title}`,
+        )
+        .set('xc-auth', context.token)
+        .query({ limit: 10, offset: 0 })
+        .expect(200);
+      expect(nested.body.list).to.have.length(1);
+      expect(nested.body.list[0].Id).to.equal(childRow.Id);
+
+      const v2Nested = await request(context.app)
+        .get(
+          `/api/v2/tables/${parentTable.id}/links/${relation.id}/records/${parentRow.Id}`,
+        )
+        .set('xc-auth', context.token)
+        .query({ limit: 10, offset: 0 })
+        .expect(200);
+      expect(v2Nested.body.list).to.have.length(1);
+      expect(v2Nested.body.list[0].Id).to.equal(childRow.Id);
+
+      await request(context.app)
+        .delete(`/api/v1/db/meta/views/${view.id}`)
+        .set('xc-auth', context.token)
+        .expect(200);
+      expect(await ListViewLevel.list(ctx, view.id!)).to.deep.equal([]);
+    });
+
+    it('accepts bounded recursion only for a self Has-Many relation', async function () {
+      const treeTable = await createTable(context, base, {
+        table_name: 'list_tree_nodes',
+        title: 'List Tree Nodes',
+        columns: [
+          { column_name: 'id', title: 'Id', uidt: UITypes.ID },
+          {
+            column_name: 'title',
+            title: 'Title',
+            uidt: UITypes.SingleLineText,
+          },
+        ],
+      });
+      const descendants = await createLtarColumn(context, {
+        title: 'Descendants',
+        parentTable: treeTable,
+        childTable: treeTable,
+        type: 'hm',
+      });
+      const title = (await treeTable.getColumns(ctx)).find(
+        (column) => column.title === 'Title',
+      );
+      const view = await createView(context, {
+        title: 'Recursive hierarchy',
+        table: treeTable,
+        type: ViewTypes.LIST,
+      });
+
+      const update = await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: descendants.id,
+              fields: [title?.id],
+              recursive: true,
+              max_depth: 3,
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(update.body.view.levels[0]).to.include({
+        fk_relation_column_id: descendants.id,
+        fk_related_model_id: treeTable.id,
+        recursive: true,
+        max_depth: 3,
+      });
+
+      await request(context.app)
+        .patch(`/api/v1/db/meta/lists/${view.id}`)
+        .set('xc-auth', context.token)
+        .send({
+          levels: [
+            {
+              fk_relation_column_id: descendants.id,
+              recursive: true,
+              max_depth: 4,
+            },
+          ],
+        })
+        .expect(400);
     });
   });
 }

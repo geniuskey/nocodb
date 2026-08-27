@@ -1,8 +1,8 @@
-name: Community Foundation CI
+name: Community CI
 
 on:
   push:
-    branches: [foundation]
+    branches: [main]
     paths:
       - ".github/workflows/unit-test.yml"
       - ".dockerignore"
@@ -14,7 +14,7 @@ on:
       - "scripts/**"
       - "tests/**"
   pull_request:
-    branches: [foundation]
+    branches: [main]
     paths:
       - ".github/workflows/unit-test.yml"
       - ".dockerignore"
@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: community-foundation-${{ github.workflow }}-${{ github.ref }}
+  group: community-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

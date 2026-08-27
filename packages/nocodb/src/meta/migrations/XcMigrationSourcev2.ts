@@ -79,6 +79,7 @@ import * as nc_089_dashboard_sharing from '~/meta/migrations/v2/nc_089_dashboard
 import * as nc_090_add_is_new_user_to_users from '~/meta/migrations/v2/nc_090_add_is_new_user_to_users';
 import * as nc_091_unify_model from '~/meta/migrations/v2/nc_091_unify_model';
 import * as nc_093_list_view from '~/meta/migrations/v2/nc_093_list_view';
+import * as nc_094_list_view_levels from '~/meta/migrations/v2/nc_094_list_view_levels';
 
 // Create a custom migration source class
 export default class XcMigrationSourcev2 {
@@ -169,6 +170,7 @@ export default class XcMigrationSourcev2 {
       'nc_090_add_is_new_user_to_users',
       'nc_091_unify_model',
       'nc_093_list_view',
+      'nc_094_list_view_levels',
     ]);
   }
 
@@ -340,6 +342,8 @@ export default class XcMigrationSourcev2 {
         return nc_091_unify_model;
       case 'nc_093_list_view':
         return nc_093_list_view;
+      case 'nc_094_list_view_levels':
+        return nc_094_list_view_levels;
     }
   }
 }
