@@ -193,6 +193,36 @@ export default function timelineViewTests() {
       expect(updated.initial_mode).to.equal('closest_record');
       expect(updated.meta).to.deep.equal({ schemaVersion: 2 });
 
+      const zooms = [
+        'day',
+        'week',
+        'two_weeks',
+        'month',
+        'quarter',
+        'six_months',
+        'year',
+        'two_years',
+        'five_years',
+      ];
+      for (const zoom of zooms) {
+        await request(context.app)
+          .patch(`/api/v2/meta/timelines/${created.body.id}`)
+          .set('xc-auth', context.token)
+          .send({ zoom })
+          .expect(200);
+        expect((await TimelineView.get(ctx, created.body.id)).zoom).to.equal(
+          zoom,
+        );
+      }
+      await request(context.app)
+        .patch(`/api/v2/meta/timelines/${created.body.id}`)
+        .set('xc-auth', context.token)
+        .send({ zoom: 'decade' })
+        .expect(400);
+      expect((await TimelineView.get(ctx, created.body.id)).zoom).to.equal(
+        'five_years',
+      );
+
       const timelineEnd = viewColumns.find(
         (column) => column.fk_column_id === endColumn.id,
       );
@@ -238,7 +268,7 @@ export default function timelineViewTests() {
       expect(duplicateMeta).to.include({
         fk_start_date_col_id: startColumn.id,
         fk_end_date_col_id: null,
-        zoom: 'month',
+        zoom: 'five_years',
         initial_mode: 'closest_record',
       });
       expect(duplicateMeta.meta).to.deep.equal({ schemaVersion: 2 });

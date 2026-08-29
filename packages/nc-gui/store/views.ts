@@ -407,7 +407,7 @@ export const useViewsStore = defineStore('viewsStore', () => {
         }>,
         fk_start_date_col_id: undefined as string | undefined,
         fk_end_date_col_id: undefined as string | null | undefined,
-        zoom: undefined as 'month' | undefined,
+        zoom: undefined as TimelineType['zoom'],
         initial_mode: undefined as 'closest_record' | 'today' | undefined,
       }
 
@@ -442,7 +442,7 @@ export const useViewsStore = defineStore('viewsStore', () => {
             ...baseProps,
             fk_start_date_col_id: (sourceView.view as TimelineType)?.fk_start_date_col_id,
             fk_end_date_col_id: (sourceView.view as TimelineType)?.fk_end_date_col_id,
-            zoom: ((sourceView.view as TimelineType)?.zoom as 'month') || 'month',
+            zoom: (sourceView.view as TimelineType)?.zoom || 'month',
             initial_mode: ((sourceView.view as TimelineType)?.initial_mode as 'closest_record' | 'today') || 'today',
           }
         default:

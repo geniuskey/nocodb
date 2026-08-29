@@ -194,12 +194,14 @@ returns false. Issue #62 records the frozen-baseline defect, and
 `it.failing` ensures CI fails if the behaviour changes before the expectation
 and timezone semantics are updated together.
 
-Frontend Vitest configuration (the frozen revision currently has no matching
-frontend test files and therefore exits with status 1):
+Run the frontend utility tests:
 
 ```sh
 pnpm --filter nc-gui run test -- --run
 ```
+
+The current suite covers Timeline zoom normalization, calendar-window
+alignment, span shifting, variable-duration buckets, and clipped bar geometry.
 
 Type-check the backend explicitly:
 

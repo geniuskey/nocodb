@@ -24127,7 +24127,15 @@
           "zoom": {
             "type": "string",
             "enum": [
-              "month"
+              "day",
+              "week",
+              "two_weeks",
+              "month",
+              "quarter",
+              "six_months",
+              "year",
+              "two_years",
+              "five_years"
             ],
             "default": "month"
           },
@@ -24159,7 +24167,15 @@
           "zoom": {
             "type": "string",
             "enum": [
-              "month"
+              "day",
+              "week",
+              "two_weeks",
+              "month",
+              "quarter",
+              "six_months",
+              "year",
+              "two_years",
+              "five_years"
             ]
           },
           "initial_mode": {
@@ -24199,7 +24215,18 @@
             "$ref": "#/components/schemas/StringOrNull"
           },
           "zoom": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "two_weeks",
+              "month",
+              "quarter",
+              "six_months",
+              "year",
+              "two_years",
+              "five_years"
+            ]
           },
           "initial_mode": {
             "type": "string"

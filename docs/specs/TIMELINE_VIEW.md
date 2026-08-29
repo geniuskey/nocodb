@@ -1,6 +1,6 @@
 # RowWeave Timeline View specification
 
-Status: Slice 1 implemented; later slices remain design
+Status: Slices 1 and 2 implemented; browser acceptance and later interaction slices remain
 
 This specification defines an independent Timeline view for the frozen AGPL
 baseline. It describes behaviour and data contracts, not another product's
@@ -72,10 +72,11 @@ The complete Timeline will support these independent zoom identifiers:
 | `two_years` | two years |
 | `five_years` | five years |
 
-The foundation slice implements `month`. Unknown stored zoom values fall back
+Slice 2 implements all nine identifiers. Unknown stored zoom values fall back
 to `month`, allowing additive zoom support without a destructive migration.
-The complete navigation contract includes previous/next by the active span,
-Today, direct date selection, horizontal panning, and a sticky date header.
+Navigation includes previous/next by the active span, Today, direct date
+selection, horizontal panning with progressive loading, clipped-bar edge
+navigation, and a sticky date header.
 
 ### Records and permissions
 
@@ -153,6 +154,10 @@ pending and is not treated as complete UI acceptance.
   and migration portability on SQLite, PostgreSQL, and MySQL.
 
 ### Slice 2: navigation and complete zoom scale
+
+Implemented and API-tested on SQLite, PostgreSQL, and MySQL. The date-axis
+utility has frontend unit coverage and the production frontend compiler accepts
+the renderer. Interactive browser acceptance remains pending.
 
 - Implement all nine zoom identifiers, Today, direct date selection,
   previous/next, clipped-bar navigation, and progressive horizontal loading.

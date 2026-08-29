@@ -76,7 +76,7 @@ interface Form {
   // for timeline view only
   fk_start_date_col_id?: string
   fk_end_date_col_id?: string | null
-  zoom?: 'month'
+  zoom?: TimelineType['zoom']
   initial_mode?: 'closest_record' | 'today'
 }
 
