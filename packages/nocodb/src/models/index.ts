@@ -26,6 +26,8 @@ export { default as MapViewColumn } from './MapViewColumn';
 export { default as ListView } from './ListView';
 export { default as ListViewColumn } from './ListViewColumn';
 export { default as ListViewLevel } from './ListViewLevel';
+export { default as TimelineView } from './TimelineView';
+export { default as TimelineViewColumn } from './TimelineViewColumn';
 export { default as Model } from './Model';
 export { default as ModelRoleVisibility } from './ModelRoleVisibility';
 export { default as Plugin } from './Plugin';

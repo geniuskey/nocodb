@@ -55,8 +55,10 @@ Important retained signals are:
   signals until a Community API and acceptance flow proves the complete path.
 - the retained baseline had no List, Timeline, or Gantt view discriminator or
   matching Community controller/model set. RowWeave now has independently
-  implemented additive flat List and linked Has-Many hierarchy foundations,
-  plus flat read-only sharing; browser acceptance remains pending.
+  implemented additive List and Timeline foundations. List includes linked
+  Has-Many hierarchy and flat read-only sharing. Timeline includes additive
+  metadata/API and a read-only flat month renderer. Browser acceptance remains
+  pending for both views.
 - the retained metadata model contains an `is_snapshot` marker, but no
   Community snapshot controller/service acceptance path was found.
 - no Community trash or workflow persistence/controller/service set was found.
@@ -82,7 +84,7 @@ commands and the legal baseline.
 | Base/sidebar and view folders | Missing | Collapsible ordering-only folders with move/reorder and no permission side effects | 1 | [Folders](https://nocodb.com/docs/product/bases/folders) |
 | Comments and record revisions | Present | Test author-only mutation, deep links, permissions, and attachment security | 1/10 | [Expanded record](https://nocodb.com/docs/product/records/expand-record) |
 | List view | Partial; flat, linked hierarchy, flat public sharing, lifecycle, and role APIs accepted on SQLite, PostgreSQL, and MySQL; keyboard and locked-state UI compile | Browser interaction and permission UI acceptance; public hierarchy remains fail-closed | 2 | [List](https://nocodb.com/docs/product/tables/views/view-types/list) |
-| Timeline view | Specified; independent metadata, API, permissions, date/range, and phased UI contract documented | Implement additive metadata/API and a flat month renderer, then navigation, interaction, grouping, and sharing | 3 | [Timeline](https://www.nocodb.com/docs/product/tables/views/view-types/timeline) |
+| Timeline view | Partial; additive metadata/API, date-field validation, lifecycle and role checks, generic record reads, and a read-only flat month renderer accepted on SQLite, PostgreSQL, and MySQL | Add navigation and zoom, record interaction, grouping, sharing, and browser acceptance | 3 | [Timeline](https://www.nocodb.com/docs/product/tables/views/view-types/timeline) |
 | Gantt view | Missing | Scheduling bars, milestones, dependency links, rescheduling, and validation | 4 | [Gantt](https://nocodb.com/docs/product/tables/views/view-types/gantt) |
 | Base trash and restore | Missing | Recover records first, then schema and application resources, with explicit conflict handling | 5 | [Base Trash](https://nocodb.com/docs/product/bases/base-trash) |
 | Per-table trash retention | Missing | Opt-in/out policy, scheduled expiry, permanent deletion, and owner-only settings | 5 | [Trash settings](https://nocodb.com/docs/product/bases/trash-settings) |
@@ -171,11 +173,12 @@ Implement in reviewable slices:
 ### Phase 3 — Timeline
 
 The independent contract is recorded in `docs/specs/TIMELINE_VIEW.md` and
-reuses the generic view lifecycle established by List. The first complete
-implementation slice adds a start date, optional end date, records without
-dates, deterministic date math, and a read-only flat month renderer. Complete
-navigation and zoom, editing interactions, grouping, row colour, sharing, and
-browser acceptance follow as separate reviewable slices.
+reuses the generic view lifecycle established by List. Slice 1 is implemented:
+it adds a required start date, optional end date, undated-record accounting,
+deterministic date math, additive metadata/API, and a read-only flat month
+renderer. Its focused API suite passes on SQLite, PostgreSQL, and MySQL.
+Complete navigation and zoom, editing interactions, grouping, row colour,
+sharing, and browser acceptance follow as separate reviewable slices.
 
 ### Phase 4 — Gantt
 

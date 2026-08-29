@@ -7863,6 +7863,134 @@
         ]
       }
     },
+    "/api/v1/db/meta/tables/{tableId}/timelines": {
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": "tableId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Table ID"
+        }
+      ],
+      "post": {
+        "summary": "Create Timeline View",
+        "operationId": "db-view-timeline-create",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/View"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineCreateReq"
+              }
+            }
+          }
+        },
+        "description": "Create an independent RowWeave Timeline view in a table",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      }
+    },
+    "/api/v1/db/meta/timelines/{viewId}": {
+      "parameters": [
+        {
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": "viewId",
+          "in": "path",
+          "required": true,
+          "description": "Unique Timeline View ID"
+        }
+      ],
+      "get": {
+        "summary": "Get Timeline View",
+        "operationId": "db-view-timeline-read",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Timeline"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update Timeline View",
+        "operationId": "db-view-timeline-update",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/View"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "tags": [
+          "DB View"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineUpdateReq"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/xc-auth"
+          }
+        ]
+      }
+    },
     "/api/v1/db/meta/tables/{tableId}/grids": {
       "parameters": [
         {
@@ -23968,6 +24096,121 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ListViewLevel"
+            }
+          }
+        }
+      },
+      "TimelineCreateReq": {
+        "description": "Model for RowWeave Timeline View creation",
+        "title": "Timeline View Create Model",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "$ref": "#/components/schemas/TextOrNull"
+          },
+          "copy_from_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "fk_start_date_col_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fk_end_date_col_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "zoom": {
+            "type": "string",
+            "enum": [
+              "month"
+            ],
+            "default": "month"
+          },
+          "initial_mode": {
+            "type": "string",
+            "enum": [
+              "closest_record",
+              "today"
+            ],
+            "default": "today"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "TimelineUpdateReq": {
+        "description": "Model for RowWeave Timeline View update",
+        "title": "Timeline View Update Model",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fk_start_date_col_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fk_end_date_col_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "zoom": {
+            "type": "string",
+            "enum": [
+              "month"
+            ]
+          },
+          "initial_mode": {
+            "type": "string",
+            "enum": [
+              "closest_record",
+              "today"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "Timeline": {
+        "description": "RowWeave Timeline View metadata",
+        "title": "Timeline View Model",
+        "type": "object",
+        "required": [
+          "fk_view_id",
+          "fk_start_date_col_id"
+        ],
+        "properties": {
+          "fk_view_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "base_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fk_start_date_col_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fk_end_date_col_id": {
+            "$ref": "#/components/schemas/StringOrNull"
+          },
+          "zoom": {
+            "type": "string"
+          },
+          "initial_mode": {
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GridColumn"
             }
           }
         }

@@ -5,7 +5,8 @@ defineProps<{
 
 const isPublic = inject(IsPublicInj, ref(false))
 
-const { isGrid, isList, isGallery, isKanban, isMap, isCalendar, isViewOperationsAllowed } = useSmartsheetStoreOrThrow()
+const { isGrid, isList, isTimeline, isGallery, isKanban, isMap, isCalendar, isViewOperationsAllowed } =
+  useSmartsheetStoreOrThrow()
 
 const { isUIAllowed } = useRoles()
 
@@ -80,13 +81,16 @@ provide(IsToolbarIconMode, isToolbarIconMode)
 
           <SmartsheetToolbarStackedBy v-if="isKanban" />
 
-          <SmartsheetToolbarFieldsMenu v-if="isGrid || isList || isGallery || isKanban || isMap" :show-system-fields="false" />
+          <SmartsheetToolbarFieldsMenu
+            v-if="isGrid || isList || isTimeline || isGallery || isKanban || isMap"
+            :show-system-fields="false"
+          />
 
-          <SmartsheetToolbarColumnFilterMenu v-if="isGrid || isList || isGallery || isKanban || isMap" />
+          <SmartsheetToolbarColumnFilterMenu v-if="isGrid || isList || isTimeline || isGallery || isKanban || isMap" />
 
           <SmartsheetToolbarGroupByMenu v-if="isGrid && !isLocalMode" />
 
-          <SmartsheetToolbarSortListMenu v-if="isGrid || isList || isGallery || isKanban" />
+          <SmartsheetToolbarSortListMenu v-if="isGrid || isList || isTimeline || isGallery || isKanban" />
 
           <SmartsheetToolbarListHierarchy v-if="isList && !isPublic && !isSharedBase" />
 
@@ -123,7 +127,7 @@ provide(IsToolbarIconMode, isToolbarIconMode)
       <SmartsheetToolbarCalendarActiveView v-if="isCalendar" />
 
       <SmartsheetToolbarSearchData
-        v-if="isGrid || isList || isGallery || isKanban"
+        v-if="isGrid || isList || isTimeline || isGallery || isKanban"
         :class="{
           'shrink': !isMobileMode,
           'w-full': isMobileMode,

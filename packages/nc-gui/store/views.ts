@@ -1,4 +1,14 @@
-import type { CalendarType, FilterType, GalleryType, KanbanType, MapType, RowColoringInfo, SortType, ViewType } from 'nocodb-sdk'
+import type {
+  CalendarType,
+  FilterType,
+  GalleryType,
+  KanbanType,
+  MapType,
+  RowColoringInfo,
+  SortType,
+  TimelineType,
+  ViewType,
+} from 'nocodb-sdk'
 import { ProjectRoles, ViewSettingOverrideOptions, ViewTypes, WorkspaceUserRoles, ViewTypes as _ViewTypes } from 'nocodb-sdk'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { useTitle } from '@vueuse/core'
@@ -329,6 +339,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
         case ViewTypes.LIST:
           data = await $api.dbView.listCreate(tableId, form)
           break
+        case ViewTypes.TIMELINE:
+          data = await $api.dbView.timelineCreate(tableId, form)
+          break
         case ViewTypes.GALLERY:
           data = await $api.dbView.galleryCreate(tableId, form)
           break
@@ -392,6 +405,10 @@ export const useViewsStore = defineStore('viewsStore', () => {
           fk_from_column_id: string
           fk_to_column_id: string | null
         }>,
+        fk_start_date_col_id: undefined as string | undefined,
+        fk_end_date_col_id: undefined as string | null | undefined,
+        zoom: undefined as 'month' | undefined,
+        initial_mode: undefined as 'closest_record' | 'today' | undefined,
       }
 
       switch (sourceView.type) {
@@ -419,6 +436,14 @@ export const useViewsStore = defineStore('viewsStore', () => {
                 fk_from_column_id: range.fk_from_column_id as string,
                 fk_to_column_id: range.fk_to_column_id as string,
               })) || [],
+          }
+        case ViewTypes.TIMELINE:
+          return {
+            ...baseProps,
+            fk_start_date_col_id: (sourceView.view as TimelineType)?.fk_start_date_col_id,
+            fk_end_date_col_id: (sourceView.view as TimelineType)?.fk_end_date_col_id,
+            zoom: ((sourceView.view as TimelineType)?.zoom as 'month') || 'month',
+            initial_mode: ((sourceView.view as TimelineType)?.initial_mode as 'closest_record' | 'today') || 'today',
           }
         default:
           return baseProps
@@ -549,6 +574,9 @@ export const useViewsStore = defineStore('viewsStore', () => {
             break
           case ViewTypes.LIST:
             updatedView = await $api.dbView.listUpdate(viewId, updates)
+            break
+          case ViewTypes.TIMELINE:
+            updatedView = await $api.dbView.timelineUpdate(viewId, updates)
             break
           case ViewTypes.GALLERY:
             updatedView = await $api.dbView.galleryUpdate(viewId, updates)

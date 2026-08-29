@@ -340,6 +340,8 @@ export class MetaService {
       [MetaTable.LIST_VIEW]: 'lv',
       [MetaTable.LIST_VIEW_COLUMNS]: 'lvc',
       [MetaTable.LIST_VIEW_LEVELS]: 'lvl',
+      [MetaTable.TIMELINE_VIEW]: 'tlv',
+      [MetaTable.TIMELINE_VIEW_COLUMNS]: 'tlvc',
       [MetaTable.USERS]: 'us',
       [MetaTable.ORGS_OLD]: 'org',
       [MetaTable.TEAMS]: 'tm',

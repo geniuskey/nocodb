@@ -199,6 +199,13 @@ export interface ListViewUpdateEvent extends NcBaseEvent {
   owner: UserType;
 }
 
+export interface TimelineViewUpdateEvent extends NcBaseEvent {
+  view: ViewType;
+  timelineView: any;
+  oldTimelineView: any;
+  owner: UserType;
+}
+
 export interface KanbanViewUpdateEvent extends NcBaseEvent {
   view: ViewType;
   kanbanView: any;

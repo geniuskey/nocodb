@@ -870,6 +870,11 @@ interface CreateViewForm {
     fk_to_column_id: string | null // for ee only
   }>
   fk_cover_image_col_id: string | null | undefined
+  // for timeline view only
+  fk_start_date_col_id?: string
+  fk_end_date_col_id?: string | null
+  zoom?: 'month'
+  initial_mode?: 'closest_record' | 'today'
 }
 
 // NcClipboardDataType type starts here

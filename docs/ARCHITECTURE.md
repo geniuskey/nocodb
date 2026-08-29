@@ -117,12 +117,14 @@ serves that local source-built output. The committed or npm-published GUI
 artifact is not a build input.
 
 The frozen AGPL baseline defines these view types in the shared SDK: Grid,
-Form, Gallery, Kanban, Map, and Calendar. RowWeave adds List as an independent,
-additive view with flat metadata and a separate ordered linked-level model.
-The independent Timeline contract is defined in
-`docs/specs/TIMELINE_VIEW.md`; its implementation remains phased. Gantt remains
-a future independent design. New views must span the shared type, metadata,
-API, service, and UI layers rather than exist as isolated frontend modes.
+Form, Gallery, Kanban, Map, and Calendar. RowWeave adds List and Timeline as
+independent additive view types. List has flat metadata and a separate ordered
+linked-level model. Timeline has separate metadata for required start and
+optional end fields, field presentation, zoom, and initial positioning. Its
+first renderer is a read-only, flat month axis; later interaction remains
+phased in `docs/specs/TIMELINE_VIEW.md`. Gantt remains a future independent
+design. New views must span the shared type, metadata, API, service, and UI
+layers rather than exist as isolated frontend modes.
 
 Public List sharing reuses the retained shared-view metadata and record-query
 providers through `components/shared-view/List.vue`. It is deliberately flat:
@@ -137,7 +139,10 @@ but stores its date-field references and presentation settings in additive,
 Timeline-specific metadata tables. Date values remain in table records. The
 backend must validate field ownership and date compatibility before inserting
 either the generic View row or Timeline metadata; Calendar and a future Gantt
-view do not share Timeline's persistence model.
+view do not share Timeline's persistence model. Timeline creation, metadata
+updates, duplication, role checks, and deletion use the existing View
+authorization and lifecycle paths. Public sharing remains fail-closed until a
+separate read-only contract is designed and tested.
 
 ## SDK and API generation
 
