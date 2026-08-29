@@ -3818,7 +3818,16 @@ export interface TimelineCreateReqType {
   fk_start_date_col_id?: IdType;
   /** Model for StringOrNull */
   fk_end_date_col_id?: StringOrNullType;
-  zoom?: 'month';
+  zoom?:
+    | 'day'
+    | 'week'
+    | 'two_weeks'
+    | 'month'
+    | 'quarter'
+    | 'six_months'
+    | 'year'
+    | 'two_years'
+    | 'five_years';
   initial_mode?: 'closest_record' | 'today';
   /** Model for Meta */
   meta?: MetaType;
@@ -3832,7 +3841,16 @@ export interface TimelineUpdateReqType {
   fk_start_date_col_id?: IdType;
   /** Model for StringOrNull */
   fk_end_date_col_id?: StringOrNullType;
-  zoom?: 'month';
+  zoom?:
+    | 'day'
+    | 'week'
+    | 'two_weeks'
+    | 'month'
+    | 'quarter'
+    | 'six_months'
+    | 'year'
+    | 'two_years'
+    | 'five_years';
   initial_mode?: 'closest_record' | 'today';
   /** Model for Meta */
   meta?: MetaType;
@@ -3852,7 +3870,16 @@ export interface TimelineType {
   fk_start_date_col_id: IdType;
   /** Model for StringOrNull */
   fk_end_date_col_id?: StringOrNullType;
-  zoom?: string;
+  zoom?:
+    | 'day'
+    | 'week'
+    | 'two_weeks'
+    | 'month'
+    | 'quarter'
+    | 'six_months'
+    | 'year'
+    | 'two_years'
+    | 'five_years';
   initial_mode?: string;
   /** Model for Meta */
   meta?: MetaType;

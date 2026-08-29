@@ -121,10 +121,13 @@ Form, Gallery, Kanban, Map, and Calendar. RowWeave adds List and Timeline as
 independent additive view types. List has flat metadata and a separate ordered
 linked-level model. Timeline has separate metadata for required start and
 optional end fields, field presentation, zoom, and initial positioning. Its
-first renderer is a read-only, flat month axis; later interaction remains
-phased in `docs/specs/TIMELINE_VIEW.md`. Gantt remains a future independent
-design. New views must span the shared type, metadata, API, service, and UI
-layers rather than exist as isolated frontend modes.
+read-only renderer uses the independently implemented `utils/timelineUtils.ts`
+date-axis boundary: calendar-window alignment, bucket creation, pixel
+positioning, clipping, and all nine zoom identifiers stay separate from view
+metadata and record fetching. Later interaction remains phased in
+`docs/specs/TIMELINE_VIEW.md`. Gantt remains a future independent design. New
+views must span the shared type, metadata, API, service, and UI layers rather
+than exist as isolated frontend modes.
 
 Public List sharing reuses the retained shared-view metadata and record-query
 providers through `components/shared-view/List.vue`. It is deliberately flat:
@@ -214,8 +217,8 @@ code.
 - SDK: Jest unit tests colocated as `*.spec.ts`.
 - Backend: Jest is present for Nest-generated specs, while the substantive
   integration-style unit suite uses Mocha under `packages/nocodb/tests/unit`.
-- Frontend: Vitest is configured, but the frozen revision contains no frontend
-  unit test files under `packages/nc-gui/test`.
+- Frontend: Vitest covers the independent Timeline calendar-window, axis,
+  positioning, and clipping utilities under `packages/nc-gui/test`.
 - End-to-end: Playwright under `tests/playwright`, with SQLite, PostgreSQL, and
   MySQL launch modes.
 - Foundation smoke acceptance: `scripts/verify-community.mjs` verifies signup,

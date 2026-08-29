@@ -125,7 +125,8 @@ focused List suite, which creates isolated test databases itself.
 
 ## Timeline view slice verification
 
-The independent Timeline Slice 1 was verified on Windows on 2026-08-28:
+The independent Timeline Slice 1 was verified on Windows on 2026-08-28. Slice
+2 zoom persistence and validation were verified on 2026-08-29:
 
 | Database/runtime | Scope | Result |
 | --- | --- | --- |
@@ -134,7 +135,8 @@ The independent Timeline Slice 1 was verified on Windows on 2026-08-28:
 | PostgreSQL 14.7 | Focused `Timeline view foundation` suite | 5 passing, 0 failing |
 | MySQL 8.3.0 | Focused `Timeline view foundation` suite | 5 passing, 0 failing |
 
-The cases cover date-field validation before insert, additive metadata CRUD,
+The cases cover date-field validation before insert, all nine zoom identifiers
+and rejection of unknown values, additive metadata CRUD,
 field presentation, required-field visibility, same-table duplication,
 cross-type rejection without partial metadata, deletion, fail-closed public
 sharing, generic view-aware reads for dated and undated records, and viewer and

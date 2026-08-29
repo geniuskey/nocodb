@@ -7,7 +7,17 @@ import { extractProps } from '~/helpers/extractProps';
 import { CacheGetType, CacheScope, MetaTable } from '~/utils/globals';
 import { prepareForDb, prepareForResponse } from '~/utils/modelUtils';
 
-const TIMELINE_ZOOMS = new Set(['month']);
+const TIMELINE_ZOOMS = new Set([
+  'day',
+  'week',
+  'two_weeks',
+  'month',
+  'quarter',
+  'six_months',
+  'year',
+  'two_years',
+  'five_years',
+]);
 const TIMELINE_INITIAL_MODES = new Set(['closest_record', 'today']);
 
 export default class TimelineView implements TimelineType {
@@ -17,7 +27,7 @@ export default class TimelineView implements TimelineType {
   source_id?: string;
   fk_start_date_col_id: string;
   fk_end_date_col_id?: string | null;
-  zoom?: string;
+  zoom?: TimelineType['zoom'];
   initial_mode?: string;
   meta?: MetaType;
 
